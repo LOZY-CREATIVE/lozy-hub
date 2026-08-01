@@ -2086,7 +2086,11 @@ async function sbFetch(path,opts={}){
     'Content-Type':'application/json',...(opts.headers||{})}});
   if(r.status===401){const ok=await sbRefresh();if(ok)return sbFetch(path,opts);throw new Error('sessão expirada — entre novamente');}
   if(!r.ok)throw new Error('HTTP '+r.status+' — '+(await r.text()).slice(0,140));
-  return r.status===204?null:r.json();
+  /* upsert com return=minimal responde 201/204 sem corpo — nada a interpretar */
+  if(r.status===204)return null;
+  const txt=await r.text();
+  if(!txt||!txt.trim())return null;
+  try{return JSON.parse(txt);}catch(e){return null;}
 }
 async function sbRefresh(){
   const c=syncCfg();if(!c||!c.refresh)return false;
@@ -2095,7 +2099,8 @@ async function sbRefresh(){
       method:'POST',headers:{'apikey':c.key,'Content-Type':'application/json'},
       body:JSON.stringify({refresh_token:c.refresh})});
     if(!r.ok)return false;
-    const d=await r.json();
+    const t=await r.text();if(!t)return false;
+    const d=JSON.parse(t);
     S.prefs.sb_token=d.access_token;S.prefs.sb_refresh=d.refresh_token;save();
     return true;
   }catch(e){return false;}
@@ -2104,8 +2109,10 @@ async function sbLogin(url,key,email,senha){
   const r=await fetch(url.replace(/\/$/,'')+'/auth/v1/token?grant_type=password',{
     method:'POST',headers:{'apikey':key,'Content-Type':'application/json'},
     body:JSON.stringify({email,password:senha})});
-  const d=await r.json();
-  if(!r.ok)throw new Error(d.error_description||d.msg||d.message||'falha na autenticação');
+  const t=await r.text();
+  let d={};try{d=t?JSON.parse(t):{};}catch(e){}
+  if(!r.ok)throw new Error(d.error_description||d.msg||d.message||('falha na autenticação (HTTP '+r.status+')'));
+  if(!d.access_token)throw new Error('resposta sem token — confira URL e anon key');
   S.prefs={...S.prefs,sb_url:url,sb_key:key,sb_email:email,sb_token:d.access_token,sb_refresh:d.refresh_token};
   save();return true;
 }
@@ -2130,8 +2137,10 @@ async function saveSnap(){
 async function doSync(silent){
   if(!syncOn()||SY.busy)return;
   SY.busy=true;SY.err=null;if(!silent)render();
+  let etapa='conexão';
   try{
     /* 1. DESCE o que mudou no servidor desde o último sync */
+    etapa='baixar alterações';
     const since=SY.last?`&updated_at=gt.${encodeURIComponent(SY.last)}`:'';
     const remoto=await sbFetch(`/rest/v1/lozy_records?select=id,kind,data,updated_at,deleted&order=updated_at.asc${since}`);
     const agora=new Date().toISOString();
@@ -2147,6 +2156,7 @@ async function doSync(silent){
     });
 
     /* 2. SOBE o que mudou aqui */
+    etapa='enviar alterações';
     const depois=snapshot();
     const up=[];
     Object.keys(depois).forEach(k=>{
@@ -2167,19 +2177,19 @@ async function doSync(silent){
     }
 
     /* 3. Configurações (tema, colunas, widgets) */
+    etapa='salvar configurações';
     const cfg=SETTING_KEYS.map(k=>({key:k,value:S[k]===undefined?null:(k==='prefs'?sanitizePrefs(S.prefs):S[k])})).filter(x=>x.value!==null);
     if(cfg.length)await sbFetch('/rest/v1/lozy_settings',{method:'POST',
       headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(cfg)});
 
     SY.snap=snapshot();SY.last=agora;
     await saveSnap();save();
-    if(!silent)render();
   }catch(e){
-    SY.err=e.message;
-    if(!silent)render();
+    SY.err='['+etapa+'] '+e.message;
+    console.error('[Lozy sync]',etapa,e);
   }
   SY.busy=false;
-  if(silent)renderSyncPill();
+  if(silent)renderSyncPill();else render();
 }
 /* nunca enviar tokens de sessão para a tabela de configurações */
 function sanitizePrefs(p){

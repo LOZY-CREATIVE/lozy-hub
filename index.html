@@ -1734,6 +1734,63 @@ function openImportarNotion(){
 }
 function fmtDcurta(s){return s?new Date(s+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}):'';}
 
+const SEGUNDAS_20260802=[{"desc": "SSD 2", "valor": 110.83, "data": "2026-07-01", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "BTG"}, {"desc": "Tripé KF", "valor": 59.05, "data": "2026-07-01", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "BTG"}, {"desc": "Claude", "valor": 120, "data": "2026-07-01", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Adobe", "valor": 55, "data": "2026-07-01", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Calça Zara", "valor": 93.18, "data": "2026-07-01", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Outros", "forma": "Crédito", "conta": "BTG"}, {"desc": "Brands Decoded IA", "valor": 26.11, "data": "2026-07-01", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Carregador Portátil", "valor": 29.42, "data": "2026-07-01", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "BTG"}, {"desc": "Chat GPT", "valor": 45, "data": "2026-07-09", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Kit Iluminação", "valor": 79.04, "data": "2026-07-10", "mecanismo": "Parcelamento", "natureza": "Fixo", "categoria": "Equipamentos", "forma": "Crédito", "conta": "Nubank"}, {"desc": "Cage + SSD", "valor": 171.2, "data": "2026-07-10", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "Nubank"}, {"desc": "Kit Monitor Câmera", "valor": 158.78, "data": "2026-07-10", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "Nubank"}, {"desc": "Artlist", "valor": 85, "data": "2026-07-10", "mecanismo": "Assinatura", "natureza": "Variável", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Coisas Mac & Iphone", "valor": 79.29, "data": "2026-07-10", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "Nubank"}, {"desc": "Tilta Handles Câmera", "valor": 60.08, "data": "2026-07-10", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "Nubank"}, {"desc": "Ulanzi Luz 120w", "valor": 43.67, "data": "2026-07-10", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "Nubank"}, {"desc": "Microfone Comica", "valor": 86.46, "data": "2026-07-10", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "Nubank"}, {"desc": "Capinhas Macbooks", "valor": 32.6, "data": "2026-07-10", "mecanismo": "Parcelamento", "natureza": "Fixo", "categoria": "Equipamentos", "forma": "Crédito", "conta": "Nubank"}, {"desc": "Google Drive", "valor": 50, "data": "2026-07-11", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Claude", "valor": 120, "data": "2026-07-13", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Captions", "valor": 50, "data": "2026-07-14", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Notion", "valor": 65, "data": "2026-07-18", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Apple Icloud", "valor": 70, "data": "2026-07-19", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "Contador", "valor": 250, "data": "2026-07-20", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Operação", "forma": "PIX", "conta": "Conta PJ"}, {"desc": "Teleprompter", "valor": 50.57, "data": "2026-08-02", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "BTG"}, {"desc": "Canva", "valor": 47, "data": "2026-08-02", "mecanismo": "Assinatura", "natureza": "Fixo", "categoria": "Softwares", "forma": "Crédito", "conta": "BTG"}, {"desc": "SSD", "valor": 63, "data": "2026-08-02", "mecanismo": "Parcelamento", "natureza": "Variável", "categoria": "Equipamentos", "forma": "Crédito", "conta": "BTG"}];
+/* ═══════════════════════════════════════════════════════════
+   CONFIRMAÇÃO — 26 lançamentos que pareciam duplicata do lote
+   de 02/08 e vieram desmarcados por padrão. Leo confirmou: são
+   segunda ocorrência real (compra distinta com mesmo nome/valor
+   de algo já lançado em julho), não erro de digitação. Entram
+   como despesa avulsa — não voltam a virar parcela de um grupo
+   existente, pra não reabrir a sequência de parcelamento já fechada.
+   ═══════════════════════════════════════════════════════════ */
+function openImportarSegundasOcorrencias(){
+  const L=SEGUNDAS_20260802;
+  const jaImportado=(S.prefs.importados||[]).includes('20260802-segundas');
+  const linha=(id,r)=>`
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1);">
+      <input type="checkbox" id="${id}" checked style="margin-top:3px;flex-shrink:0;">
+      <label for="${id}" style="flex:1;font-size:12px;cursor:pointer;"><b>${esc(r.desc)}</b><br><span style="color:var(--t3);font-size:10.5px;">${fmtBRL(r.valor)} · ${fmtDcurta(r.data)} · ${r.categoria} · ${r.mecanismo} · ${r.conta}</span></label>
+    </div>`;
+  openModal('Confirmar segunda ocorrência — 26 itens',`
+    <div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:12px;">
+      ${jaImportado?'<b style="color:var(--amber)">Este grupo já foi confirmado antes.</b> Rodar de novo duplica de verdade. Revise com atenção.<br><br>':''}
+      Você confirmou: esses 26 batem em nome e valor com algo já lançado em julho, mas são compra/cobrança <b>distinta</b> — não duplicata. Todos vêm marcados.
+    </div>
+    <div style="max-height:50vh;overflow:auto;">${L.map((r,i)=>linha('is_'+i,r)).join('')}</div>`,()=>{
+      const novos=[];
+      L.forEach((r,i)=>{if(document.getElementById('is_'+i).checked)
+        novos.push({id:uid('f'),tipo:'despesa',desc:r.desc,valor:r.valor,data:r.data,categoria:r.categoria,natureza:r.natureza,mecanismo:r.mecanismo,forma:r.forma,conta:r.conta,cliente:'',pago:r.data<=todayStr()});
+      });
+      if(!novos.length)return closeModal();
+      pushUndo('confirmar '+novos.length+' segunda(s) ocorrência(s) do lote 02/08',['fin']);
+      S.fin.push(...novos);
+      S.prefs.importados=[...new Set([...(S.prefs.importados||[]),'20260802-segundas'])];
+      save();closeModal();render();
+      toast(novos.length+' lançamento(s) confirmado(s) e adicionado(s).','Desfazer','doUndo()');
+    });
+}
+
+
+/* ═══ BACKUP COMPLETO — snapshot fiel do estado real, pra auditoria/reconciliação ═══
+   Separado em função pura (buildBackupData) + wrapper de download (exportBackup)
+   de propósito: a função pura é testável sem precisar simular clique de arquivo. */
+function buildBackupData(){
+  const keys=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','cbase','parc','assin','trash'];
+  const out={_exportedAt:new Date().toISOString(),_countsSnapshot:{}};
+  keys.forEach(k=>{out[k]=S[k]||[];out._countsSnapshot[k]=(S[k]||[]).length;});
+  return out;
+}
+function exportBackup(){
+  const data=buildBackupData();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='lozy-hub-backup-'+todayStr()+'.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  toast('Backup baixado — '+data._countsSnapshot.fin+' lançamentos, '+data._countsSnapshot.parc+' parcelamentos.');
+}
+
 /* ═══ FINANCEIRO (regras Central Lozy) — com filtros e ordenação independentes por aba ═══ */
 function renderFin(c){
   c.innerHTML=`
@@ -3145,6 +3202,8 @@ function renderAjustes(c){
       <div style="font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:12px;">Excluir no Hub nunca apaga na hora: o registro vai para a Lixeira e volta inteiro por ${TRASH_DIAS} dias. <b>Cmd/Ctrl + Z</b> desfaz a última ação da sessão — exclusão, mudança de status ou card arrastado.</div>
       <button class="btn-sm" onclick="goTo('lixeira')">Abrir Lixeira</button>
       <button class="btn-sm" onclick="openImportarNotion()" style="margin-left:8px;">Importar lote do Notion (02/08)</button>
+      <button class="btn-sm" onclick="openImportarSegundasOcorrencias()" style="margin-left:8px;">Confirmar 26 segundas ocorrências</button>
+      <button class="btn-sm" onclick="exportBackup()" style="margin-left:8px;">Baixar backup completo (JSON)</button>
     </div>
     <div class="card">
       <div class="widget-hd"><span class="widget-ttl">Assistente Lozy AI</span></div>

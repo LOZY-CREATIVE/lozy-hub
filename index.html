@@ -546,6 +546,32 @@ tr:hover .tacts{opacity:1;}
 .color-row label{font-size:12px;color:var(--t2);width:110px;}
 .color-row input[type=color]{width:42px;height:30px;border:1px solid var(--b2);border-radius:8px;background:none;cursor:pointer;padding:2px;}
 @media(max-width:860px){.ai-fab{bottom:84px;right:14px;}.ai-panel{right:10px;left:10px;width:auto;bottom:140px;max-height:60vh;}}
+/* ARRASTAR CARDS (pointer events — mouse + toque) */
+.dg-grip{cursor:grab;color:var(--t3);font-size:12px;line-height:1;opacity:.32;touch-action:none;user-select:none;-webkit-user-select:none;flex-shrink:0;letter-spacing:-1.5px;padding:2px 1px;}
+.kcard:hover .dg-grip{opacity:.85;}
+.dg-grip:active{cursor:grabbing;}
+body.dg-on{user-select:none;-webkit-user-select:none;}
+body.dg-on *{cursor:grabbing !important;}
+.drag-ghost{position:fixed;z-index:200;pointer-events:none;opacity:.94;box-shadow:0 14px 32px rgba(0,0,0,.3);transform:rotate(1.4deg);margin:0;}
+.kcard.dg-src{opacity:.3;}
+.col-body{min-height:56px;border-radius:12px;transition:background .12s;}
+.col.dg-over .col-body{background:rgba(0,0,0,.06);outline:2px dashed var(--acc);outline-offset:3px;}
+/* TOAST / DESFAZER */
+.toast{position:fixed;left:22px;bottom:22px;z-index:180;display:flex;align-items:center;gap:10px;background:var(--acc);color:var(--accT);border-radius:12px;padding:11px 12px 11px 16px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:12.5px;line-height:1.4;max-width:min(460px,calc(100vw - 44px));opacity:0;transform:translateY(14px);pointer-events:none;transition:opacity .16s,transform .16s;}
+.toast.show{opacity:1;transform:none;pointer-events:auto;}
+.toast-msg{flex:1;min-width:0;}
+.toast-act{background:transparent;border:1px solid currentColor;color:inherit;border-radius:7px;padding:4px 11px;font-size:11.5px;font-weight:600;cursor:pointer;flex-shrink:0;}
+.toast-act:hover{background:rgba(255,255,255,.16);}
+.toast-x{background:transparent;border:none;color:inherit;opacity:.55;cursor:pointer;font-size:12px;padding:2px 4px;flex-shrink:0;}
+.toast-x:hover{opacity:1;}
+/* LIXEIRA */
+.tr-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--b1);}
+.tr-item:last-child{border-bottom:none;}
+.tr-body{flex:1;min-width:0;}
+.tr-name{font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tr-meta{font-size:11px;color:var(--t3);margin-top:2px;}
+.tr-acts{display:flex;gap:6px;flex-shrink:0;}
+@media(max-width:860px){.toast{left:10px;right:10px;bottom:150px;max-width:none;}.dg-grip{opacity:.5;}}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-thumb{background:#9a9a9a;border-radius:6px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -592,7 +618,8 @@ financeiro:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wi
 propostas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 13h6M10 16.5h6"/></svg>',
 contratos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10" width="15" height="10.5" rx="2.5"/><path d="M8 10V7.5a4 4 0 018 0V10"/></svg>',
 ajustes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h.01a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
-central:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 3"/></svg>'};
+central:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 3"/></svg>',
+lixeira:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg>'};
 
 /* ═══ SECTIONS / CONSTANTS ═══ */
 const SECTIONS=[
@@ -607,6 +634,7 @@ const SECTIONS=[
 {id:'propostas',label:'Propostas',sub:'Criadas, enviadas e aprovadas',ready:true},
 {id:'contratos',label:'Contratos',sub:'Documentos por cliente',ready:false,desc:'Cofre de documentos por cliente, com dados de PF e PJ para geração de contratos. Próximo módulo da fila.'},
 {id:'central',label:'Centro Estratégico',sub:'Sua operação está saudável?',ready:true},
+{id:'lixeira',label:'Lixeira',sub:'Tudo que você excluiu nos últimos 30 dias',ready:true},
 {id:'ajustes',label:'Ajustes',sub:'Tema, cores e preferências',ready:true}];
 
 const STAGES=['Novo Lead','Diagnóstico','Reunião','Proposta Enviada','Negociação','Fechado','Perdido'];
@@ -642,7 +670,7 @@ const SEED={"demandas":[{"id":"nd1","uid":"DEM-001","titulo":"Reel - Fresh ou Az
 
 /* ═══ STATE ═══ */
 let S={
-leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},
+leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],
 active:'dashboard',
 sort:{},
 tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana'},
@@ -665,7 +693,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash'];
 async function load(){
   let got=false;
   try{
@@ -683,6 +711,8 @@ async function load(){
   if(!S.demandas.length&&!S.fin.length)applySeed(false);
   else if(!S.parc.length||!S.assin.length){S.parc=SEED3.parc.map(p=>({...p}));S.assin=SEED3.assin.map(a=>({...a}));linkAssinaturas();save();}
   if(!S.tasks.some(t=>String(t.id).startsWith('nt'))||!S.cbase.length){S.tasks=[...SEED2.tasks.map(t=>({...t})),...S.tasks.filter(t=>!String(t.id).startsWith('nt'))];S.cbase=[...SEED2.cbase.map(c=>({...c})),...S.cbase.filter(c=>!String(c.id).startsWith('nc'))];save();}
+  if(!Array.isArray(S.trash))S.trash=[];
+  trashAutoPurge();
   applyTheme();
   render();
 }
@@ -756,7 +786,7 @@ function clientes(){ /* base derivada: todos os nomes de cliente do sistema */
 function greeting(){const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';}
 
 /* ═══ NAV ═══ */
-const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','contratos','central','ajustes']}];
+const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','contratos','central','lixeira','ajustes']}];
 function buildNav(){
   const exp=!S.prefs||S.prefs.sb!==0;
   const sb=document.getElementById('sidebar');
@@ -799,7 +829,7 @@ function render(){
   const c=document.getElementById('content');
   ({dashboard:renderDashboard,comercial:renderComercial,demandas:renderDemandas,tarefas:renderTarefas,
     projetos:renderProjetos,agenda:renderAgenda,financeiro:renderFin,propostas:renderPropostas,
-    central:renderCentral,ajustes:renderAjustes,clientes:renderClientes}[S.active]||renderPlaceholder)(c);
+    central:renderCentral,ajustes:renderAjustes,clientes:renderClientes,lixeira:renderLixeira}[S.active]||renderPlaceholder)(c);
   if(typeof renderSyncPill==='function')renderSyncPill();
 }
 function renderPlaceholder(c){
@@ -1178,8 +1208,8 @@ function addQuickTask(){
   S.tasks.unshift({id:uid('t'),titulo:v,prioridade:'Média',status:'A fazer',prazo:todayStr()});
   save();render();
 }
-function toggleTask(id){const t=S.tasks.find(x=>x.id===id);if(t){t.status=t.status==='Concluída'?'A fazer':'Concluída';save();render();}}
-function delTask(id){S.tasks=S.tasks.filter(x=>x.id!==id);save();render();}
+function toggleTask(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;pushUndo((t.status==='Concluída'?'reabrir':'concluir')+' tarefa "'+t.titulo+'"',['tasks']);t.status=t.status==='Concluída'?'A fazer':'Concluída';save();render();}
+function delTask(id){softDel('tasks',id);}
 </script>
 <script>
 /* ═══ COMERCIAL ═══ */
@@ -1196,12 +1226,12 @@ function renderComercial(c){
 function comJornada(b){
   b.innerHTML='<div class="board">'+STAGES.map(st=>{
     const ls=S.leads.filter(l=>l.stage===st);
-    return `<div class="col"><div class="col-hd"><span class="col-name">${st}</span><span class="col-stat">${ls.length} · ${fmtBRL(sum(ls))}</span></div><div class="col-body">${ls.length?ls.map(leadCard).join(''):'<div class="col-empty">Sem leads</div>'}</div></div>`;
+    return `<div class="col" data-dg="leads" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-name">${st}</span><span class="col-stat">${ls.length} · ${fmtBRL(sum(ls))}</span></div><div class="col-body">${ls.length?ls.map(leadCard).join(''):'<div class="col-empty">Sem leads</div>'}</div></div>`;
   }).join('')+'</div>';
 }
 function leadCard(l){
   const i=STAGES.indexOf(l.stage);
-  return `<div class="kcard"><div class="kc-top"><div class="kc-name">${esc(l.empresa)}</div><span class="bdg ${l.temp}">${l.temp}</span></div>
+  return `<div class="kcard" onpointerdown="dgDown(event,'leads','${l.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(l.empresa)}</div></div><span class="bdg ${l.temp}">${l.temp}</span></div>
   <div class="kc-sub">${esc(l.contato)||'Sem contato'}${l.origem?' · '+esc(l.origem):''}</div>
   <div class="kc-ft"><div class="kc-val">${fmtBRL(l.valor)}</div><div class="kc-acts">
   <button class="ibtn" onclick="openLead('${l.id}')">✎</button>
@@ -1209,10 +1239,10 @@ function leadCard(l){
   <button class="ibtn" ${i===STAGES.length-1?'disabled style="opacity:.25"':''} onclick="mvLead('${l.id}',1)">→</button>
   <button class="ibtn del" onclick="delLead('${l.id}')">✕</button></div></div></div>`;
 }
-function mvLead(id,d){const l=S.leads.find(x=>x.id===id);const n=STAGES.indexOf(l.stage)+d;if(n<0||n>=STAGES.length)return;l.stage=STAGES[n];
+function mvLead(id,d){const l=S.leads.find(x=>x.id===id);if(!l)return;const n=STAGES.indexOf(l.stage)+d;if(n<0||n>=STAGES.length)return;pushUndo('mover lead "'+l.empresa+'" para "'+STAGES[n]+'"',['leads','projetos']);l.stage=STAGES[n];
   if(l.stage==='Fechado'&&!S.projetos.some(p=>p.leadId===id)){S.projetos.push({id:uid('p'),nome:l.empresa,cliente:l.empresa,fase:'Briefing',entrega:null,leadId:id});}
   save();render();}
-function delLead(id){S.leads=S.leads.filter(x=>x.id!==id);save();render();}
+function delLead(id){softDel('leads',id);}
 
 function comLeads(b){
   const q=(S.q.leads||'').toLowerCase();
@@ -1245,7 +1275,7 @@ function comContatos(b){
   b.innerHTML=`<div class="toolbar">${colBtn('contatos')}${csvBtn('contatos',all)}<span style="flex:1"></span><button class="btn-ghost" onclick="openContato()">+ Novo contato</button></div>`+
   (all.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('contatos',applyTableSort('contatos',all),ct=>ct.auto?'':`<button class="ibtn del" onclick="delContato('${ct.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum contato ainda. Eles aparecem automaticamente quando você cadastra leads.</div></div>');
 }
-function delContato(id){S.contatos=S.contatos.filter(x=>x.id!==id);save();render();}
+function delContato(id){softDel('contatos',id);}
 
 function comFollowups(b){
   const fs=[...S.followups].sort((a,b)=>(a.feito-b.feito)||String(a.data).localeCompare(b.data));
@@ -1260,7 +1290,7 @@ function comFollowups(b){
   :'<div class="card"><div class="empty-msg">Nenhum follow-up pendente. Cadastre leads e defina a próxima ação para acompanhar tudo aqui.</div></div>');
 }
 function toggleFU(id){const f=S.followups.find(x=>x.id===id);if(f){f.feito=!f.feito;save();render();}}
-function delFU(id){S.followups=S.followups.filter(x=>x.id!==id);save();render();}
+function delFU(id){softDel('followups',id);}
 
 function comAgenda(b){
   const days=weekDays();const today=todayStr();
@@ -1400,9 +1430,9 @@ function renderDemandas(c){
   }else{
     b.innerHTML=toolbar+'<div class="board">'+DSTATUS.map(st=>{
       const arr=ds.filter(d=>d.status===st);const cor=DCOLORS[st]||'#6e6e6e';
-      return `<div class="col" style="min-width:280px;max-width:280px;"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span><span class="col-stat">${fmtBRL(sum(arr,d=>d.receita))}</span></div><div class="col-body">
+      return `<div class="col" data-dg="demandas" data-dgval="${esc(st)}" style="min-width:280px;max-width:280px;"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span><span class="col-stat">${fmtBRL(sum(arr,d=>d.receita))}</span></div><div class="col-body">
       ${arr.length?arr.map(d=>{const ps=d.prazo?prazoStatus(d.prazo):null;const fs=filhas(d.id);
-      return `<div class="kcard kc-tint" style="border-left-color:${DCOLORS[d.status]||'#6e6e6e'}"><div class="kc-top"><div class="kc-name">${esc(d.titulo)}</div><span class="bdg">${d.uid}</span></div>
+      return `<div class="kcard kc-tint" style="border-left-color:${DCOLORS[d.status]||'#6e6e6e'}" onpointerdown="dgDown(event,'demandas','${d.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(d.titulo)}</div></div><span class="bdg">${d.uid}</span></div>
       <div class="kc-sub">${esc(d.cliente||'Sem cliente')} · ${d.tipo}${fs.length?' · '+fs.length+' entregas':''}${d.maeId?' · filha':''}</div>
       <div class="kc-ft"><div class="kc-val" style="color:${ps&&ps.cls==='atrasada'?'var(--red)':ps&&ps.cls==='hoje'?'var(--amber)':'var(--t2)'};font-size:11.5px">${d.prazo?fmtD(d.prazo)+(ps&&ps.cls!=='ok'?' · '+ps.label:''):'Sem prazo'}</div>
       <div class="kc-acts"><button class="ibtn" onclick="openDem('${d.id}')">✎</button><button class="ibtn" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
@@ -1423,8 +1453,8 @@ function demRow(d){
   <td>${fmtBRL(d.receita)}</td><td style="color:${m<0?'var(--red)':m>0?'var(--green)':'var(--t3)'}">${fmtBRL(m)}</td>
   <td><div class="tacts"><button class="ibtn" onclick="openDem('${d.id}')">✎</button><button class="ibtn" title="avançar status" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></td></tr>`;
 }
-function advDem(id){const d=S.demandas.find(x=>x.id===id);d.status=DSTATUS[(DSTATUS.indexOf(d.status)+1)%DSTATUS.length];save();render();}
-function delDem(id){S.demandas=S.demandas.filter(x=>x.id!==id);S.demandas.forEach(d=>{if(d.maeId===id)d.maeId=null;});save();render();}
+function advDem(id){const d=S.demandas.find(x=>x.id===id);if(!d)return;const novo=DSTATUS[(DSTATUS.indexOf(d.status)+1)%DSTATUS.length];pushUndo('avançar '+d.uid+' para "'+novo+'"',['demandas']);d.status=novo;save();render();toast(d.uid+' → '+novo,'Desfazer','doUndo()',5000);}
+function delDem(id){softDel('demandas',id);}
 function openDem(id){
   const d=id?S.demandas.find(x=>x.id===id):null;
   const maes=S.demandas.filter(x=>!x.maeId&&x.id!==id);
@@ -1475,9 +1505,9 @@ function renderTarefas(c){
   if(t==='kanban'){
     b.innerHTML=toolbar+'<div class="board">'+TSTATUS.map(st=>{
       const arr=ts.filter(x=>x.status===st);const cor=TCOLORS[st]||'#6e6e6e';
-      return `<div class="col"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
+      return `<div class="col" data-dg="tasks" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
       ${arr.length?arr.map(tk=>{const ps=tk.prazo?prazoStatus(tk.prazo):null;const dem=tk.demandaId?S.demandas.find(d=>d.id===tk.demandaId):null;
-      return `<div class="kcard kc-tint" style="border-left-color:${cor}"><div class="kc-top"><div class="kc-name">${esc(tk.titulo)}</div><span class="bdg ${tk.prioridade==='Alta'?'alta':tk.prioridade==='Média'?'media':'baixa'}">${tk.prioridade}</span></div>
+      return `<div class="kcard kc-tint" style="border-left-color:${cor}" onpointerdown="dgDown(event,'tasks','${tk.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(tk.titulo)}</div></div><span class="bdg ${tk.prioridade==='Alta'?'alta':tk.prioridade==='Média'?'media':'baixa'}">${tk.prioridade}</span></div>
       <div class="kc-sub">${tk.area?tk.area+' · ':''}${tk.prazo?fmtD(tk.prazo):'Sem prazo'}${ps&&ps.cls==='atrasada'&&!['Concluída','Cancelada'].includes(tk.status)?' · <span style="color:var(--red)">'+ps.label+'</span>':''}${dem?' · '+dem.uid:''}</div>
       <div class="kc-ft"><select class="fsel" style="font-size:10.5px;padding:4px 6px;" onchange="setTaskStatus('${tk.id}',this.value)">${TSTATUS.map(s2=>`<option ${tk.status===s2?'selected':''}>${s2}</option>`).join('')}</select>
       <div class="kc-acts"><button class="ibtn" onclick="openTask('${tk.id}')">✎</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
@@ -1553,7 +1583,7 @@ function importFechados(){
   save();render();
 }
 function mvProj(id,d){const p=S.projetos.find(x=>x.id===id);const n=FASES.indexOf(p.fase)+d;if(n<0||n>=FASES.length)return;p.fase=FASES[n];save();render();}
-function delProj(id){S.projetos=S.projetos.filter(x=>x.id!==id);save();render();}
+function delProj(id){softDel('projetos',id);}
 function openProj(id){
   const p=id?S.projetos.find(x=>x.id===id):null;
   openModal(p?'Editar projeto':'Novo projeto',`
@@ -1567,17 +1597,93 @@ function openProj(id){
     save();closeModal();render();});
 }
 
-function setTaskStatus(id,st){const t=S.tasks.find(x=>x.id===id);if(t){t.status=st;save();render();}}
+function setTaskStatus(id,st){const t=S.tasks.find(x=>x.id===id);if(!t||t.status===st)return;pushUndo('mover tarefa "'+t.titulo+'" para "'+st+'"',['tasks']);t.status=st;save();render();}
 </script>
 <script>
+/* ═══════════════════════════════════════════════════════════
+   DATAS DE PARCELAMENTO — regra oficial Lozy
+   Parcela 1  = data real da compra, no cartão em que foi feita.
+   Parcela n  = dia de fechamento da fatura daquele cartão.
+   O mês da parcela n é ancorado na COMPETÊNCIA da compra, não no
+   mês do calendário: comprar depois do fechamento joga a compra
+   para a fatura seguinte, e as parcelas seguem a partir dali.
+   Sem isso, uma compra em 27/10 no Nubank (fecha dia 9) colocaria
+   a parcela 1 e a parcela 2 na mesma competência de novembro.
+   ═══════════════════════════════════════════════════════════ */
+function contaFech(nome){const c=CONTAS.find(x=>x.nome===nome);return c&&c.fech?c.fech:null;}
+function parcDatas(dataCompra,nParcelas,conta){
+  if(!dataCompra)return [];
+  const out=[dataCompra];
+  const fech=contaFech(conta);
+  if(!fech){for(let i=1;i<nParcelas;i++)out.push(addM(dataCompra,i));return out;}
+  const y=+dataCompra.slice(0,4),m=+dataCompra.slice(5,7),d=+dataCompra.slice(8,10);
+  const base=y*12+(m-1)+(d>fech?1:0);
+  for(let i=1;i<nParcelas;i++){
+    const t=base+i,yy=Math.floor(t/12),mm=t%12+1;
+    const last=new Date(yy,mm,0).getDate();
+    out.push(yy+'-'+String(mm).padStart(2,'0')+'-'+String(Math.min(fech,last)).padStart(2,'0'));
+  }
+  return out;
+}
+function parcAudit(){
+  return S.parc.map(p=>{
+    const regs=S.fin.filter(l=>l.grupoId===p.grupoId).sort((a,b)=>(a.parcelaN||0)-(b.parcelaN||0));
+    const compra=p.dataCompra||(regs[0]&&regs[0].data)||p.primeira||'';
+    const esp=compra?parcDatas(compra,p.nParcelas,p.conta):[];
+    const fora=regs.filter(r=>{const e=esp[(r.parcelaN||1)-1];return e&&r.data!==e;}).length;
+    const dubio=!compra||compra.slice(8,10)==='01';
+    return {p,regs,compra,esp,fora,dubio,ok:!fora&&!dubio};
+  });
+}
+function regenParcelas(grupoId,dataCompra){
+  const p=S.parc.find(x=>x.grupoId===grupoId);
+  if(!p||!dataCompra)return 0;
+  const datas=parcDatas(dataCompra,p.nParcelas,p.conta);
+  let n=0;
+  S.fin.filter(l=>l.grupoId===p.grupoId).forEach(r=>{
+    const e=datas[(r.parcelaN||1)-1];
+    if(e&&r.data!==e){r.data=e;n++;}
+  });
+  p.dataCompra=dataCompra;p.primeira=dataCompra;
+  return n;
+}
+function openRevisarParcelas(){
+  const a=parcAudit();
+  const pend=a.filter(x=>!x.ok);
+  openModal('Revisar datas de parcelamento',`
+    <div style="font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:14px;">
+      A data da <b>parcela 1</b> é a data da compra. As demais são recalculadas para o
+      <b>dia de fechamento</b> do cartão (Nubank ${contaFech('Nubank')}, BTG ${contaFech('BTG')}).
+      Confira a data de compra de cada item — o resto é gerado a partir dela.
+      ${pend.length?`<br><b>${pend.length} de ${a.length}</b> precisam de atenção.`:'<br>Tudo já está dentro da regra.'}
+    </div>
+    <div style="max-height:52vh;overflow:auto;">
+    ${a.map(x=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b1);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(x.p.nome)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;">${x.p.conta} · ${x.p.nParcelas}× ${fmtBRL2(x.p.valorTotal/x.p.nParcelas)}
+            ${x.dubio?'<span class="bdg" style="color:var(--amber)">confirmar dia</span>':x.fora?`<span class="bdg">${x.fora} parcela(s) a ajustar</span>`:'<span class="bdg" style="color:var(--green)">ok</span>'}</div>
+        </div>
+        <input class="fsel" type="date" id="rp_${x.p.grupoId}" value="${x.compra||''}" style="width:150px;flex-shrink:0;">
+      </div>`).join('')}
+    </div>`,()=>{
+      const alvos=a.map(x=>({g:x.p.grupoId,d:(document.getElementById('rp_'+x.p.grupoId)||{}).value})).filter(x=>x.d);
+      pushUndo('recalcular datas de '+alvos.length+' parcelamentos',['fin','parc']);
+      let tot=0;alvos.forEach(x=>tot+=regenParcelas(x.g,x.d));
+      save();closeModal();render();
+      toast(tot?tot+' parcela(s) recalculada(s) em '+alvos.length+' parcelamentos.':'Nenhuma data precisou mudar.','Desfazer','doUndo()');
+    });
+}
+
 /* ═══ FINANCEIRO (regras Central Lozy) — com filtros e ordenação independentes por aba ═══ */
 function renderFin(c){
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Controle Financeiro</div></div>
     <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="openLanc('receita')">+ Nova receita</button><button class="btn-ghost" onclick="openLanc('despesa')">+ Nova despesa</button></div></div>
-    ${tabsHtml('financeiro',[{id:'visao',l:'Visão geral'},{id:'lanc',l:'Lançamentos'},{id:'contas',l:'Contas'},{id:'recorrentes',l:'Recorrentes'},{id:'porcliente',l:'Por cliente'}])}
+    ${tabsHtml('financeiro',[{id:'visao',l:'Visão geral'},{id:'lanc',l:'Lançamentos'},{id:'futuros',l:'Futuros'},{id:'contas',l:'Contas'},{id:'recorrentes',l:'Recorrentes'},{id:'porcliente',l:'Por cliente'}])}
     <div id="fin-body"></div>`;
-  ({visao:finVisao,lanc:finLanc,contas:finContas,recorrentes:finRecorrentes,porcliente:finPorCliente}[S.tab.financeiro])(document.getElementById('fin-body'));
+  ({visao:finVisao,lanc:finLanc,futuros:finFuturos,contas:finContas,recorrentes:finRecorrentes,porcliente:finPorCliente}[S.tab.financeiro]||finVisao)(document.getElementById('fin-body'));
 }
 
 /* ── Visão geral: navegador de mês independente ── */
@@ -1639,7 +1745,10 @@ function finVisao(b){
 function finLanc(b){
   const q=(S.q.fin||'').toLowerCase();const f=S.f.finLanc||{};
   const srt=S.sort.finLanc||{campo:'data',dir:'desc'};
+  const hoje=todayStr();
+  const nFut=S.fin.filter(l=>(l.data||'')>hoje).length;
   let ls=S.fin.filter(l=>
+    (l.data||'')<=hoje&&
     (!q||[l.desc,l.cliente,l.categoria,l.tipoReceita].join(' ').toLowerCase().includes(q))&&
     (!f.tipo||l.tipo===f.tipo)&&
     (!f.status||(f.status==='pago'?l.pago:!l.pago))&&
@@ -1675,11 +1784,51 @@ function finLanc(b){
       ${(f.tipo||f.status||f.cat||f.nat||f.mec||f.conta||f.cliente||f.de||f.ate)?'<button class="btn-sm" onclick="S.f.finLanc={};render()">Limpar filtros</button>':''}
       ${colBtn('fin_lanc')}${csvBtn('fin_lanc',ls)}
     </div>
-    <div style="font-size:11.5px;color:var(--lx3);margin-bottom:10px;">${ls.length} lançamentos · Receita líq. <span style="color:var(--green)">${fmtBRL(rec)}</span> · Despesa <span style="color:var(--red)">${fmtBRL(desp)}</span> · Saldo <b style="color:${rec-desp<0?'var(--red)':'var(--green)'}">${fmtBRL(rec-desp)}</b></div>
+    <div style="font-size:11.5px;color:var(--lx3);margin-bottom:10px;">${ls.length} lançamentos realizados · Receita líq. <span style="color:var(--green)">${fmtBRL(rec)}</span> · Despesa <span style="color:var(--red)">${fmtBRL(desp)}</span> · Saldo <b style="color:${rec-desp<0?'var(--red)':'var(--green)'}">${fmtBRL(rec-desp)}</b>${nFut?` · <a style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="S.tab.financeiro='futuros';render()">${nFut} lançamento(s) futuro(s)</a>`:''}</div>
     ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('fin_lanc',applyTableSort('fin_lanc',ls),r=>`<button class="ibtn" onclick="openLanc('${r.tipo}','${r.id}')">✎</button><button class="ibtn del" onclick="delLanc('${r.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lançamento encontrado com esses filtros.</div></div>'}`;
 }
 
 /* ── Contas: filtro + ordenação, independente dos Lançamentos ── */
+/* ── Futuros: tudo com data à frente de hoje (parcelas e assinaturas a vencer) ── */
+function finFuturos(b){
+  const hoje=todayStr();
+  const q=(S.q.finFut||'').toLowerCase();const f=S.f.finFut||{};
+  let ls=S.fin.filter(l=>(l.data||'')>hoje&&
+    (!q||[l.desc,l.cliente,l.categoria,l.tipoReceita].join(' ').toLowerCase().includes(q))&&
+    (!f.tipo||l.tipo===f.tipo)&&
+    (!f.mec||l.mecanismo===f.mec)&&
+    (!f.conta||l.conta===f.conta));
+  ls=[...ls].sort((a,b2)=>(a.data||'')>(b2.data||'')?1:-1);
+  const rec=sum(ls.filter(x=>x.tipo==='receita'),x=>liq(x)),desp=sum(ls.filter(x=>x.tipo==='despesa'),x=>x.valor);
+  const meses={};
+  ls.forEach(l=>{const k=mesRef(l)||monthKey(l.data);if(!meses[k])meses[k]={rec:0,desp:0,n:0};
+    meses[k].n++;if(l.tipo==='receita')meses[k].rec+=liq(l);else meses[k].desp+=l.valor;});
+  const mk=Object.keys(meses).sort().slice(0,8);
+  b.innerHTML=`
+    <div class="card" style="margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7;">
+      O que ainda não aconteceu: parcelas e assinaturas com vencimento à frente de hoje.
+      A aba <b>Lançamentos</b> mostra só o realizado e o atrasado — é lá que o passado fecha.
+    </div>
+    ${mk.length?`<div class="board" style="margin-bottom:14px;">${mk.map(k=>{
+      const m=meses[k];const [y,mm]=k.split('-');
+      return `<div class="col" style="min-width:150px;max-width:150px;"><div class="col-hd"><span class="col-name" style="text-transform:capitalize">${new Date(+y,+mm-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})}</span></div>
+        <div style="padding:4px 0 8px;">
+          ${m.rec?`<div style="font-size:12px;color:var(--green)">+${fmtBRL(m.rec)}</div>`:''}
+          ${m.desp?`<div style="font-size:12px;color:var(--red)">−${fmtBRL(m.desp)}</div>`:''}
+          <div style="font-size:10.5px;color:var(--t3);margin-top:3px;">${m.n} lanç.</div>
+        </div></div>`;}).join('')}</div>`:''}
+    <div class="toolbar">
+      <input class="search" placeholder="Buscar descrição, cliente, categoria..." value="${esc(S.q.finFut||'')}" oninput="S.q.finFut=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">
+      <select class="fsel" onchange="S.f.finFut={...S.f.finFut,tipo:this.value};render()"><option value="">Tipo: Todos</option><option value="receita" ${f.tipo==='receita'?'selected':''}>Receitas</option><option value="despesa" ${f.tipo==='despesa'?'selected':''}>Despesas</option></select>
+      <select class="fsel" onchange="S.f.finFut={...S.f.finFut,mec:this.value};render()"><option value="">Mecanismo: Todos</option>${MECANISMOS.map(m=>`<option ${f.mec===m?'selected':''}>${m}</option>`).join('')}</select>
+      <select class="fsel" onchange="S.f.finFut={...S.f.finFut,conta:this.value};render()"><option value="">Conta: Todas</option>${CONTAS.map(c=>`<option ${f.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select>
+      ${(f.tipo||f.mec||f.conta)?'<button class="btn-sm" onclick="S.f.finFut={};render()">Limpar filtros</button>':''}
+      ${csvBtn('fin_lanc',ls)}
+    </div>
+    <div style="font-size:11.5px;color:var(--lx3);margin-bottom:10px;">${ls.length} a vencer · Receita prevista <span style="color:var(--green)">${fmtBRL(rec)}</span> · Despesa prevista <span style="color:var(--red)">${fmtBRL(desp)}</span> · Saldo previsto <b style="color:${rec-desp<0?'var(--red)':'var(--green)'}">${fmtBRL(rec-desp)}</b></div>
+    ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('fin_lanc',ls,r=>`<button class="ibtn" onclick="openLanc('${r.tipo}','${r.id}')">✎</button><button class="ibtn del" onclick="delLanc('${r.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lançamento futuro.</div></div>'}`;
+}
+
 function finContas(b){
   const f=S.f.finContas||{};
   const srt=S.sort.finContas||{campo:'data',dir:'asc'};
@@ -1760,7 +1909,7 @@ function finPorCliente(b){
 }
 
 function togglePago(id){const f=S.fin.find(x=>x.id===id);if(f){f.pago=!f.pago;save();render();}}
-function delLanc(id){S.fin=S.fin.filter(x=>x.id!==id);save();render();}
+function delLanc(id){softDel('fin',id);}
 function openLanc(tipo,id){
   const l=id?S.fin.find(x=>x.id===id):null;
   const isRec=tipo==='receita';
@@ -1874,8 +2023,8 @@ function openAssin(id){
     if(a)Object.assign(a,d);else S.assin.push({id:uid('as'),ativo:true,...d});
     save();closeModal();render();});
 }
-function delParc(id){S.parc=S.parc.filter(x=>x.id!==id);save();render();}
-function delAssin(id){S.assin=S.assin.filter(x=>x.id!==id);save();render();}
+function delParc(id){softDel('parc',id);}
+function delAssin(id){softDel('assin',id);}
 
 function finRecorrentes(b){
   const f=S.f.finRec||{};
@@ -1930,7 +2079,7 @@ function finRecorrentes(b){
     <div class="card"><div class="clabel">Assinaturas por mês</div><div class="metric">${fmtBRL(mensalAssin)}</div><div class="metric-s">${as.filter(x=>x.a.ativo!==false).length} ativas</div></div>
   </div>
   <div class="g2">
-    <div class="card"><div class="widget-hd"><span class="widget-ttl">Parcelamentos</span><span class="widget-more">${ps.length} exibidos · ${ativos.length} em andamento</span></div>
+    <div class="card"><div class="widget-hd"><span class="widget-ttl">Parcelamentos</span><span class="widget-more">${(()=>{const pend=parcAudit().filter(x=>!x.ok).length;return `${ps.length} exibidos · ${ativos.length} em andamento${pend?` · <a style="color:var(--amber);cursor:pointer;text-decoration:underline" onclick="openRevisarParcelas()">${pend} com datas a revisar</a>`:` · <a style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="openRevisarParcelas()">revisar datas</a>`}`;})()}</span></div>
     ${parcHtml||'<div class="empty-msg">Nenhum parcelamento com esses filtros.</div>'}</div>
     <div class="card"><div class="widget-hd"><span class="widget-ttl">Assinaturas</span><span class="widget-more">${fmtBRL(mensalAssin)}/mês</span></div>
     ${assHtml||'<div class="empty-msg">Nenhuma assinatura com esses filtros.</div>'}</div>
@@ -1982,7 +2131,7 @@ function exportICS(){
   const blob=new Blob([lines.filter(Boolean).join('\r\n')],{type:'text/calendar'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lozy-agenda.ics';a.click();
 }
-function delEvento(id){S.eventos=S.eventos.filter(x=>x.id!==id);save();render();}
+function delEvento(id){softDel('eventos',id);}
 function openEvento(){
   openModal('Novo evento',`
     <div class="field"><label>Título</label><input id="m1" placeholder="Ex: Reunião com cliente"></div>
@@ -2139,7 +2288,7 @@ function renderPropostas(c){
     :`<div class="card"><div class="empty-msg">Nenhuma proposta criada ainda. O construtor usa a tabela de preços da Calculadora Lozy — captação, edição, fotos e deslocamento.</div></div>`}`;
 }
 function cycleProp(id){const p=S.propostas.find(x=>x.id===id);const st=['Rascunho','Enviada','Aprovada','Recusada'];p.status=st[(st.indexOf(p.status)+1)%st.length];save();render();}
-function delProp(id){S.propostas=S.propostas.filter(x=>x.id!==id);save();render();}
+function delProp(id){softDel('propostas',id);}
 
 function startWizard(){
   S.wiz={step:0,empresa:'',cliente:'',projeto:'',formato:'Projeto Personalizado',conceito:'',entregas:[],desconto:0,desloc:0,modo:'cliente',validade:(()=>{const d=new Date();d.setDate(d.getDate()+30);return dstr(d);})()};
@@ -2301,13 +2450,292 @@ document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
+   REVERSIBILIDADE — desfazer, lixeira e arraste
+   Princípio: nenhuma ação estrutural apaga dado de forma direta.
+   Excluir move o registro para S.trash (com o índice original e as
+   relações que precisam ser refeitas). Toda ação estrutural empilha
+   um snapshot das arrays afetadas em UNDO, que alimenta Cmd/Ctrl+Z.
+   ═══════════════════════════════════════════════════════════════ */
+
+const TRASH_DIAS=30;
+const TRASH_META={
+  leads:{l:'Lead',n:r=>r.empresa,ir:'comercial'},
+  contatos:{l:'Contato',n:r=>r.nome,ir:'comercial'},
+  followups:{l:'Follow-up',n:r=>r.titulo,ir:'comercial'},
+  demandas:{l:'Demanda',n:r=>(r.uid?r.uid+' · ':'')+(r.titulo||''),ir:'demandas'},
+  tasks:{l:'Tarefa',n:r=>r.titulo,ir:'tarefas'},
+  projetos:{l:'Projeto',n:r=>r.nome,ir:'projetos'},
+  fin:{l:'Lançamento',n:r=>r.desc,ir:'financeiro'},
+  eventos:{l:'Evento',n:r=>r.titulo,ir:'agenda'},
+  propostas:{l:'Proposta',n:r=>r.titulo||r.cliente,ir:'propostas'},
+  parc:{l:'Parcelamento',n:r=>r.nome,ir:'financeiro'},
+  assin:{l:'Assinatura',n:r=>r.nome,ir:'financeiro'},
+  cbase:{l:'Cliente',n:r=>r.nome,ir:'clientes'}
+};
+function trashLabel(kind){return TRASH_META[kind]?TRASH_META[kind].l:kind;}
+function trashName(kind,r){
+  let n='';try{const m=TRASH_META[kind];n=m&&m.n?m.n(r):'';}catch(e){}
+  return String(n||r.titulo||r.nome||r.desc||r.empresa||'registro sem nome').trim()||'registro sem nome';
+}
+
+/* ── pilha de desfazer: snapshot só das arrays tocadas ── */
+const UNDO={u:[],r:[],max:20};
+const snapKeys=ks=>{const o={};ks.forEach(k=>o[k]=JSON.stringify(S[k]||[]));return o;};
+const applySnap=o=>Object.keys(o).forEach(k=>S[k]=JSON.parse(o[k]));
+function pushUndo(label,keys){
+  UNDO.u.push({label,keys,snap:snapKeys(keys)});
+  if(UNDO.u.length>UNDO.max)UNDO.u.shift();
+  UNDO.r.length=0;
+}
+function doUndo(){
+  const e=UNDO.u.pop();
+  if(!e)return toast('Nada para desfazer nesta sessão. O que foi excluído continua na Lixeira.','Abrir Lixeira',"goTo('lixeira')");
+  UNDO.r.push({label:e.label,keys:e.keys,snap:snapKeys(e.keys)});
+  applySnap(e.snap);save();render();
+  toast('Desfeito: '+e.label,'Refazer','doRedo()',6000);
+}
+function doRedo(){
+  const e=UNDO.r.pop();if(!e)return toast('Nada para refazer.');
+  UNDO.u.push({label:e.label,keys:e.keys,snap:snapKeys(e.keys)});
+  applySnap(e.snap);save();render();
+  toast('Refeito: '+e.label,'Desfazer','doUndo()',6000);
+}
+
+/* ── toast com ação ── */
+let toastT=null;
+function toast(msg,actLabel,actCode,ms){
+  let el=document.getElementById('toast');
+  if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.appendChild(el);}
+  el.innerHTML='<span class="toast-msg">'+esc(msg)+'</span>'
+    +(actLabel?'<button class="toast-act" onclick="hideToast();'+actCode+'">'+esc(actLabel)+'</button>':'')
+    +'<button class="toast-x" onclick="hideToast()">✕</button>';
+  el.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(hideToast,ms||8000);
+}
+function hideToast(){const el=document.getElementById('toast');if(el)el.classList.remove('show');}
+
+/* ── exclusão reversível: única porta de saída de qualquer registro ── */
+function softDel(kind,id){
+  const arr=S[kind];
+  if(!Array.isArray(arr))return;
+  const idx=arr.findIndex(x=>x.id===id);
+  if(idx<0)return;
+  const rec=arr[idx];
+  const nome=trashName(kind,rec);
+  pushUndo('excluir '+trashLabel(kind).toLowerCase()+' "'+nome+'"',[kind,'trash']);
+  const rel={};
+  if(kind==='demandas'){ /* preserva o vínculo mãe→filhas para poder refazê-lo na restauração */
+    rel.filhas=S.demandas.filter(d=>d.maeId===id).map(d=>d.id);
+    S.demandas.forEach(d=>{if(d.maeId===id)d.maeId=null;});
+  }
+  arr.splice(idx,1);
+  if(!Array.isArray(S.trash))S.trash=[];
+  S.trash.unshift({id:uid('tr'),kind,idx,at:new Date().toISOString(),data:JSON.parse(JSON.stringify(rec)),rel});
+  if(S.trash.length>400)S.trash.length=400;
+  save();render();
+  toast(trashLabel(kind)+' "'+nome+'" foi para a Lixeira.','Desfazer','doUndo()');
+}
+
+function trashRestore(trId){
+  const t=S.trash.find(x=>x.id===trId);
+  if(!t)return;
+  if(!Array.isArray(S[t.kind]))return toast('Não consegui restaurar: a base "'+t.kind+'" não existe mais.');
+  pushUndo('restaurar '+trashLabel(t.kind).toLowerCase()+' "'+trashName(t.kind,t.data)+'"',[t.kind,'trash']);
+  if(!S[t.kind].some(x=>x.id===t.data.id)){
+    const pos=Math.min(Math.max(0,t.idx==null?S[t.kind].length:t.idx),S[t.kind].length);
+    S[t.kind].splice(pos,0,JSON.parse(JSON.stringify(t.data)));
+  }
+  if(t.kind==='demandas'&&t.rel&&t.rel.filhas)
+    t.rel.filhas.forEach(fid=>{const f=S.demandas.find(d=>d.id===fid);if(f&&!f.maeId)f.maeId=t.data.id;});
+  S.trash=S.trash.filter(x=>x.id!==trId);
+  save();render();
+  toast('Restaurado: '+trashName(t.kind,t.data),'Ir para '+(TRASH_META[t.kind]?TRASH_META[t.kind].l:''),"goTo('"+((TRASH_META[t.kind]||{}).ir||'dashboard')+"')");
+}
+function trashDrop(trId){
+  const t=S.trash.find(x=>x.id===trId);if(!t)return;
+  if(!confirm('Apagar "'+trashName(t.kind,t.data)+'" definitivamente? Esta é a única ação do Hub que não tem volta.'))return;
+  pushUndo('apagar definitivamente "'+trashName(t.kind,t.data)+'"',['trash']);
+  S.trash=S.trash.filter(x=>x.id!==trId);
+  save();render();toast('Apagado definitivamente.','Desfazer','doUndo()');
+}
+function trashEmpty(){
+  if(!S.trash.length)return;
+  if(!confirm('Esvaziar a Lixeira? '+S.trash.length+' registro(s) serão apagados definitivamente.'))return;
+  pushUndo('esvaziar a Lixeira ('+S.trash.length+' registros)',['trash']);
+  S.trash=[];save();render();toast('Lixeira esvaziada.','Desfazer','doUndo()');
+}
+function trashRestoreAll(){
+  const ids=S.trash.map(t=>t.id);
+  if(!ids.length)return;
+  if(!confirm('Restaurar todos os '+ids.length+' registros da Lixeira?'))return;
+  const kinds=[...new Set(S.trash.map(t=>t.kind))].filter(k=>Array.isArray(S[k]));
+  pushUndo('restaurar '+ids.length+' registros da Lixeira',[...kinds,'trash']);
+  [...S.trash].reverse().forEach(t=>{
+    if(!Array.isArray(S[t.kind])||S[t.kind].some(x=>x.id===t.data.id))return;
+    const pos=Math.min(Math.max(0,t.idx==null?S[t.kind].length:t.idx),S[t.kind].length);
+    S[t.kind].splice(pos,0,JSON.parse(JSON.stringify(t.data)));
+    if(t.kind==='demandas'&&t.rel&&t.rel.filhas)
+      t.rel.filhas.forEach(fid=>{const f=S.demandas.find(d=>d.id===fid);if(f&&!f.maeId)f.maeId=t.data.id;});
+  });
+  S.trash=[];save();render();toast(ids.length+' registros restaurados.','Desfazer','doUndo()');
+}
+function trashAutoPurge(){
+  if(!Array.isArray(S.trash))return;
+  const lim=Date.now()-TRASH_DIAS*864e5;
+  const antes=S.trash.length;
+  S.trash=S.trash.filter(t=>{const ts=new Date(t.at).getTime();return isNaN(ts)||ts>lim;});
+  if(S.trash.length!==antes)save();
+}
+
+function renderLixeira(c){
+  const q=(S.q.tr||'').toLowerCase();
+  const f=S.f.tr||{};
+  const kinds=[...new Set((S.trash||[]).map(t=>t.kind))].sort();
+  let its=(S.trash||[]).filter(t=>(!f.kind||t.kind===f.kind)&&(!q||trashName(t.kind,t.data).toLowerCase().includes(q)));
+  const dias=t=>Math.max(0,TRASH_DIAS-Math.floor((Date.now()-new Date(t.at).getTime())/864e5));
+  c.innerHTML=`
+    <div class="page-hd"><div><div class="page-title">Lixeira</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" onclick="doUndo()">↶ Desfazer última ação</button>
+      ${S.trash.length?'<button class="btn-ghost" onclick="trashRestoreAll()">Restaurar tudo</button><button class="btn-ghost" onclick="trashEmpty()">Esvaziar</button>':''}
+    </div></div>
+    <div class="card" style="margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7;">
+      Nada é apagado na hora. Tudo que você exclui no Hub para aqui e pode voltar por ${TRASH_DIAS} dias — depois disso some sozinho.
+      Para reverter algo que acabou de acontecer, <b>Cmd/Ctrl + Z</b> desfaz a última ação da sessão (inclusive movimentações de card).
+    </div>
+    ${S.trash.length?`<div class="toolbar">
+      <input class="search" placeholder="Buscar na lixeira..." value="${esc(S.q.tr||'')}" oninput="S.q.tr=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">
+      <select class="fsel" onchange="S.f.tr={...S.f.tr,kind:this.value};render()"><option value="">Tipo: Todos</option>${kinds.map(k=>`<option value="${k}" ${f.kind===k?'selected':''}>${trashLabel(k)}</option>`).join('')}</select>
+    </div>`:''}
+    ${its.length?`<div class="card" style="padding:6px 20px;">${its.map(t=>`
+      <div class="tr-item">
+        <div class="tr-body">
+          <div class="tr-name">${esc(trashName(t.kind,t.data))}</div>
+          <div class="tr-meta">${trashLabel(t.kind)} · excluído em ${new Date(t.at).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})} · some em ${dias(t)}d${t.rel&&t.rel.filhas&&t.rel.filhas.length?' · devolve '+t.rel.filhas.length+' filha(s) ao vínculo':''}</div>
+        </div>
+        <div class="tr-acts">
+          <button class="btn-sm" onclick="trashRestore('${t.id}')">↺ Restaurar</button>
+          <button class="ibtn del" title="Apagar definitivamente" onclick="trashDrop('${t.id}')">✕</button>
+        </div>
+      </div>`).join('')}</div>`
+    :`<div class="card"><div class="empty-msg">${S.trash.length?'Nenhum registro com esse filtro.':'A Lixeira está vazia.'}</div></div>`}`;
+}
+
+/* ═══ ARRASTAR CARDS ═══
+   Pointer Events em vez de HTML5 drag-and-drop: o mesmo código serve
+   mouse e toque. No mouse arrasta de qualquer ponto do card; no toque
+   arrasta pela alça ⠿ (assim o dedo no corpo do card continua rolando
+   a tela em vez de mover o registro sem querer). */
+let DG=null;
+const dgGrip='<span class="dg-grip" title="Arrastar">⠿</span>';
+function dgDown(ev,kind,id){
+  if(ev.pointerType==='mouse'&&ev.button!==0)return;
+  if(ev.target.closest('button,select,input,textarea,a'))return;
+  if(ev.pointerType!=='mouse'&&!ev.target.closest('.dg-grip'))return;
+  const card=ev.currentTarget;
+  DG={kind,id,card,x0:ev.clientX,y0:ev.clientY,live:false,ghost:null,board:card.closest('.board')};
+  try{card.setPointerCapture(ev.pointerId);}catch(e){}
+}
+function dgActivate(x,y){
+  const r=DG.card.getBoundingClientRect();
+  DG.ox=r.left-DG.x0;DG.oy=r.top-DG.y0;
+  const g=DG.card.cloneNode(true);
+  g.classList.add('drag-ghost');
+  g.style.width=r.width+'px';
+  document.body.appendChild(g);
+  DG.ghost=g;DG.live=true;
+  DG.card.classList.add('dg-src');
+  document.body.classList.add('dg-on');
+  dgGhostTo(x,y);
+}
+function dgGhostTo(x,y){if(DG&&DG.ghost){DG.ghost.style.left=(x+DG.ox)+'px';DG.ghost.style.top=(y+DG.oy)+'px';}}
+function dgColAt(x,y){
+  if(DG.ghost)DG.ghost.style.visibility='hidden';
+  const el=document.elementFromPoint(x,y);
+  if(DG.ghost)DG.ghost.style.visibility='';
+  const col=el&&el.closest?el.closest('.col[data-dg]'):null;
+  return col&&col.dataset.dg===DG.kind?col:null;
+}
+function dgMove(ev){
+  if(!DG)return;
+  if(!DG.live){
+    if(Math.abs(ev.clientX-DG.x0)<5&&Math.abs(ev.clientY-DG.y0)<5)return;
+    dgActivate(ev.clientX,ev.clientY);
+  }
+  ev.preventDefault();
+  dgGhostTo(ev.clientX,ev.clientY);
+  document.querySelectorAll('.col.dg-over').forEach(c=>c.classList.remove('dg-over'));
+  const col=dgColAt(ev.clientX,ev.clientY);
+  if(col)col.classList.add('dg-over');
+  if(DG.board){ /* rola o quadro quando o card chega perto da borda */
+    const r=DG.board.getBoundingClientRect();
+    if(ev.clientX>r.right-70)DG.board.scrollLeft+=16;
+    else if(ev.clientX<r.left+70)DG.board.scrollLeft-=16;
+  }
+}
+function dgEnd(ev){
+  if(!DG)return;
+  const live=DG.live,kind=DG.kind,id=DG.id;
+  const col=live?dgColAt(ev.clientX,ev.clientY):null;
+  const alvo=col?col.dataset.dgval:null;
+  dgClear();
+  if(live&&alvo)dgDrop(kind,id,alvo);
+}
+function dgClear(){
+  if(!DG)return;
+  if(DG.ghost)DG.ghost.remove();
+  if(DG.card)DG.card.classList.remove('dg-src');
+  document.body.classList.remove('dg-on');
+  document.querySelectorAll('.col.dg-over').forEach(c=>c.classList.remove('dg-over'));
+  DG=null;
+}
+function dgDrop(kind,id,alvo){
+  if(kind==='demandas'){
+    const d=S.demandas.find(x=>x.id===id);
+    if(!d||d.status===alvo)return;
+    pushUndo('mover '+d.uid+' para "'+alvo+'"',['demandas']);
+    d.status=alvo;save();render();
+    toast(d.uid+' → '+alvo,'Desfazer','doUndo()',5000);
+  }else if(kind==='tasks'){
+    const t=S.tasks.find(x=>x.id===id);
+    if(!t||t.status===alvo)return;
+    pushUndo('mover tarefa "'+t.titulo+'" para "'+alvo+'"',['tasks']);
+    t.status=alvo;save();render();
+    toast('"'+t.titulo+'" → '+alvo,'Desfazer','doUndo()',5000);
+  }else if(kind==='leads'){
+    const l=S.leads.find(x=>x.id===id);
+    if(!l||l.stage===alvo)return;
+    pushUndo('mover lead "'+l.empresa+'" para "'+alvo+'"',['leads','projetos']);
+    l.stage=alvo;
+    if(alvo==='Fechado'&&!S.projetos.some(p=>p.leadId===id))
+      S.projetos.push({id:uid('p'),nome:l.empresa,cliente:l.empresa,fase:'Briefing',entrega:null,leadId:id});
+    save();render();
+    toast(l.empresa+' → '+alvo,'Desfazer','doUndo()',5000);
+  }
+}
+document.addEventListener('pointermove',dgMove,{passive:false});
+document.addEventListener('pointerup',dgEnd);
+document.addEventListener('pointercancel',dgClear);
+
+/* ── Cmd/Ctrl+Z e Cmd/Ctrl+Shift+Z ── */
+document.addEventListener('keydown',e=>{
+  if(!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
+  const t=e.target;
+  if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;
+  if(document.getElementById('overlay').classList.contains('show'))return;
+  e.preventDefault();
+  e.shiftKey?doRedo():doUndo();
+});
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
    SINCRONIZAÇÃO — Supabase
    Estratégia: diff por registro contra um snapshot do último sync.
    Só o que mudou sobe; o que mudou no servidor desce. Conflito no
    mesmo registro resolve por updated_at (o mais recente vence).
    Sem backend configurado, o Hub segue funcionando local.
    ═══════════════════════════════════════════════════════════════ */
-const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','cbase','parc','assin'];
+const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','cbase','parc','assin','trash'];
 const SETTING_KEYS=['theme','prefs','dash','cols','sort'];
 let SY={busy:false,last:null,err:null,snap:{}};
 
@@ -2653,6 +3081,11 @@ function renderAjustes(c){
       <div class="widget-hd"><span class="widget-ttl">Dados migrados do Notion</span><span class="widget-more">Central Lozy · jul/2026</span></div>
       <div style="font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:12px;">Carga inicial: 65 demandas, 156 lançamentos financeiros (19 parcelamentos + 12 assinaturas) e 3 projetos. Se algo sumir ou você quiser recomeçar do zero com os dados originais, restaure aqui — registros criados por você no Hub são preservados.</div>
       <button class="btn-sm" onclick="if(confirm('Restaurar a carga migrada do Notion? Registros importados serão recarregados; o que você criou no Hub permanece.')){applySeed(false);render();}">↺ Restaurar dados do Notion</button>
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="widget-hd"><span class="widget-ttl">Exclusões e desfazer</span><span class="widget-more">${S.trash.length} na lixeira</span></div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:12px;">Excluir no Hub nunca apaga na hora: o registro vai para a Lixeira e volta inteiro por ${TRASH_DIAS} dias. <b>Cmd/Ctrl + Z</b> desfaz a última ação da sessão — exclusão, mudança de status ou card arrastado.</div>
+      <button class="btn-sm" onclick="goTo('lixeira')">Abrir Lixeira</button>
     </div>
     <div class="card">
       <div class="widget-hd"><span class="widget-ttl">Assistente Lozy AI</span></div>

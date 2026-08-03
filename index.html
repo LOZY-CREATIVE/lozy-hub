@@ -752,7 +752,11 @@ const fmtBRL=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency
 const fmtBRL2=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const sum=(a,f)=>a.reduce((x,y)=>x+Number(f?f(y):y.valor||0),0);
-const uid=p=>p+Date.now()+Math.floor(Math.random()*99);
+/* uid(): Date.now() sozinho colide em loops apertados (um forEach de 40+
+   itens roda inteiro no mesmo milissegundo). Um contador de sessão monotônico
+   garante unicidade mesmo com centenas de chamadas no mesmo tick. */
+let _uidSeq=0;
+const uid=p=>p+Date.now().toString(36)+'_'+(_uidSeq++).toString(36)+Math.random().toString(36).slice(2,6);
 const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const fmtD=s=>s?new Date(s+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}):'—';
 function prazoStatus(prazo){
@@ -1770,6 +1774,81 @@ function openImportarSegundasOcorrencias(){
     });
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   AUDITORIA DE IDs — reparo do bug de colisão do uid() antigo.
+   Duas situações distintas, tratadas diferente:
+   (a) mesmo id + mesmo conteúdo → duplicata real (o push aconteceu
+       duas vezes). Remove a(s) cópia(s) extra(s), preserva a 1ª.
+   (b) mesmo id + conteúdo diferente → colisão pura (registros
+       reais distintos que ganharam o mesmo id por azar). Não apaga
+       nada — só troca o id das cópias extras por um novo, único.
+   ═══════════════════════════════════════════════════════════ */
+const AUDIT_KEYS=['fin','demandas','tasks','leads','contatos','followups','projetos','eventos','propostas','cbase','parc','assin'];
+function chaveConteudo(r){return JSON.stringify(['desc','titulo','nome','empresa','valor','data','tipo','conta','cliente'].map(c=>r[c]));}
+function auditIds(){
+  const grupos=[];
+  AUDIT_KEYS.forEach(k=>{
+    const arr=S[k];if(!Array.isArray(arr))return;
+    /* 1) duplicata por conteúdo — vale mesmo se o id já for diferente
+       (pode vir de origem anterior ao meu bug, ex: import duplo do Notion) */
+    const porConteudo={};
+    arr.forEach(r=>{if(!r)return;const ck=chaveConteudo(r);(porConteudo[ck]=porConteudo[ck]||[]).push(r);});
+    const sobreviventes=[];
+    Object.values(porConteudo).forEach(recs=>{
+      if(recs.length>1)grupos.push({kind:k,recs,duplicataReal:true});
+      sobreviventes.push(recs[0]); /* só 1 representante por conteúdo segue pro passo 2 */
+    });
+    /* 2) entre o que sobrou (conteúdo já único), ainda pode haver 2 registros
+       DIFERENTES que colidiram no id por causa do bug do uid() antigo */
+    const porId={};
+    sobreviventes.forEach(r=>{if(r.id)(porId[r.id]=porId[r.id]||[]).push(r);});
+    Object.values(porId).forEach(recs=>{if(recs.length>1)grupos.push({kind:k,recs,duplicataReal:false});});
+  });
+  return grupos;
+}
+function nomeRegistro(r){return r.desc||r.titulo||r.nome||r.empresa||'registro';}
+function openAuditoriaIds(){
+  const grupos=auditIds();
+  if(!grupos.length){
+    openModal('Auditoria de IDs','<div style="font-size:12px;color:var(--t2);">Nenhuma colisão de ID encontrada. Os dados estão íntegros.</div>',null,true);
+    return;
+  }
+  const dup=grupos.filter(g=>g.duplicataReal);
+  const col=grupos.filter(g=>!g.duplicataReal);
+  const valorDup=dup.reduce((a,g)=>a+g.recs.slice(1).reduce((s,r)=>s+(Number(r.valor)||0),0),0);
+  openModal('Auditoria de IDs — '+grupos.length+' colisão(ões) encontrada(s)',`
+    <div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:12px;">
+      Um bug no gerador de ID (corrigido agora) fez alguns lançamentos importados em lote ganharem o
+      <b>mesmo identificador</b>. Isso não altera o que você já viu na tela, mas trava editar/excluir a
+      cópia "escondida" por trás. Dividido em dois grupos:
+    </div>
+    ${dup.length?`<div style="font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.03em;margin:10px 0 4px;">Duplicata real — mesmo dado, lançado 2x (${dup.length}) · soma das cópias extras: ${fmtBRL(valorDup)}</div>
+    ${dup.map((g,i)=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1);">
+      <input type="checkbox" id="ad_${i}" checked style="margin-top:3px;flex-shrink:0;">
+      <label for="ad_${i}" style="flex:1;font-size:12px;cursor:pointer;"><b>${esc(nomeRegistro(g.recs[0]))}</b> — ${trashLabel(g.kind)}<br>
+      <span style="color:var(--t3);font-size:10.5px;">${g.recs.length}× igual · ${g.recs[0].valor?fmtBRL(g.recs[0].valor)+' · ':''}${g.recs[0].data||''} — mantém 1, remove ${g.recs.length-1}</span></label>
+    </div>`).join('')}`:''}
+    ${col.length?`<div style="font-size:11px;font-weight:600;color:var(--amber);text-transform:uppercase;letter-spacing:.03em;margin:16px 0 4px;">Colisão sem duplicar dado — registros diferentes, mesmo ID por acaso (${col.length})</div>
+    <div style="font-size:11.5px;color:var(--t2);margin-bottom:6px;">Corrigidos automaticamente ao confirmar — nenhum dado é removido, só o ID.</div>
+    ${col.map(g=>`<div style="padding:5px 0;font-size:11.5px;color:var(--t2);border-bottom:1px solid var(--b1);">${g.recs.map(r=>esc(nomeRegistro(r))+(r.valor?' ('+fmtBRL(r.valor)+')':'')).join(' · ')}</div>`).join('')}`:''}
+  `,()=>{
+    const keys=new Set();
+    const toRemove=[]; // {kind,id do registro a remover via objeto}
+    dup.forEach((g,i)=>{
+      keys.add(g.kind);
+      if(document.getElementById('ad_'+i).checked) g.recs.slice(1).forEach(r=>toRemove.push({kind:g.kind,ref:r}));
+    });
+    col.forEach(g=>keys.add(g.kind));
+    pushUndo('reparar '+grupos.length+' colisão(ões) de ID',[...keys]);
+    // remove duplicatas reais confirmadas (por referência de objeto, não por id — evita remover a cópia errada)
+    toRemove.forEach(({kind,ref})=>{const arr=S[kind];const idx=arr.indexOf(ref);if(idx>-1)arr.splice(idx,1);});
+    // corrige colisões sem duplicar dado: reatribui id novo a todas as cópias exceto a 1ª
+    col.forEach(g=>{g.recs.slice(1).forEach(r=>{r.id=uid(String(r.id).match(/^[a-z]+/)?.[0]||'x');});});
+    save();closeModal();render();
+    toast((toRemove.length?toRemove.length+' duplicata(s) removida(s)':'')+(toRemove.length&&col.length?' · ':'')+(col.length?col.length+' ID(s) corrigido(s)':'')+'.','Desfazer','doUndo()');
+  });
+}
 
 /* ═══ BACKUP COMPLETO — snapshot fiel do estado real, pra auditoria/reconciliação ═══
    Separado em função pura (buildBackupData) + wrapper de download (exportBackup)
@@ -3200,7 +3279,8 @@ function renderAjustes(c){
     <div class="card" style="margin-bottom:12px;">
       <div class="widget-hd"><span class="widget-ttl">Exclusões e desfazer</span><span class="widget-more">${S.trash.length} na lixeira</span></div>
       <div style="font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:12px;">Excluir no Hub nunca apaga na hora: o registro vai para a Lixeira e volta inteiro por ${TRASH_DIAS} dias. <b>Cmd/Ctrl + Z</b> desfaz a última ação da sessão — exclusão, mudança de status ou card arrastado.</div>
-      <button class="btn-sm" onclick="goTo('lixeira')">Abrir Lixeira</button>
+      <button class="btn-sm" onclick="openAuditoriaIds()" style="background:var(--red);color:#fff;border-color:var(--red);">Auditar e reparar IDs duplicados</button>
+      <button class="btn-sm" onclick="goTo('lixeira')" style="margin-left:8px;">Abrir Lixeira</button>
       <button class="btn-sm" onclick="openImportarNotion()" style="margin-left:8px;">Importar lote do Notion (02/08)</button>
       <button class="btn-sm" onclick="openImportarSegundasOcorrencias()" style="margin-left:8px;">Confirmar 26 segundas ocorrências</button>
       <button class="btn-sm" onclick="exportBackup()" style="margin-left:8px;">Baixar backup completo (JSON)</button>

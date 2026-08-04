@@ -768,9 +768,35 @@ function prazoStatus(prazo){
   if(diff===0)return{label:'Hoje',cls:'hoje',diff};
   return{label:'Em '+diff+'d',cls:'ok',diff};
 }
+/* ═══ PRAZO DE DEMANDAS (lógica V1 → ajuste → entrega) ═══
+   `prazo` = prazo da V1. Quando o status entra em "Com o cliente", a V1 já foi
+   entregue e o prazo relevante passa a ser `prazoAjuste` (se definido). Uma vez
+   "Entregue", o atraso vira um fato histórico (entregueEm vs. o prazo que valia
+   na hora) e para de recalcular contra o dia de hoje. */
+function demPrazoAtivo(d){return d.prazoAjuste||d.prazo||null;}
+function demandaAtraso(d){
+  if(d.status==='Entregue'){
+    if(!d.entregueEm)return null; /* sem data de entrega registrada (ex: migração antiga) — não afirma nada */
+    const alvo=d.prazoAjuste||d.prazo;if(!alvo)return null;
+    const diff=Math.round((new Date(d.entregueEm+'T00:00:00')-new Date(alvo+'T00:00:00'))/864e5);
+    return diff>0?{label:'entregue '+diff+'d atrasada',cls:'atrasada',diff}:null; /* no prazo = silêncio, sem selo */
+  }
+  const alvo=demPrazoAtivo(d);
+  return alvo?prazoStatus(alvo):null;
+}
+function demTransicao(d,novo){ /* carimba a data da transição só na primeira vez que ela acontece */
+  if(novo==='Com o cliente'&&!d.entregueV1Em)d.entregueV1Em=todayStr();
+  if(novo==='Entregue'&&!d.entregueEm)d.entregueEm=todayStr();
+  d.status=novo;
+}
 function monthKey(s){return s?s.slice(0,7):null;}
 function addM(ds,n){const d=new Date(ds+'T00:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function mesRef(l){ /* lógica Central Lozy: cartão de crédito + dia de fechamento */
+function mesRef(l){ /* lógica Central Lozy: mês em que o lançamento entra no P&L.
+  Receita: usa a competência declarada (mês em que o serviço foi gerado), com
+  fallback pra data quando o registro é antigo e não tem competência salva —
+  separa "a que mês pertence" de "quando vence", que antes viviam no mesmo campo.
+  Despesa: cartão de crédito + dia de fechamento da fatura. */
+  if(l.tipo==='receita')return l.competencia||monthKey(l.data);
   if(l.tipo!=='despesa'||l.forma!=='Crédito')return monthKey(l.data);
   const c=CONTAS.find(c=>c.nome===l.conta);
   if(!c||!c.fech)return monthKey(l.data);
@@ -865,7 +891,7 @@ const COLDEFS={
     {k:'titulo',l:'Demanda',def:1,get:r=>r.titulo||'',cell:r=>`<span style="font-weight:500">${esc(r.titulo)}</span>${filhas(r.id).length?` <span class="bdg">${filhas(r.id).length}▾</span>`:''}${r.maeId?' <span class="bdg">filha</span>':''}`},
     {k:'cliente',l:'Cliente',def:1,get:r=>r.cliente||'',cell:r=>`<span style="color:var(--t2)">${esc(r.cliente)||'—'}</span>`},
     {k:'tipo',l:'Tipo',def:1,get:r=>r.tipo||'',cell:r=>`<span class="bdg">${r.tipo}</span>`},
-    {k:'prazo',l:'Prazo',def:1,get:r=>r.prazo||'9999',cell:r=>{const ps=r.prazo?prazoStatus(r.prazo):null;return `<span style="color:${ps?(ps.cls==='atrasada'&&r.status!=='Entregue'?'var(--red)':ps.cls==='hoje'?'var(--amber)':'var(--t2)'):'var(--t3)'};font-size:12px">${fmtD(r.prazo)}${ps&&ps.cls==='atrasada'&&r.status!=='Entregue'?' · '+ps.label:''}</span>`;}},
+    {k:'prazo',l:'Prazo',def:1,get:r=>demPrazoAtivo(r)||'9999',cell:r=>{const ps=demandaAtraso(r);const dataExib=r.status==='Entregue'?(r.entregueEm||r.prazo):demPrazoAtivo(r);return `<span style="color:${ps?(ps.cls==='atrasada'?'var(--red)':ps.cls==='hoje'?'var(--amber)':'var(--t2)'):'var(--t3)'};font-size:12px">${fmtD(dataExib)}${ps?' · '+ps.label:''}</span>`;}},
     {k:'status',l:'Status',def:1,get:r=>r.status||'',cell:r=>{const cor=DCOLORS[r.status]||'#6e6e6e';return `<span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor};font-size:10.5px">${r.status}</span>`;}},
     {k:'receita',l:'Receita',def:1,get:r=>r.receita||0,cell:r=>fmtBRL(r.receita)},
     {k:'custo',l:'Custo',def:0,get:r=>r.custo||0,cell:r=>fmtBRL(r.custo)},
@@ -1031,12 +1057,12 @@ function buildDashCtx(){
   const propAg=S.propostas.filter(p=>p.status==='Enviada');
   const demAbertas=S.demandas.filter(d=>d.status!=='Entregue');
   const mk=monthKey(todayStr());
-  const recMes=sum(S.fin.filter(f=>f.tipo==='receita'&&f.pago&&monthKey(f.data)===mk),f=>liq(f));
+  const recMes=sum(S.fin.filter(f=>f.tipo==='receita'&&f.pago&&mesRef(f)===mk),f=>liq(f));
   const despMes=sum(S.fin.filter(f=>f.tipo==='despesa'&&f.pago&&mesRef(f)===mk),f=>f.valor);
   const lucro=recMes-despMes;
   const quentes=abertos.filter(l=>l.temp==='quente');
-  const demsHoje=S.demandas.filter(d=>d.status!=='Entregue'&&d.prazo&&['atrasada','hoje'].includes(prazoStatus(d.prazo)?.cls))
-    .sort((a,b)=>(prazoStatus(a.prazo).cls==='atrasada'?0:1)-(prazoStatus(b.prazo).cls==='atrasada'?0:1));
+  const demsHoje=S.demandas.filter(d=>d.status!=='Entregue'&&demPrazoAtivo(d)&&['atrasada','hoje'].includes(prazoStatus(demPrazoAtivo(d))?.cls))
+    .sort((a,b)=>(prazoStatus(demPrazoAtivo(a)).cls==='atrasada'?0:1)-(prazoStatus(demPrazoAtivo(b)).cls==='atrasada'?0:1));
   const aReceber=sum(S.fin.filter(f=>f.tipo==='receita'&&!f.pago),f=>liq(f));
   const aPagar=sum(S.fin.filter(f=>f.tipo==='despesa'&&!f.pago),f=>f.valor);
   const tarefasPend=S.tasks.filter(t=>!['Concluída','Cancelada'].includes(t.status)).length;
@@ -1152,7 +1178,7 @@ function renderChartRD(){
   for(let i=5;i>=0;i--){const m=new Date(d);m.setMonth(m.getMonth()-i);months.push(m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0'));}
   const data=months.map(mk=>({
     mk,
-    rec:sum(S.fin.filter(f=>f.tipo==='receita'&&f.pago&&monthKey(f.data)===mk),f=>liq(f)),
+    rec:sum(S.fin.filter(f=>f.tipo==='receita'&&f.pago&&mesRef(f)===mk),f=>liq(f)),
     desp:sum(S.fin.filter(f=>f.tipo==='despesa'&&f.pago&&mesRef(f)===mk),f=>f.valor)
   }));
   const max=Math.max(1,...data.map(x=>Math.max(x.rec,x.desp)));
@@ -1204,7 +1230,7 @@ function renderMeuDiaInner(demsHoje){
     </div>
     <div>
       <div class="day-lbl">Demandas para hoje</div>
-      ${demsHoje.length?demsHoje.map(d=>{const ps=prazoStatus(d.prazo);return `<div class="dem-item"><div class="dem-dot ${ps.cls}"></div><div class="dem-body"><div class="dem-name">${esc(d.titulo)}</div><div class="dem-meta">${esc(d.cliente||'Sem cliente')} · ${esc(d.tipo)}</div></div><div class="dem-prazo ${ps.cls}">${ps.label}</div></div>`;}).join(''):'<div class="empty-msg">Nenhuma demanda com prazo para hoje.</div>'}
+      ${demsHoje.length?demsHoje.map(d=>{const ps=prazoStatus(demPrazoAtivo(d));return `<div class="dem-item"><div class="dem-dot ${ps.cls}"></div><div class="dem-body"><div class="dem-name">${esc(d.titulo)}</div><div class="dem-meta">${esc(d.cliente||'Sem cliente')} · ${esc(d.tipo)}</div></div><div class="dem-prazo ${ps.cls}">${ps.label}</div></div>`;}).join(''):'<div class="empty-msg">Nenhuma demanda com prazo para hoje.</div>'}
     </div>`;
 }
 function addQuickTask(){
@@ -1397,8 +1423,8 @@ function renderDemandas(c){
   const q=(S.q.dem||'').toLowerCase();const f=S.f.dem||{};
   let ds=S.demandas.filter(d=>
     (!q||[d.titulo,d.cliente,d.uid].join(' ').toLowerCase().includes(q))&&
-    (!f.cliente||d.cliente===f.cliente)&&(!f.tipo||d.tipo===f.tipo)&&(!f.status||d.status===f.status)&&matchPrazo(d.prazo,f.prazo,d.status==='Entregue'));
-  ds=[...ds].sort((a,b)=>{if(!a.prazo&&!b.prazo)return 0;if(!a.prazo)return 1;if(!b.prazo)return -1;return a.prazo.localeCompare(b.prazo);});
+    (!f.cliente||d.cliente===f.cliente)&&(!f.tipo||d.tipo===f.tipo)&&(!f.status||d.status===f.status)&&matchPrazo(demPrazoAtivo(d),f.prazo,d.status==='Entregue'));
+  ds=[...ds].sort((a,b)=>{const pa=demPrazoAtivo(a),pb=demPrazoAtivo(b);if(!pa&&!pb)return 0;if(!pa)return 1;if(!pb)return -1;return pa.localeCompare(pb);});
   const toolbar=`<div class="toolbar">
     <input class="search" placeholder="Buscar por título, cliente ou DEM-ID..." value="${esc(S.q.dem||'')}" oninput="S.q.dem=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">
     <select class="fsel" onchange="S.f.dem={...S.f.dem,cliente:this.value};render()"><option value="">Cliente: Todos</option>${clientes().map(cl=>`<option ${f.cliente===cl?'selected':''}>${cl}</option>`).join('')}</select>
@@ -1425,7 +1451,7 @@ function renderDemandas(c){
       <div class="card" style="padding:6px 20px;">${renderDataTable('demandas',applyTableSort('demandas',arr),demActs)}</div></div>`;
     }).join('')||'<div class="card"><div class="empty-msg">Nenhuma demanda encontrada.</div></div>';
   }else if(t==='porprazo'){
-    const buckets=prazoBuckets(ds,d=>d.prazo,d=>d.status==='Entregue');
+    const buckets=prazoBuckets(ds,d=>demPrazoAtivo(d),d=>d.status==='Entregue');
     b.innerHTML=toolbar+buckets.map(([nome,arr,cor])=>{
       if(!arr.length)return '';
       return `<div class="grp"><div class="grp-hd"><span class="grp-name" style="color:${cor||'var(--lx1)'}">${nome}</span><span class="grp-stat">${arr.length}</span></div>
@@ -1435,10 +1461,10 @@ function renderDemandas(c){
     b.innerHTML=toolbar+'<div class="board">'+DSTATUS.map(st=>{
       const arr=ds.filter(d=>d.status===st);const cor=DCOLORS[st]||'#6e6e6e';
       return `<div class="col" data-dg="demandas" data-dgval="${esc(st)}" style="min-width:280px;max-width:280px;"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span><span class="col-stat">${fmtBRL(sum(arr,d=>d.receita))}</span></div><div class="col-body">
-      ${arr.length?arr.map(d=>{const ps=d.prazo?prazoStatus(d.prazo):null;const fs=filhas(d.id);
+      ${arr.length?arr.map(d=>{const ps=demandaAtraso(d);const dataExib=d.status==='Entregue'?(d.entregueEm||d.prazo):demPrazoAtivo(d);const fs=filhas(d.id);
       return `<div class="kcard kc-tint" style="border-left-color:${DCOLORS[d.status]||'#6e6e6e'}" onpointerdown="dgDown(event,'demandas','${d.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(d.titulo)}</div></div><span class="bdg">${d.uid}</span></div>
       <div class="kc-sub">${esc(d.cliente||'Sem cliente')} · ${d.tipo}${fs.length?' · '+fs.length+' entregas':''}${d.maeId?' · filha':''}</div>
-      <div class="kc-ft"><div class="kc-val" style="color:${ps&&ps.cls==='atrasada'?'var(--red)':ps&&ps.cls==='hoje'?'var(--amber)':'var(--t2)'};font-size:11.5px">${d.prazo?fmtD(d.prazo)+(ps&&ps.cls!=='ok'?' · '+ps.label:''):'Sem prazo'}</div>
+      <div class="kc-ft"><div class="kc-val" style="color:${ps&&ps.cls==='atrasada'?'var(--red)':ps&&ps.cls==='hoje'?'var(--amber)':'var(--t2)'};font-size:11.5px">${dataExib?fmtD(dataExib)+(ps?' · '+ps.label:'')+(d.prazoAjuste&&d.status!=='Entregue'?' · ajuste':''):'Sem prazo'}</div>
       <div class="kc-acts"><button class="ibtn" onclick="openDem('${d.id}')">✎</button><button class="ibtn" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
     }).join('')+'</div>';
   }
@@ -1447,17 +1473,17 @@ function demActs(d){
   return `<button class="ibtn" onclick="openDem('${d.id}')">✎</button><button class="ibtn" title="avançar status" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button>`;
 }
 function demRow(d){
-  const ps=d.prazo?prazoStatus(d.prazo):null;const m=demMargem(d);const fs=filhas(d.id);
-  const scls=d.status==='Entregue'?'s-green':(ps&&ps.cls==='atrasada'?'s-red':d.status==='Em planejamento'?'s-gray':'s-amber');
+  const ps=demandaAtraso(d);const dataExib=d.status==='Entregue'?(d.entregueEm||d.prazo):demPrazoAtivo(d);const m=demMargem(d);const fs=filhas(d.id);
+  const scls=d.status==='Entregue'?(ps?'s-red':'s-green'):(ps&&ps.cls==='atrasada'?'s-red':d.status==='Em planejamento'?'s-gray':'s-amber');
   return `<tr><td><span class="bdg">${d.uid}</span></td>
   <td style="font-weight:500">${esc(d.titulo)}${fs.length?` <span class="bdg" title="entregas derivadas">${fs.length}▾</span>`:''}${d.maeId?' <span class="bdg">filha</span>':''}</td>
   <td style="color:var(--t2)">${esc(d.cliente)||'—'}</td><td><span class="bdg">${d.tipo}</span></td>
-  <td style="color:${ps?(ps.cls==='atrasada'?'var(--red)':ps.cls==='hoje'?'var(--amber)':'var(--t2)'):'var(--t3)'};font-size:12px">${fmtD(d.prazo)}${ps&&ps.cls==='atrasada'?' · '+ps.label:''}</td>
+  <td style="color:${ps?(ps.cls==='atrasada'?'var(--red)':ps.cls==='hoje'?'var(--amber)':'var(--t2)'):'var(--t3)'};font-size:12px">${fmtD(dataExib)}${ps?' · '+ps.label:''}</td>
   <td><span class="sdot ${scls}"></span><span style="font-size:12px;color:var(--t2)">${d.status}</span></td>
   <td>${fmtBRL(d.receita)}</td><td style="color:${m<0?'var(--red)':m>0?'var(--green)':'var(--t3)'}">${fmtBRL(m)}</td>
   <td><div class="tacts"><button class="ibtn" onclick="openDem('${d.id}')">✎</button><button class="ibtn" title="avançar status" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></td></tr>`;
 }
-function advDem(id){const d=S.demandas.find(x=>x.id===id);if(!d)return;const novo=DSTATUS[(DSTATUS.indexOf(d.status)+1)%DSTATUS.length];pushUndo('avançar '+d.uid+' para "'+novo+'"',['demandas']);d.status=novo;save();render();toast(d.uid+' → '+novo,'Desfazer','doUndo()',5000);}
+function advDem(id){const d=S.demandas.find(x=>x.id===id);if(!d)return;const novo=DSTATUS[(DSTATUS.indexOf(d.status)+1)%DSTATUS.length];pushUndo('avançar '+d.uid+' para "'+novo+'"',['demandas']);demTransicao(d,novo);save();render();toast(d.uid+' → '+novo,'Desfazer','doUndo()',5000);}
 function delDem(id){softDel('demandas',id);}
 function openDem(id){
   const d=id?S.demandas.find(x=>x.id===id):null;
@@ -1466,15 +1492,19 @@ function openDem(id){
     <div class="field"><label>Título</label><input id="m1" value="${esc(d?.titulo)}" placeholder="Ex: Editar 4 reels de julho"></div>
     <div class="f2"><div class="field"><label>Cliente</label><input id="m2" list="cl-list" value="${esc(d?.cliente)}"><datalist id="cl-list">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="field"><label>Tipo</label><select id="m3">${DTIPOS.map(t=>`<option ${d?.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
-    <div class="f2"><div class="field"><label>Prazo</label><input id="m4" type="date" value="${d?.prazo||''}"></div>
+    <div class="f2"><div class="field"><label>Prazo (V1)</label><input id="m4" type="date" value="${d?.prazo||''}"></div>
     <div class="field"><label>Status</label><select id="m5">${DSTATUS.map(t=>`<option ${d?.status===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+    <div class="f2"><div class="field"><label>Prazo de ajuste (revisão)</label><input id="m10" type="date" value="${d?.prazoAjuste||''}"></div>
+    <div class="field"><label>V1 entregue em</label><input id="m11" type="date" value="${d?.entregueV1Em||''}"></div></div>
+    <div class="field"><label>Entrega final em</label><input id="m12" type="date" value="${d?.entregueEm||''}"></div>
+    <div style="font-size:11px;color:var(--t3);margin-top:-4px;">"Prazo (V1)" é o prazo original. "Prazo de ajuste" vale a partir do momento que o cliente já recebeu a V1 — some o atraso de referência quando preenchido. As datas de entrega são carimbadas sozinhas ao avançar o status pela seta/arrastar, mas seguem editáveis aqui pra correção.</div>
     <div class="field"><label>Demanda mãe (sessão de captação)</label><select id="m6"><option value="">Nenhuma — esta é uma demanda independente/mãe</option>${maes.map(m=>`<option value="${m.id}" ${d?.maeId===m.id?'selected':''}>${m.uid} · ${esc(m.titulo)}</option>`).join('')}</select></div>
     <div class="f2"><div class="field"><label>Receita (R$)</label><input id="m7" type="number" step="0.01" value="${d?.receita??''}"></div>
     <div class="field"><label>Custo direto (R$)</label><input id="m8" type="number" step="0.01" value="${d?.custo??''}"></div></div>
     <div class="field"><label>Horas trabalhadas</label><input id="m9" type="number" step="0.5" value="${d?.horas??''}"></div>
     <div style="font-size:11px;color:var(--t3);margin-top:-4px;">Regra Lozy: custos de captação e horas na <b>mãe</b>; receita de edição em cada <b>filha</b> — evita duplicidade nos totais.</div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
-    const data={titulo:v('m1').trim(),cliente:v('m2').trim(),tipo:v('m3'),prazo:v('m4')||null,status:v('m5'),maeId:v('m6')||null,receita:Number(v('m7'))||0,custo:Number(v('m8'))||0,horas:Number(v('m9'))||0};
+    const data={titulo:v('m1').trim(),cliente:v('m2').trim(),tipo:v('m3'),prazo:v('m4')||null,status:v('m5'),prazoAjuste:v('m10')||null,entregueV1Em:v('m11')||null,entregueEm:v('m12')||null,maeId:v('m6')||null,receita:Number(v('m7'))||0,custo:Number(v('m8'))||0,horas:Number(v('m9'))||0};
     if(d)Object.assign(d,data);else S.demandas.push({id:uid('d'),uid:nextDemUid(),...data});
     save();closeModal();render();});
 }
@@ -1890,7 +1920,7 @@ function finVisaoMesReset(){delete S.f.finVisaoMes;render();}
 function finVisao(b){
   const mk=S.f.finVisaoMes||monthKey(todayStr());
   const isCur=mk===monthKey(todayStr());
-  const recMes=S.fin.filter(f=>f.tipo==='receita'&&monthKey(f.data)===mk);
+  const recMes=S.fin.filter(f=>f.tipo==='receita'&&mesRef(f)===mk);
   const despMes=S.fin.filter(f=>f.tipo==='despesa'&&mesRef(f)===mk);
   const recebido=sum(recMes.filter(f=>f.pago),f=>liq(f));
   const aReceber=sum(recMes.filter(f=>!f.pago),f=>liq(f));
@@ -2113,7 +2143,9 @@ function openLanc(tipo,id){
     <div class="field"><label>Data ${isRec?'(recebimento)':'(compra/vencimento)'}</label><input id="m3" type="date" value="${l?.data||todayStr()}"></div></div>
     ${isRec?`
     <div class="f2"><div class="field"><label>Tipo de receita</label><select id="m4">${RTIPOS.map(t=>`<option ${l?.tipoReceita===t?'selected':''}>${t}</option>`).join('')}</select></div>
-    <div class="field"><label>Alíquota (%)</label><input id="m5" type="number" step="0.01" value="${l?.aliquota??6}" placeholder="6"></div></div>`
+    <div class="field"><label>Alíquota (%)</label><input id="m5" type="number" step="0.01" value="${l?.aliquota??6}" placeholder="6"></div></div>
+    <div class="field"><label>Competência (mês do faturamento)</label><input id="m13" type="month" value="${l?.competencia||(l?.data?l.data.slice(0,7):monthKey(todayStr()))}"></div>
+    <div style="font-size:11px;color:var(--t3);margin-top:-4px;">Mês em que essa receita entra no P&L — pode ser diferente do mês da data de recebimento acima (ex: fechou em janeiro, vence em fevereiro).</div>`
     :`
     <div class="f2"><div class="field"><label>Categoria</label><select id="m4">${FCATS.map(t=>`<option ${l?.categoria===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div class="field"><label>Natureza</label><select id="m5">${NATUREZAS.map(t=>`<option ${l?.natureza===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
@@ -2127,7 +2159,7 @@ function openLanc(tipo,id){
   ()=>{const v=k=>document.getElementById(k)?.value;
     if(!v('m1').trim())return;
     const base={tipo,desc:v('m1').trim(),valor:Number(v('m2'))||0,data:v('m3'),forma:v('m6'),conta:v('m7'),cliente:v('m9').trim(),pago:document.getElementById('m10').checked};
-    if(isRec){base.tipoReceita=v('m4');base.aliquota=Number(v('m5'))||0;}
+    if(isRec){base.tipoReceita=v('m4');base.aliquota=Number(v('m5'))||0;base.competencia=v('m13')||monthKey(base.data);}
     else{base.categoria=v('m4');base.natureza=v('m5');base.mecanismo=v('m8');}
     if(l){Object.assign(l,base);}
     else if(!isRec&&base.mecanismo==='Parcelamento'&&Number(v('m11'))>1){
@@ -2349,7 +2381,7 @@ function renderCentral(c){
 }
 function mesTot(mk){
   return{
-    rec:sum(S.fin.filter(f=>f.tipo==='receita'&&f.pago&&monthKey(f.data)===mk),f=>liq(f)),
+    rec:sum(S.fin.filter(f=>f.tipo==='receita'&&f.pago&&mesRef(f)===mk),f=>liq(f)),
     desp:sum(S.fin.filter(f=>f.tipo==='despesa'&&f.pago&&mesRef(f)===mk),f=>f.valor)
   };
 }
@@ -2393,7 +2425,7 @@ function ceProducao(b){
   const atras=S.projetos.filter(p=>p.entrega&&p.fase!=='Entrega'&&prazoStatus(p.entrega)?.cls==='atrasada').length;
   const tkC=S.tasks.filter(t=>t.status==='Concluída').length;
   const tkP=S.tasks.length-tkC;
-  const demAtras=S.demandas.filter(d=>d.status!=='Entregue'&&d.prazo&&prazoStatus(d.prazo)?.cls==='atrasada').length;
+  const demAtras=S.demandas.filter(d=>d.status!=='Entregue'&&demPrazoAtivo(d)&&prazoStatus(demPrazoAtivo(d))?.cls==='atrasada').length;
   b.innerHTML=`<div class="g4">
     <div class="card"><div class="clabel">Projetos ativos</div><div class="metric">${S.projetos.filter(p=>p.fase!=='Entrega').length}</div></div>
     <div class="card"><div class="clabel">Concluídos</div><div class="metric">${concl}</div></div>
@@ -2410,7 +2442,7 @@ function ceFinanceiro(b){
   const mk=monthKey(todayStr());
   const rec=S.fin.filter(f=>f.tipo==='receita');
   const desp=S.fin.filter(f=>f.tipo==='despesa');
-  const recebido=sum(rec.filter(f=>f.pago&&monthKey(f.data)===mk),f=>liq(f));
+  const recebido=sum(rec.filter(f=>f.pago&&mesRef(f)===mk),f=>liq(f));
   const aReceber=sum(rec.filter(f=>!f.pago),f=>liq(f));
   const pago=sum(desp.filter(f=>f.pago&&mesRef(f)===mk),f=>f.valor);
   const aPagar=sum(desp.filter(f=>!f.pago),f=>f.valor);
@@ -2888,7 +2920,7 @@ function dgDrop(kind,id,alvo){
     const d=S.demandas.find(x=>x.id===id);
     if(!d||d.status===alvo)return;
     pushUndo('mover '+d.uid+' para "'+alvo+'"',['demandas']);
-    d.status=alvo;save();render();
+    demTransicao(d,alvo);save();render();
     toast(d.uid+' → '+alvo,'Desfazer','doUndo()',5000);
   }else if(kind==='tasks'){
     const t=S.tasks.find(x=>x.id===id);
@@ -3300,9 +3332,9 @@ function aiSnapshot(){
   return JSON.stringify({
     hoje:todayStr(),
     leads_abertos:S.leads.filter(l=>!['Fechado','Perdido'].includes(l.stage)).map(l=>({empresa:l.empresa,stage:l.stage,valor:l.valor,temp:l.temp})).slice(0,15),
-    demandas_abertas:S.demandas.filter(d=>d.status!=='Entregue').map(d=>({uid:d.uid,titulo:d.titulo,cliente:d.cliente,prazo:d.prazo,status:d.status})).slice(0,20),
+    demandas_abertas:S.demandas.filter(d=>d.status!=='Entregue').map(d=>({uid:d.uid,titulo:d.titulo,cliente:d.cliente,prazo:demPrazoAtivo(d),status:d.status})).slice(0,20),
     tarefas_pendentes:S.tasks.filter(t=>t.status!=='Concluída').map(t=>({titulo:t.titulo,prazo:t.prazo,prioridade:t.prioridade})).slice(0,15),
-    financeiro_mes:{recebido:sum(S.fin.filter(f=>f.tipo==='receita'&&f.pago&&monthKey(f.data)===mk),f=>liq(f)),pago:sum(S.fin.filter(f=>f.tipo==='despesa'&&f.pago&&mesRef(f)===mk),f=>f.valor),a_receber:sum(S.fin.filter(f=>f.tipo==='receita'&&!f.pago),f=>liq(f)),a_pagar:sum(S.fin.filter(f=>f.tipo==='despesa'&&!f.pago),f=>f.valor)},
+    financeiro_mes:{recebido:sum(S.fin.filter(f=>f.tipo==='receita'&&f.pago&&mesRef(f)===mk),f=>liq(f)),pago:sum(S.fin.filter(f=>f.tipo==='despesa'&&f.pago&&mesRef(f)===mk),f=>f.valor),a_receber:sum(S.fin.filter(f=>f.tipo==='receita'&&!f.pago),f=>liq(f)),a_pagar:sum(S.fin.filter(f=>f.tipo==='despesa'&&!f.pago),f=>f.valor)},
     eventos_semana:S.eventos.filter(e=>weekDays().map(dstr).includes(e.data)).map(e=>({titulo:e.titulo,data:e.data,h:e.hIni})),
     projetos:S.projetos.map(p=>({nome:p.nome,fase:p.fase})).slice(0,12)
   });
@@ -3343,7 +3375,7 @@ async function aiSend(){
       else if(a.type==='addDemanda'){S.demandas.push({id:uid('d'),uid:nextDemUid(),titulo:a.titulo,cliente:a.cliente||'',tipo:a.tipo||'Edição',status:DSTATUS[0],prazo:a.prazo||null,maeId:null,receita:0,custo:0,horas:0});feitos.push('demanda "'+a.titulo+'"');}
       else if(a.type==='addLead'){S.leads.push({id:uid('l'),empresa:a.empresa,contato:a.contato||'',valor:Number(a.valor)||0,origem:'Lozy AI',temp:a.temp||'morno',stage:'Novo Lead',segmento:'',cidade:'',proxAcao:'',proxData:null});feitos.push('lead "'+a.empresa+'"');}
       else if(a.type==='addEvento'){S.eventos.push({id:uid('e'),titulo:a.titulo,tipo:a.tipo||'Reunião',data:a.data||todayStr(),hIni:a.hIni||'09:00',hFim:a.hFim||'',local:''});feitos.push('evento "'+a.titulo+'"');}
-      else if(a.type==='addReceita'){S.fin.push({id:uid('f'),tipo:'receita',desc:a.desc,valor:Number(a.valor)||0,data:a.data||todayStr(),tipoReceita:'Extra',aliquota:Number(a.aliquota)||6,forma:'PIX',conta:'Conta PJ',cliente:a.cliente||'',pago:false});feitos.push('receita "'+a.desc+'"');}
+      else if(a.type==='addReceita'){const _data=a.data||todayStr();S.fin.push({id:uid('f'),tipo:'receita',desc:a.desc,valor:Number(a.valor)||0,data:_data,competencia:a.competencia||monthKey(_data),tipoReceita:'Extra',aliquota:Number(a.aliquota)||6,forma:'PIX',conta:'Conta PJ',cliente:a.cliente||'',pago:false});feitos.push('receita "'+a.desc+'"');}
       else if(a.type==='addDespesa'){S.fin.push({id:uid('f'),tipo:'despesa',desc:a.desc,valor:Number(a.valor)||0,data:a.data||todayStr(),categoria:a.categoria||'Outros',natureza:'Variável',mecanismo:'À vista',forma:'PIX',conta:'Conta PJ',cliente:'',pago:false});feitos.push('despesa "'+a.desc+'"');}
     });
     if(feitos.length){save();render();aiMsg('sys','✓ Criado: '+feitos.join(', '));}

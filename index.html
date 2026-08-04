@@ -616,6 +616,7 @@ projetos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-widt
 agenda:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
 financeiro:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V10M10 19V5M16 19v-6M21 19H3"/></svg>',
 propostas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 13h6M10 16.5h6"/></svg>',
+calculadora:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 8h8M8 12.5h.01M12 12.5h.01M16 12.5h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>',
 contratos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10" width="15" height="10.5" rx="2.5"/><path d="M8 10V7.5a4 4 0 018 0V10"/></svg>',
 ajustes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h.01a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
 central:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 3"/></svg>',
@@ -632,6 +633,7 @@ const SECTIONS=[
 {id:'agenda',label:'Agenda',sub:'Reuniões, gravações e entregas',ready:true},
 {id:'financeiro',label:'Financeiro',sub:'Faturamento, lucro e fluxo',ready:true},
 {id:'propostas',label:'Propostas',sub:'Criadas, enviadas e aprovadas',ready:true},
+{id:'calculadora',label:'Calculadora',sub:'Orçamentos com a regra oficial Lozy',ready:true},
 {id:'contratos',label:'Contratos',sub:'Documentos por cliente',ready:false,desc:'Cofre de documentos por cliente, com dados de PF e PJ para geração de contratos. Próximo módulo da fila.'},
 {id:'central',label:'Centro Estratégico',sub:'Sua operação está saudável?',ready:true},
 {id:'lixeira',label:'Lixeira',sub:'Tudo que você excluiu nos últimos 30 dias',ready:true},
@@ -663,19 +665,141 @@ const PRESETS=[
 {n:'Aftermovie (evento)',v:380},{n:'Versão extra em outro formato',v:80},{n:'Revisão extra',v:80},
 {n:'Tratamento de fotos (até 30)',v:200},{n:'Bloco adicional de 30 fotos',v:180}];
 
+/* ═══ CALCULADORA — MOTOR DE PRECIFICAÇÃO OFICIAL LOZY ═══
+   Implementa as regras do documento "Calculadora de Orçamento e Modelo de
+   Precificação". Duas leituras que o documento não deixa 100% explícitas —
+   assumidas abaixo, revisar com uso real e ajustar se necessário:
+   1) O acréscimo de "vídeo + fotos" (+50%) incide sobre o valor de serviço
+      da captação JÁ COM o desconto de múltiplas diárias aplicado.
+   2) Em "Captação complexa", a base é a tabela "Simples" na duração
+      escolhida, somada aos custos extras informados (equipe/equipamento). */
+function captTierValor(tab,horas,horaExtra){
+  if(!tab||!tab.tiers.length)return 0;
+  const tiers=[...tab.tiers].sort((a,b)=>a.h-b.h);
+  if(horas<=tiers[0].h)return tiers[0].v;
+  const exact=tiers.find(t=>t.h===horas);
+  if(exact)return exact.v;
+  const acima=tiers.find(t=>t.h>horas); /* durações intermediárias arredondam pra faixa acima */
+  if(acima)return acima.v;
+  const top=tiers[tiers.length-1];
+  return top.v+(horas-top.h)*horaExtra; /* acima do teto: hora extra */
+}
+function calcCaptacao(cfg,inp){
+  const c=cfg.capt;
+  let unit;
+  if(inp.tabelaId==='complexa'){
+    const base=c.tabs.find(t=>t.id==='simples');
+    unit=captTierValor(base,inp.horas,c.horaExtra)+Number(inp.complexaExtra||0);
+  }else{
+    const tab=c.tabs.find(t=>t.id===inp.tabelaId)||c.tabs[0];
+    unit=captTierValor(tab,inp.horas,c.horaExtra);
+  }
+  unit=Math.max(unit,c.minimo);
+  const diarias=Math.max(1,Number(inp.diarias)||1);
+  const servicoBase=unit*diarias;
+  const descMulti=diarias>=c.descMultiDiarias.min?servicoBase*c.descMultiDiarias.pct/100:0;
+  const servicoPosDesc=servicoBase-descMulti;
+  const acrescVideoFotos=inp.videoMaisFotos?servicoPosDesc*c.videoMaisFotosPct/100:0;
+  const servicoFinal=servicoPosDesc+acrescVideoFotos;
+  let fotosCusto=0;
+  if(inp.videoMaisFotos&&Number(inp.fotosQtd)>0){
+    const extra=Math.max(0,Number(inp.fotosQtd)-c.fotos.base);
+    const blocos=Math.ceil(extra/c.fotos.bloco);
+    fotosCusto=c.fotos.valorBase+blocos*c.fotos.valorBloco;
+  }
+  const deslocKm=Number(inp.deslocKm)||0,deslocHoras=Number(inp.deslocHoras)||0;
+  const desloc=(deslocKm||deslocHoras)?(Math.ceil(deslocKm/c.desloc.kmFaixa)*c.desloc.valorFaixa+deslocHoras*c.desloc.valorHora)*diarias:0;
+  const total=servicoFinal+fotosCusto+desloc;
+  return{unit,diarias,servicoBase,descMulti,acrescVideoFotos,servicoFinal,fotosCusto,desloc,total,aPartir:inp.tabelaId==='complexa'};
+}
+function edicaoVolumeTier(cfg,qtd){return cfg.edicao.volDesc.find(v=>qtd>=v.min&&qtd<=v.max)||null;}
+function calcEdicaoItem(cfg,it){
+  const e=cfg.edicao;
+  const qtd=Math.max(1,Number(it.qtd)||1);
+  const isPacote=it.tipo!=='aftermovie'&&qtd>=e.minPacote;
+  let unitBase;
+  if(it.tipo==='aftermovie')unitBase=e.unit.aftermovie;
+  else if(isPacote)unitBase=it.tipo==='simples'?e.unit.pacoteSimples:e.unit.pacoteDinamico;
+  else unitBase=it.tipo==='simples'?e.unit.pontualSimples:e.unit.pontualDinamico;
+  const durSeg=Number(it.duracaoSeg)||60;
+  if(durSeg>300)return{manual:true,motivo:'Duração acima de 5min — orçar manualmente.',ref:it};
+  const durTier=e.durMult.find(d=>durSeg<=d.max)||e.durMult[e.durMult.length-1];
+  let unit=unitBase*durTier.mult;
+  let volPct=0;
+  if(!isPacote&&it.tipo!=='aftermovie'){
+    const tier=edicaoVolumeTier(cfg,qtd);
+    if(tier){
+      volPct=tier.pct;
+      const pacoteUnit=(it.tipo==='simples'?e.unit.pacoteSimples:e.unit.pacoteDinamico)*durTier.mult;
+      unit=Math.max(unit*(1-volPct/100),pacoteUnit); /* desconto nunca derruba abaixo do preço de pacote */
+    }
+  }
+  let subtotal=Math.max(unit*qtd,e.minimo); /* mínimo vale sobre o pedido, não sobre o unitário — não pode inflar o preço de pacote */
+  const prazoPadrao=Math.max(e.urg.minDias,e.urg.porVideoDias*qtd);
+  let acrescUrg=0,urgTipo=null;
+  if(it.sameDay){acrescUrg=subtotal*(e.urg.sameDayMult-1);urgTipo='same-day';}
+  else if(it.prazoDesejadoDias&&it.prazoDesejadoDias<prazoPadrao){acrescUrg=subtotal*e.urg.acrescimoPct/100;urgTipo='urgencia';}
+  subtotal+=acrescUrg;
+  const extras=(Number(it.versoesExtra)||0)*e.versaoExtra+(Number(it.revisoesExtra)||0)*e.revisaoExtra;
+  subtotal+=extras;
+  return{manual:false,unit,qtd,isPacote,volPct,durMult:durTier.mult,prazoPadrao,acrescUrg,urgTipo,extras,subtotal,ref:it};
+}
+function calcEdicao(cfg,itens){
+  const linhas=(itens||[]).map(it=>calcEdicaoItem(cfg,it));
+  const manual=linhas.some(l=>l.manual);
+  const total=manual?0:linhas.reduce((a,l)=>a+l.subtotal,0);
+  return{linhas,manual,total};
+}
+function calcOrcamento(cfg,w){
+  const capt=w.escopo!=='edicao'&&w.capt?calcCaptacao(cfg,w.capt):null;
+  const edicao=w.escopo!=='captacao'?calcEdicao(cfg,w.edicaoItens||[]):null;
+  const servCapt=capt?capt.total-capt.desloc:0;
+  const servEdi=edicao&&!edicao.manual?edicao.total:0;
+  const servicoTotal=servCapt+servEdi;
+  const descPct=Number(w.descontoPct)||0;
+  const desconto=servicoTotal*descPct/100;
+  const deslocTotal=(capt?capt.desloc:0)+Number(w.deslocExtra||0);
+  const total=servicoTotal-desconto+deslocTotal;
+  return{capt,edicao,servCapt,servEdi,servicoTotal,desconto,deslocTotal,total};
+}
+
 /* ═══ SEED (migração Central Lozy → Notion, jul/2026) ═══ */
 const SEED3={"parc":[{"id":"np_g916","grupoId":"g916","nome":"Cadeira DT3","nParcelas":12,"valorTotal":2789.99,"primeira":"2025-07-01","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_g108","grupoId":"g108","nome":"SSD","nParcelas":13,"valorTotal":819.0,"primeira":"2025-09-01","categoria":"Equipamentos","conta":"BTG","natureza":"Fixo"},{"id":"np_g924","grupoId":"g924","nome":"Kit Iluminação","nParcelas":12,"valorTotal":948.52,"primeira":"2025-10-01","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_g52a","grupoId":"g52a","nome":"Ulanzi Luz 120w","nParcelas":12,"valorTotal":523.99,"primeira":"2025-10-06","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_gfa7","grupoId":"gfa7","nome":"Microfone Comica","nParcelas":12,"valorTotal":1037.52,"primeira":"2025-10-27","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_gc9d","grupoId":"gc9d","nome":"SSD 2","nParcelas":12,"valorTotal":1330.0,"primeira":"2025-11-03","categoria":"Equipamentos","conta":"BTG","natureza":"Fixo"},{"id":"np_g036","grupoId":"g036","nome":"Teleprompter","nParcelas":12,"valorTotal":606.89,"primeira":"2025-11-12","categoria":"Equipamentos","conta":"BTG","natureza":"Fixo"},{"id":"np_g9ec","grupoId":"g9ec","nome":"Brands Decoded IA","nParcelas":12,"valorTotal":313.32,"primeira":"2025-11-15","categoria":"Softwares","conta":"BTG","natureza":"Fixo"},{"id":"np_g6d7","grupoId":"g6d7","nome":"Lanterna Ulanzi","nParcelas":6,"valorTotal":452.94,"primeira":"2025-12-28","categoria":"Equipamentos","conta":"BTG","natureza":"Fixo"},{"id":"np_gda3","grupoId":"gda3","nome":"Kit Monitor Câmera","nParcelas":10,"valorTotal":1587.8,"primeira":"2026-02-22","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_g8da","grupoId":"g8da","nome":"Tripé KF","nParcelas":12,"valorTotal":708.6,"primeira":"2026-04-01","categoria":"Equipamentos","conta":"BTG","natureza":"Fixo"},{"id":"np_gc23","grupoId":"gc23","nome":"Calça Zara","nParcelas":3,"valorTotal":279.54,"primeira":"2026-05-01","categoria":"Outros","conta":"BTG","natureza":"Fixo"},{"id":"np_gabf","grupoId":"gabf","nome":"Carregador Portátil","nParcelas":10,"valorTotal":294.2,"primeira":"2026-05-05","categoria":"Equipamentos","conta":"BTG","natureza":"Fixo"},{"id":"np_g02a","grupoId":"g02a","nome":"Tilta Handles Câmera","nParcelas":10,"valorTotal":600.76,"primeira":"2026-06-01","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_gacd","grupoId":"gacd","nome":"Cage + SSD","nParcelas":10,"valorTotal":1711.99,"primeira":"2026-06-01","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_gaf7","grupoId":"gaf7","nome":"Leitor de Cartão CF","nParcelas":10,"valorTotal":441.38,"primeira":"2026-06-04","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_g5a1","grupoId":"g5a1","nome":"Coisas Mac & Iphone","nParcelas":2,"valorTotal":158.58,"primeira":"2026-07-01","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_g12e","grupoId":"g12e","nome":"Coisas Iphone & Mac 2","nParcelas":3,"valorTotal":133.99,"primeira":"2026-07-01","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"},{"id":"np_g911","grupoId":"g911","nome":"Capinhas Macbooks","nParcelas":6,"valorTotal":195.6,"primeira":"2026-07-01","categoria":"Equipamentos","conta":"Nubank","natureza":"Fixo"}],"assin":[{"id":"na1","nome":"Canva","valor":47,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na2","nome":"Claude","valor":120,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na3","nome":"Apple Icloud","valor":70,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na4","nome":"Contador","valor":250,"tipo":"Monthly","categoria":"Operação","conta":"Conta PJ","ativo":true},{"id":"na5","nome":"Capcut","valor":35,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na6","nome":"Notion","valor":65,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na7","nome":"Telefone Vivo","valor":60,"tipo":"Monthly","categoria":"Operação","conta":"BTG","ativo":true},{"id":"na8","nome":"Google Workspace","valor":50,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na9","nome":"Captions","valor":50,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na10","nome":"Adobe","valor":55,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na11","nome":"Higgsfield AI","valor":80,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na12","nome":"Google Drive","valor":50,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na13","nome":"Chat GPT","valor":45,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true},{"id":"na14","nome":"Artlist","valor":85,"tipo":"Monthly","categoria":"Softwares","conta":"BTG","ativo":true}]};
 const SEED2={"tasks":[{"id":"nt1","titulo":"Planejamento Financeiro","prioridade":"Alta","status":"Em andamento","prazo":"2026-07-08","area":"Financeiro","cliente":"Lozy Creative","demandaId":null},{"id":"nt2","titulo":"Frames dos nossos vídeos","prioridade":"Média","status":"A fazer","prazo":"2026-07-13","area":"Marketing Lozy","cliente":"Lozy Creative","demandaId":null},{"id":"nt3","titulo":"Site","prioridade":"Alta","status":"Em pausa","prazo":"2026-07-13","area":"Comercial","cliente":"Lozy Creative","demandaId":null},{"id":"nt4","titulo":"Apresentação & Valores","prioridade":"Alta","status":"Em pausa","prazo":"2026-07-08","area":"Comercial","cliente":"Lozy Creative","demandaId":null},{"id":"nt5","titulo":"Pagar Duda","prioridade":"Alta","status":"Concluída","prazo":"2026-07-10","area":"Financeiro","cliente":"Lozy Creative","demandaId":null},{"id":"nt6","titulo":"Estudo de cenário","prioridade":"Alta","status":"Cancelada","prazo":"2026-06-25","area":"P/ Clientes","cliente":"Jarbot Seguros","demandaId":null},{"id":"nt7","titulo":"Emitir Nota Fiscal","prioridade":"Alta","status":"Concluída","prazo":"2026-06-22","area":"Financeiro","cliente":"Dr. Rafael Ultramar","demandaId":null},{"id":"nt8","titulo":"Emitir Nota Fiscal","prioridade":"Alta","status":"Concluída","prazo":"2026-06-22","area":"Financeiro","cliente":"Dr. Arthur","demandaId":null},{"id":"nt9","titulo":"BACKUP TUDO","prioridade":"Alta","status":"A fazer","prazo":"2026-06-18","area":"Operacional","cliente":"Lozy Creative","demandaId":null},{"id":"nt10","titulo":"Validação Tabelas Financeiras","prioridade":"Alta","status":"Concluída","prazo":"2026-06-15","area":"Financeiro","cliente":"Lozy Creative","demandaId":null},{"id":"nt11","titulo":"Seguro Equipamentos","prioridade":"Alta","status":"Concluída","prazo":"2026-06-19","area":"Operacional","cliente":"Lozy Creative","demandaId":null},{"id":"nt12","titulo":"Proposta Hamburgueria Bruno","prioridade":"Baixa","status":"Concluída","prazo":"2026-06-08","area":"Comercial","cliente":"Dog da Vila","demandaId":null},{"id":"nt13","titulo":"Proposta Marina Duarte - Troféu Brasil","prioridade":"Alta","status":"Cancelada","prazo":"2026-06-05","area":"Comercial","cliente":"Marina Duarte","demandaId":null},{"id":"nt14","titulo":"Proposta Podcast Guilherme","prioridade":"Alta","status":"Concluída","prazo":"2026-06-03","area":"Comercial","cliente":"Indefinido","demandaId":null},{"id":"nt15","titulo":"Proposta Up & Gas","prioridade":"Alta","status":"Concluída","prazo":"2026-06-03","area":"Comercial","cliente":"Up & Gas","demandaId":null},{"id":"nt16","titulo":"Proposta Jarbot Seguros","prioridade":"Alta","status":"Concluída","prazo":"2026-06-03","area":"Comercial","cliente":"Jarbot Seguros","demandaId":null},{"id":"nt17","titulo":"Chamada Natural Tech","prioridade":"Alta","status":"Concluída","prazo":"2026-06-01","area":"Marketing Lozy","cliente":"Lozy Creative","demandaId":null},{"id":"nt18","titulo":"Configuração Google Calendar","prioridade":"Média","status":"Concluída","prazo":null,"area":"Atendimento","cliente":"Lozy Creative","demandaId":null},{"id":"nt19","titulo":"Técnicas de Agilidade e Organização","prioridade":"Média","status":"Cancelada","prazo":null,"area":"Operacional","cliente":"Lozy Creative","demandaId":null},{"id":"nt20","titulo":"Conversar com Gui","prioridade":"Alta","status":"Concluída","prazo":"2026-05-27","area":"Operacional","cliente":"Lozy Creative","demandaId":null},{"id":"nt21","titulo":"Conversar com Contador","prioridade":"Média","status":"Concluída","prazo":"2026-05-27","area":"Financeiro","cliente":"Lozy Creative","demandaId":null},{"id":"nt22","titulo":"Conversar com Odara Hub","prioridade":"Alta","status":"Concluída","prazo":"2026-05-27","area":"Atendimento","cliente":"Odara Hub","demandaId":null},{"id":"nt23","titulo":"Briefing Clientes - Revisar","prioridade":"Alta","status":"Em pausa","prazo":"2026-06-01","area":"Atendimento","cliente":"Lozy Creative","demandaId":null},{"id":"nt24","titulo":"Entender mercado médico","prioridade":"Média","status":"Cancelada","prazo":null,"area":"Comercial","cliente":"Lozy Creative","demandaId":null},{"id":"nt25","titulo":"Métricas Relevantes","prioridade":"Alta","status":"Em andamento","prazo":null,"area":"Financeiro","cliente":"Lozy Creative","demandaId":null},{"id":"nt26","titulo":"Posicionamento da Agência","prioridade":"Alta","status":"A fazer","prazo":null,"area":"Marketing Lozy","cliente":"Lozy Creative","demandaId":null},{"id":"nt27","titulo":"Armazenamento Drive","prioridade":"Média","status":"Cancelada","prazo":"2026-05-29","area":"Operacional","cliente":"Lozy Creative","demandaId":null},{"id":"nt28","titulo":"Monitorar Ads Médicos","prioridade":"Baixa","status":"Concluída","prazo":"2026-06-05","area":"Marketing Lozy","cliente":"Lozy Creative","demandaId":null},{"id":"nt29","titulo":"Disponibilizar material Dra. Larissa","prioridade":"Média","status":"Concluída","prazo":"2026-05-25","area":"Operacional","cliente":"Dra. Larissa Prioli","demandaId":null},{"id":"nt30","titulo":"Converter e Subir SLOG3 para o Caue Editor","prioridade":"Alta","status":"Concluída","prazo":null,"area":"Operacional","cliente":"Longevitar","demandaId":null},{"id":"nt31","titulo":"Elaborar Contrato","prioridade":"Média","status":"Cancelada","prazo":null,"area":"Legal","cliente":"Longevitar","demandaId":null},{"id":"nt32","titulo":"Template Contratos","prioridade":"Alta","status":"Em pausa","prazo":"2026-05-29","area":"Legal","cliente":"Lozy Creative","demandaId":null},{"id":"nt33","titulo":"Pensar em alguém para fazer parte da Lozy","prioridade":"Alta","status":"Cancelada","prazo":"2026-05-29","area":"Comercial","cliente":"Lozy Creative","demandaId":null},{"id":"nt34","titulo":"Abrir Conta PJ","prioridade":"Alta","status":"Concluída","prazo":"2026-05-29","area":"Financeiro","cliente":"Lozy Creative","demandaId":null},{"id":"nt35","titulo":"Responder Editores Instagram","prioridade":"Alta","status":"Concluída","prazo":"2026-05-22","area":"Operacional","cliente":"Lozy Creative","demandaId":null},{"id":"nt36","titulo":"Emitir NF - Longevitar 18/05/2026","prioridade":"Alta","status":"Concluída","prazo":"2026-05-22","area":"Financeiro","cliente":"Longevitar","demandaId":null},{"id":"nt37","titulo":"Fechamento Maio","prioridade":"Alta","status":"Cancelada","prazo":null,"area":"Financeiro","cliente":"Lozy Creative","demandaId":null},{"id":"nt38","titulo":"Converter e subir SLOG3 - Rec.709","prioridade":"Média","status":"Concluída","prazo":"2026-05-22","area":"Operacional","cliente":"Dot Energy","demandaId":null}],"cbase":[{"id":"nc1","nome":"In Community","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc2","nome":"Longevitar","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc3","nome":"Agência Nova Dimensão","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc4","nome":"Dot Energy","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc5","nome":"Dra. Larissa Prioli","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc6","nome":"Dr. Augusto","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc7","nome":"Nutri João Malta","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc8","nome":"Lozy Creative","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc9","nome":"João Druzian","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc10","nome":"Bells","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc11","nome":"Odara Hub","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc12","nome":"Jarbot Seguros","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc13","nome":"Up & Gas","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc14","nome":"Marina Duarte","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc15","nome":"Indefinido","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc16","nome":"Dog da Vila","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc17","nome":"Dr. Arthur","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc18","nome":"Zuzzi Drinks","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc19","nome":"Dr. Rafael Ultramar","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc20","nome":"Bruno Polhmann","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc21","nome":"Dr. José Mario Arouca","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc22","nome":"YouFight","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc23","nome":"On Air","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc24","nome":"Dra. Isabelli Orletti","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc25","nome":"Dr. Guilherme Sá (Capilar)","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc26","nome":"Ju Naomi","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc27","nome":"Thomas Ruegg","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc28","nome":"Renato Buratto","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""},{"id":"nc29","nome":"Camila Bevilacqua","email":"","tel":"","instagram":"","segmento":"","cidade":"","notas":""}]};
 const SEED={"demandas":[{"id":"nd1","uid":"DEM-001","titulo":"Reel - Fresh ou Azedinho?","cliente":"Dot Energy","tipo":"Reel","status":"Entregue","prazo":"2026-06-01","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd5","uid":"DEM-005","titulo":"Reel - Mini Lipo","cliente":"Dra. Larissa Prioli","tipo":"Reel","status":"Entregue","prazo":"2026-05-22","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd6","uid":"DEM-006","titulo":"Brutos - Genesys Med","cliente":"Agência Nova Dimensão","tipo":"Brutos","status":"Entregue","prazo":"2026-05-20","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd7","uid":"DEM-007","titulo":"Podcast - Wellness Travel","cliente":"Longevitar","tipo":"Podcast","status":"Entregue","prazo":"2026-05-25","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd8","uid":"DEM-008","titulo":"Podcast - Claudia Cadivel","cliente":"Longevitar","tipo":"Podcast","status":"Entregue","prazo":"2026-05-27","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd9","uid":"DEM-009","titulo":"Podcast - Sustentabilidade Weleda","cliente":"Longevitar","tipo":"Podcast","status":"Entregue","prazo":"2026-05-27","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd10","uid":"DEM-010","titulo":"Criativo - Apresentação","cliente":"Nutri João Malta","tipo":"Tráfego","status":"Entregue","prazo":"2026-05-22","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd11","uid":"DEM-011","titulo":"Reel - Camara Hiperbarica","cliente":"Dr. Augusto","tipo":"Reel","status":"Entregue","prazo":"2026-05-23","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd13","uid":"DEM-013","titulo":"Tráfego - Chamada Médicos","cliente":"Lozy Creative","tipo":"Tráfego","status":"Entregue","prazo":"2026-05-25","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd14","uid":"DEM-014","titulo":"Brutos - Bells Day","cliente":"Bells","tipo":"Brutos","status":"Entregue","prazo":null,"maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd15","uid":"DEM-015","titulo":"Brutos - Treino Hyrox","cliente":"João Druzian","tipo":"Brutos","status":"Entregue","prazo":"2026-05-24","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd16","uid":"DEM-016","titulo":"Fotos - Treino Hyrox","cliente":"João Druzian","tipo":"Fotos","status":"Entregue","prazo":"2026-05-24","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd17","uid":"DEM-017","titulo":"Fotos - Bells Day","cliente":"Bells","tipo":"Fotos","status":"Entregue","prazo":"2026-05-24","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd18","uid":"DEM-018","titulo":"Reel - Mistura de Sabores","cliente":"Dot Energy","tipo":"Reel","status":"Entregue","prazo":"2026-06-01","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd19","uid":"DEM-019","titulo":"Reel - Creators Day BTS","cliente":"Dot Energy","tipo":"Reel","status":"Entregue","prazo":"2026-06-01","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd20","uid":"DEM-020","titulo":"Reel - O Melhor Sabor da Dot até Hoje","cliente":"Dot Energy","tipo":"Reel","status":"Entregue","prazo":"2026-06-03","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd21","uid":"DEM-021","titulo":"Youtube - 140km Pedro Nogueira - Parte 1","cliente":"In Community","tipo":"Youtube","status":"Entregue","prazo":"2026-06-01","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd22","uid":"DEM-022","titulo":"Reels - Evento Wellness Bazaar","cliente":"Longevitar","tipo":"Reel","status":"Entregue","prazo":"2026-05-29","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd23","uid":"DEM-023","titulo":"Brutos - INVOGA","cliente":"Dr. Arthur","tipo":"Brutos","status":"Entregue","prazo":"2026-06-10","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd24","uid":"DEM-024","titulo":"Reels - Naturaltech & Longevitar","cliente":"Longevitar","tipo":"Reel","status":"Entregue","prazo":"2026-06-12","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd25","uid":"DEM-025","titulo":"Brutos - Naturaltech","cliente":"Longevitar","tipo":"Brutos","status":"Entregue","prazo":"2026-06-11","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd26","uid":"DEM-026","titulo":"Reel - BYD Atto 2","cliente":"João Druzian","tipo":"Publicidade","status":"Entregue","prazo":"2026-06-11","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd27","uid":"DEM-027","titulo":"Brutos - Zuzzi Naturaltech","cliente":"Zuzzi Drinks","tipo":"Cobertura","status":"Entregue","prazo":"2026-06-13","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd28","uid":"DEM-028","titulo":"Brutos - Dot Energy Naturaltech","cliente":"Dot Energy","tipo":"Cobertura","status":"Entregue","prazo":"2026-06-13","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd29","uid":"DEM-029","titulo":"Reels - Cirurgia Capilar","cliente":"Dr. Rafael Ultramar","tipo":"Reel","status":"Entregue","prazo":"2026-06-19","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd30","uid":"DEM-030","titulo":"Reels - Dra. Brunella - Dia em SP","cliente":"Dr. Rafael Ultramar","tipo":"Reel","status":"Entregue","prazo":"2026-06-19","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd31","uid":"DEM-031","titulo":"Brutos - FUE Talks ft. Dra. Brunella","cliente":"Dr. Rafael Ultramar","tipo":"Brutos","status":"Entregue","prazo":"2026-06-19","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd32","uid":"DEM-032","titulo":"Brutos - Gabriel Duran","cliente":"In Community","tipo":"Brutos","status":"Entregue","prazo":"2026-06-22","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd33","uid":"DEM-033","titulo":"Brutos - Bruno Polhmann Hyrox","cliente":"Bruno Polhmann","tipo":"Brutos","status":"Entregue","prazo":"2026-06-26","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd34","uid":"DEM-034","titulo":"Brutos - Clínica Arouca","cliente":"Dr. José Mario Arouca","tipo":"Brutos","status":"Entregue","prazo":"2026-06-24","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd35","uid":"DEM-035","titulo":"Fotos - Clínica Arouca","cliente":"Dr. José Mario Arouca","tipo":"Fotos","status":"Entregue","prazo":"2026-06-24","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd36","uid":"DEM-036","titulo":"Roteiros - Conteúdos p/ Gravação","cliente":"Jarbot Seguros","tipo":"Tráfego","status":"Entregue","prazo":"2026-06-25","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd42","uid":"DEM-042","titulo":"Reels - YouFight & CHSM","cliente":"YouFight","tipo":"Reel","status":"Entregue","prazo":"2026-06-29","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd44","uid":"DEM-044","titulo":"Youtube - Pedro Nogueira IN","cliente":"In Community","tipo":"Youtube","status":"Entregue","prazo":"2026-06-30","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd45","uid":"DEM-045","titulo":"Reels - João Druzian & Foxton","cliente":"João Druzian","tipo":"Publicidade","status":"Entregue","prazo":"2026-06-29","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd46","uid":"DEM-046","titulo":"Reels - João Druzian Corrida Seara","cliente":"João Druzian","tipo":"Publicidade","status":"Entregue","prazo":"2026-06-28","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd47","uid":"DEM-047","titulo":"Fotos - Bells Day NUX","cliente":"Bells","tipo":"Fotos","status":"Entregue","prazo":"2026-06-30","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd48","uid":"DEM-048","titulo":"Brutos - Bells Day NUX","cliente":"Bells","tipo":"Brutos","status":"Entregue","prazo":"2026-06-30","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd49","uid":"DEM-049","titulo":"Brutos - YouSmile Santo Amaro","cliente":"YouFight","tipo":"Brutos","status":"Entregue","prazo":"2026-07-01","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd50","uid":"DEM-050","titulo":"Fotos - On Air Day","cliente":"On Air","tipo":"Fotos","status":"Entregue","prazo":"2026-07-01","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd52","uid":"DEM-052","titulo":"Reels - “On Air” Ligação","cliente":"On Air","tipo":"Reel","status":"Entregue","prazo":"2026-07-03","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd53","uid":"DEM-053","titulo":"Reels - “3 Razões”","cliente":"On Air","tipo":"Reel","status":"Entregue","prazo":"2026-07-03","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd54","uid":"DEM-054","titulo":"Reels - Influenciadoras","cliente":"On Air","tipo":"Reel","status":"Entregue","prazo":"2026-07-03","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd55","uid":"DEM-055","titulo":"Reels - “Caça Palavras”","cliente":"On Air","tipo":"Reel","status":"Entregue","prazo":"2026-07-03","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd56","uid":"DEM-056","titulo":"Reels - “Medo de Trocar”","cliente":"Jarbot Seguros","tipo":"Reel","status":"Entregue","prazo":"2026-07-07","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd57","uid":"DEM-057","titulo":"Reels - “Família”","cliente":"Jarbot Seguros","tipo":"Reel","status":"Entregue","prazo":"2026-07-07","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd58","uid":"DEM-058","titulo":"Reels - “Saúde vs Carro”","cliente":"Jarbot Seguros","tipo":"Reel","status":"Entregue","prazo":"2026-07-07","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd59","uid":"DEM-059","titulo":"Reels - “Susto ou Inteligência”","cliente":"Jarbot Seguros","tipo":"Reel","status":"Entregue","prazo":"2026-07-07","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd60","uid":"DEM-060","titulo":"Reels - Profuse","cliente":"Dra. Isabelli Orletti","tipo":"Publicidade","status":"Entregue","prazo":"2026-07-06","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd61","uid":"DEM-061","titulo":"Reels - Perspirex","cliente":"João Druzian","tipo":"Publicidade","status":"Entregue","prazo":"2026-07-07","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd62","uid":"DEM-062","titulo":"Brutos - Profuse","cliente":"Dra. Isabelli Orletti","tipo":"Brutos","status":"Entregue","prazo":"2026-07-07","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd63","uid":"DEM-063","titulo":"Brutos - Ads","cliente":"Dot Energy","tipo":"Brutos","status":"Entregue","prazo":"2026-07-10","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd64","uid":"DEM-064","titulo":"Reels - “Dot Rappi Turbo”","cliente":"Dot Energy","tipo":"Reel","status":"Entregue","prazo":"2026-07-13","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd65","uid":"DEM-065","titulo":"Reels - “Bioré”","cliente":"João Druzian","tipo":"Publicidade","status":"Entregue","prazo":"2026-07-10","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd66","uid":"DEM-066","titulo":"Brutos - Dr. Guilherme Sá","cliente":"Dr. Guilherme Sá (Capilar)","tipo":"Brutos","status":"Entregue","prazo":"2026-07-17","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd67","uid":"DEM-067","titulo":"Brutos - Ads 2","cliente":"Dot Energy","tipo":"Brutos","status":"Entregue","prazo":"2026-07-16","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd68","uid":"DEM-068","titulo":"Reels - Tráfego Longo Cami","cliente":"Dot Energy","tipo":"Tráfego","status":"Entregue","prazo":"2026-07-20","maeId":"nd67","custo":0,"receita":0,"horas":0},{"id":"nd69","uid":"DEM-069","titulo":"Reels - Profuse 2","cliente":"Dra. Isabelli Orletti","tipo":"Publicidade","status":"Entregue","prazo":"2026-07-23","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd71","uid":"DEM-071","titulo":"Brutos - Toyota","cliente":"Ju Naomi","tipo":"Brutos","status":"Entregue","prazo":"2026-07-24","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd72","uid":"DEM-072","titulo":"Brutos - Lost and Found","cliente":"Renato Buratto","tipo":"Brutos","status":"Entregue","prazo":"2026-07-27","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd73","uid":"DEM-073","titulo":"Reels - Expert XP","cliente":"Camila Bevilacqua","tipo":"Reel","status":"Com o cliente","prazo":"2026-07-29","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd74","uid":"DEM-074","titulo":"Brutos - Longevitar Talks","cliente":"Longevitar","tipo":"Brutos","status":"Em edição","prazo":"2026-07-30","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd75","uid":"DEM-075","titulo":"Reels - Dia dos Pais","cliente":"Thomas Ruegg","tipo":"Publicidade","status":"Em planejamento","prazo":"2026-08-03","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd76","uid":"DEM-076","titulo":"Reels - Promoção Shopping 1","cliente":"Thomas Ruegg","tipo":"Publicidade","status":"Em planejamento","prazo":"2026-08-05","maeId":null,"custo":0,"receita":0,"horas":0},{"id":"nd77","uid":"DEM-077","titulo":"Reels - Promoção Shopping 2","cliente":"Thomas Ruegg","tipo":"Publicidade","status":"Em planejamento","prazo":"2026-08-10","maeId":null,"custo":0,"receita":0,"horas":0}],"fin":[{"id":"nr1","tipo":"receita","desc":"Longevitar Podcast","valor":2200,"data":"2026-05-08","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"Longevitar","pago":true},{"id":"nr2","tipo":"receita","desc":"Longevitar Evento","valor":13000,"data":"2026-05-08","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"Longevitar","pago":true},{"id":"nr3","tipo":"receita","desc":"Hellmans Marina & André","valor":1400,"data":"2026-05-10","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"nr4","tipo":"receita","desc":"Wigow Pet","valor":2200,"data":"2026-05-11","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"nr5","tipo":"receita","desc":"On Air + Ritua","valor":3380,"data":"2026-05-13","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"On Air","pago":true},{"id":"nr6","tipo":"receita","desc":"Mauricio IN - Pedro 140km","valor":1400,"data":"2026-05-14","tipoReceita":"Captação","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"In Community","pago":true},{"id":"nr7","tipo":"receita","desc":"Edição TCC Carol","valor":180,"data":"2026-05-16","tipoReceita":"Edição","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"nr8","tipo":"receita","desc":"Evento Ritua Offline","valor":1350,"data":"2026-05-20","tipoReceita":"Captação","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"nr9","tipo":"receita","desc":"Gravação Bells","valor":350,"data":"2026-05-23","tipoReceita":"Captação","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"Bells","pago":true},{"id":"nr10","tipo":"receita","desc":"Longevitar (Diária + Podcast)","valor":3080,"data":"2026-05-26","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"Longevitar","pago":true},{"id":"nr11","tipo":"receita","desc":"Gravação Genesys ND","valor":1100,"data":"2026-05-26","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"Agência Nova Dimensão","pago":true},{"id":"nr12","tipo":"receita","desc":"Dot Energy","valor":900,"data":"2026-06-01","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"Dot Energy","pago":true},{"id":"nr13","tipo":"receita","desc":"João Druzian & Matheus NXT","valor":400,"data":"2026-06-01","tipoReceita":"Captação","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"João Druzian","pago":true},{"id":"nr14","tipo":"receita","desc":"Matheus Silva","valor":400,"data":"2026-06-02","tipoReceita":"Extra","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"nr15","tipo":"receita","desc":"Longevitar Bazaar","valor":700,"data":"2026-06-02","tipoReceita":"Captação","aliquota":6,"forma":"PIX","conta":"Conta PJ","cliente":"Longevitar","pago":true},{"id":"nr16","tipo":"receita","desc":"Maria Alice Diniz","valor":2500,"data":"2026-06-03","tipoReceita":"Extra","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"nr17","tipo":"receita","desc":"Renato Alves Pereira - Investimento","valor":15000,"data":"2026-06-03","tipoReceita":"Extra","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"nr18","tipo":"receita","desc":"Dra. Larissa Prioli","valor":950,"data":"2026-06-07","tipoReceita":"Extra","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"Dra. Larissa Prioli","pago":true},{"id":"nr19","tipo":"receita","desc":"Pedro Nogueira","valor":600,"data":"2026-06-09","tipoReceita":"Extra","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"In Community","pago":true},{"id":"nr20","tipo":"receita","desc":"Venda Câmera","valor":7500,"data":"2026-06-10","tipoReceita":"Extra","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"nr21","tipo":"receita","desc":"Resgate Investimentos","valor":1652.33,"data":"2026-06-20","tipoReceita":"Extra","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"ne22","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2025-07-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":1,"parcelasTot":12},{"id":"ne23","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2025-08-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":2,"parcelasTot":12},{"id":"ne24","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2025-09-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":3,"parcelasTot":12},{"id":"ne25","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2025-09-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":1,"parcelasTot":13},{"id":"ne26","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2025-10-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":4,"parcelasTot":12},{"id":"ne27","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2025-10-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":2,"parcelasTot":13},{"id":"ne28","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2025-10-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":1,"parcelasTot":12},{"id":"ne29","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2025-10-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":1,"parcelasTot":12},{"id":"ne30","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2025-10-27","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":1,"parcelasTot":12},{"id":"ne31","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2025-11-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":5,"parcelasTot":12},{"id":"ne32","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2025-11-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":3,"parcelasTot":13},{"id":"ne33","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2025-11-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":2,"parcelasTot":12},{"id":"ne34","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2025-11-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc9d","parcelaN":1,"parcelasTot":12},{"id":"ne35","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2025-11-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":2,"parcelasTot":12},{"id":"ne36","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2025-11-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":2,"parcelasTot":12},{"id":"ne37","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2025-11-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g036","parcelaN":1,"parcelasTot":12},{"id":"ne38","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2025-11-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g9ec","parcelaN":1,"parcelasTot":12},{"id":"ne39","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2025-12-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":6,"parcelasTot":12},{"id":"ne40","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2025-12-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":4,"parcelasTot":13},{"id":"ne41","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2025-12-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":3,"parcelasTot":12},{"id":"ne42","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2025-12-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc9d","parcelaN":2,"parcelasTot":12},{"id":"ne43","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2025-12-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":3,"parcelasTot":12},{"id":"ne44","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2025-12-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":3,"parcelasTot":12},{"id":"ne45","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2025-12-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g036","parcelaN":2,"parcelasTot":12},{"id":"ne46","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2025-12-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g9ec","parcelaN":2,"parcelasTot":12},{"id":"ne47","tipo":"despesa","desc":"Lanterna Ulanzi","valor":75.49,"data":"2025-12-28","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g6d7","parcelaN":1,"parcelasTot":6},{"id":"ne48","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2026-01-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":7,"parcelasTot":12},{"id":"ne49","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2026-01-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":5,"parcelasTot":13},{"id":"ne50","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-01-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":4,"parcelasTot":12},{"id":"ne51","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-01-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc9d","parcelaN":3,"parcelasTot":12},{"id":"ne52","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-01-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":4,"parcelasTot":12},{"id":"ne53","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-01-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":4,"parcelasTot":12},{"id":"ne54","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-01-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g036","parcelaN":3,"parcelasTot":12},{"id":"ne55","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-01-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g9ec","parcelaN":3,"parcelasTot":12},{"id":"ne56","tipo":"despesa","desc":"Lanterna Ulanzi","valor":75.49,"data":"2026-01-28","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g6d7","parcelaN":2,"parcelasTot":6},{"id":"ne57","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2026-02-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":8,"parcelasTot":12},{"id":"ne58","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2026-02-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":6,"parcelasTot":13},{"id":"ne59","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-02-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":5,"parcelasTot":12},{"id":"ne60","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-02-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc9d","parcelaN":4,"parcelasTot":12},{"id":"ne61","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-02-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":5,"parcelasTot":12},{"id":"ne62","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-02-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":5,"parcelasTot":12},{"id":"ne63","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-02-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g036","parcelaN":4,"parcelasTot":12},{"id":"ne64","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-02-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g9ec","parcelaN":4,"parcelasTot":12},{"id":"ne65","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-02-22","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gda3","parcelaN":1,"parcelasTot":10},{"id":"ne66","tipo":"despesa","desc":"Lanterna Ulanzi","valor":75.49,"data":"2026-02-28","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g6d7","parcelaN":3,"parcelasTot":6},{"id":"ne67","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2026-03-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":9,"parcelasTot":12},{"id":"ne68","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2026-03-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":7,"parcelasTot":13},{"id":"ne69","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-03-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":6,"parcelasTot":12},{"id":"ne70","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-03-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc9d","parcelaN":5,"parcelasTot":12},{"id":"ne71","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-03-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":6,"parcelasTot":12},{"id":"ne72","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-03-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":6,"parcelasTot":12},{"id":"ne73","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-03-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gda3","parcelaN":2,"parcelasTot":10},{"id":"ne74","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-03-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g036","parcelaN":5,"parcelasTot":12},{"id":"ne75","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-03-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g9ec","parcelaN":5,"parcelasTot":12},{"id":"ne76","tipo":"despesa","desc":"Lanterna Ulanzi","valor":75.49,"data":"2026-03-28","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g6d7","parcelaN":4,"parcelasTot":6},{"id":"ne77","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2026-04-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":10,"parcelasTot":12},{"id":"ne78","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2026-04-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":8,"parcelasTot":13},{"id":"ne79","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-04-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":7,"parcelasTot":12},{"id":"ne80","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-04-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g8da","parcelaN":1,"parcelasTot":12},{"id":"ne81","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-04-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc9d","parcelaN":6,"parcelasTot":12},{"id":"ne82","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-04-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":7,"parcelasTot":12},{"id":"ne83","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-04-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":7,"parcelasTot":12},{"id":"ne84","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-04-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gda3","parcelaN":3,"parcelasTot":10},{"id":"ne85","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-04-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g036","parcelaN":6,"parcelasTot":12},{"id":"ne86","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-04-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g9ec","parcelaN":6,"parcelasTot":12},{"id":"ne87","tipo":"despesa","desc":"SSD","valor":77.85,"data":"2026-05-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":9,"parcelasTot":13},{"id":"ne88","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-05-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g8da","parcelaN":2,"parcelasTot":12},{"id":"ne89","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-05-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc9d","parcelaN":7,"parcelasTot":12},{"id":"ne90","tipo":"despesa","desc":"Aluguel FX2 + Lente (longevitar)","valor":850,"data":"2026-05-04","categoria":"Operação","natureza":"Variável","mecanismo":"À vista","forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"ne91","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2026-05-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gabf","parcelaN":1,"parcelasTot":10},{"id":"ne92","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-05-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":8,"parcelasTot":12},{"id":"ne93","tipo":"despesa","desc":"Transporte Ritua","valor":350,"data":"2026-05-07","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"Nubank","cliente":"","pago":true},{"id":"ne94","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-05-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":8,"parcelasTot":12},{"id":"ne95","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-05-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":8,"parcelasTot":12},{"id":"ne96","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-05-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gda3","parcelaN":4,"parcelasTot":10},{"id":"ne97","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-05-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g036","parcelaN":7,"parcelasTot":12},{"id":"ne98","tipo":"despesa","desc":"Calça Zara","valor":93.18,"data":"2026-05-14","categoria":"Outros","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc23","parcelaN":1,"parcelasTot":3},{"id":"ne99","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-05-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g9ec","parcelaN":7,"parcelasTot":12},{"id":"ne100","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2026-05-19","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g02a","parcelaN":1,"parcelasTot":10},{"id":"ne101","tipo":"despesa","desc":"Caffe Floriano","valor":19,"data":"2026-05-19","categoria":"Alimentação","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"Nubank","cliente":"","pago":true},{"id":"ne102","tipo":"despesa","desc":"Receita Federal","valor":178.31,"data":"2026-05-20","categoria":"Impostos","natureza":"Fixo","mecanismo":"À vista","forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"ne103","tipo":"despesa","desc":"Contador","valor":250,"data":"2026-05-20","categoria":"Operação","natureza":"Fixo","mecanismo":"À vista","forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"ne104","tipo":"despesa","desc":"Simples Nacional","valor":84,"data":"2026-05-20","categoria":"Impostos","natureza":"Fixo","mecanismo":"À vista","forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"ne105","tipo":"despesa","desc":"Transporte Feira Hospitalar","valor":105,"data":"2026-05-20","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"Nubank","cliente":"","pago":true},{"id":"ne106","tipo":"despesa","desc":"Estacionamento","valor":28,"data":"2026-05-22","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"Nubank","cliente":"","pago":true},{"id":"ne107","tipo":"despesa","desc":"Estacionamento","valor":34,"data":"2026-05-23","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne108","tipo":"despesa","desc":"Almoço","valor":35,"data":"2026-05-23","categoria":"Alimentação","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne109","tipo":"despesa","desc":"Caue Editor","valor":260,"data":"2026-05-27","categoria":"Operação","natureza":"Variável","mecanismo":"À vista","forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"ne110","tipo":"despesa","desc":"Lanterna Ulanzi","valor":75.49,"data":"2026-05-28","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g6d7","parcelaN":5,"parcelasTot":6},{"id":"ne111","tipo":"despesa","desc":"Apple Icloud","valor":80,"data":"2026-05-28","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"Nubank","cliente":"","pago":true},{"id":"ne112","tipo":"despesa","desc":"Estacionamento","valor":40,"data":"2026-05-28","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne113","tipo":"despesa","desc":"Uber","valor":54.72,"data":"2026-05-29","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne114","tipo":"despesa","desc":"Facebook Ads","valor":120,"data":"2026-05-29","categoria":"Operação","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"Nubank","cliente":"","pago":true},{"id":"ne115","tipo":"despesa","desc":"Assinaturas MAIO 26","valor":925,"data":"2026-05-31","categoria":"Softwares","natureza":"Fixo","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne116","tipo":"despesa","desc":"Apple Icloud","valor":66.9,"data":"2026-05-31","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"Nubank","cliente":"","pago":true},{"id":"ne117","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2026-06-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":11,"parcelasTot":12},{"id":"ne118","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-06-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g8da","parcelaN":3,"parcelasTot":12},{"id":"ne119","tipo":"despesa","desc":"Claude","valor":120,"data":"2026-06-01","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne120","tipo":"despesa","desc":"Adobe","valor":55,"data":"2026-06-01","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne121","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-06-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc9d","parcelaN":8,"parcelasTot":12},{"id":"ne122","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2026-06-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gacd","parcelaN":1,"parcelasTot":10},{"id":"ne123","tipo":"despesa","desc":"Cartão CF Express","valor":636,"data":"2026-06-03","categoria":"Equipamentos","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne124","tipo":"despesa","desc":"Adobe (?)","valor":71,"data":"2026-06-04","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne125","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2026-06-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gaf7","parcelaN":1,"parcelasTot":10},{"id":"ne126","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2026-06-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gabf","parcelaN":2,"parcelasTot":10},{"id":"ne127","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-06-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g52a","parcelaN":9,"parcelasTot":12},{"id":"ne128","tipo":"despesa","desc":"Higgsfield (?)","valor":30,"data":"2026-06-08","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne129","tipo":"despesa","desc":"Cadeira DT3","valor":232.5,"data":"2026-06-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g916","parcelaN":12,"parcelasTot":12},{"id":"ne130","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-06-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g924","parcelaN":9,"parcelasTot":12},{"id":"ne131","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-06-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gfa7","parcelaN":9,"parcelasTot":12},{"id":"ne132","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-06-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"gda3","parcelaN":5,"parcelasTot":10},{"id":"ne133","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2026-06-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g02a","parcelaN":2,"parcelasTot":10},{"id":"ne134","tipo":"despesa","desc":"Chat GPT","valor":45,"data":"2026-06-09","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne135","tipo":"despesa","desc":"Uber","valor":28.43,"data":"2026-06-09","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne136","tipo":"despesa","desc":"Artlist","valor":85,"data":"2026-06-10","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne137","tipo":"despesa","desc":"Uber","valor":17.95,"data":"2026-06-10","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne138","tipo":"despesa","desc":"Estacionamento Naturaltech","valor":90,"data":"2026-06-10","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne139","tipo":"despesa","desc":"Google Drive","valor":50,"data":"2026-06-11","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne140","tipo":"despesa","desc":"Aluguel Equipamentos Longevitar","valor":1700,"data":"2026-06-11","categoria":"Operação","natureza":"Variável","mecanismo":"À vista","forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"ne141","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-06-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g036","parcelaN":8,"parcelasTot":12},{"id":"ne142","tipo":"despesa","desc":"Coisas Mac & Iphone","valor":79.29,"data":"2026-06-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g5a1","parcelaN":1,"parcelasTot":2},{"id":"ne143","tipo":"despesa","desc":"Coisas Iphone & Mac 2","valor":44.66,"data":"2026-06-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g12e","parcelaN":1,"parcelasTot":3},{"id":"ne144","tipo":"despesa","desc":"Capinhas Macbooks","valor":32.6,"data":"2026-06-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":true,"grupoId":"g911","parcelaN":1,"parcelasTot":6},{"id":"ne145","tipo":"despesa","desc":"Uber Naturaltech","valor":130,"data":"2026-06-12","categoria":"Transporte","natureza":"Variável","mecanismo":"À vista","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne146","tipo":"despesa","desc":"Calça Zara","valor":93.18,"data":"2026-06-14","categoria":"Outros","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"gc23","parcelaN":2,"parcelasTot":3},{"id":"ne147","tipo":"despesa","desc":"SSD","valor":63,"data":"2026-06-15","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":10,"parcelasTot":13},{"id":"ne148","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-06-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g9ec","parcelaN":8,"parcelasTot":12},{"id":"ne149","tipo":"despesa","desc":"Captions","valor":50,"data":"2026-06-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne150","tipo":"despesa","desc":"Câmera FX2","valor":13350,"data":"2026-06-15","categoria":"Equipamentos","natureza":"Variável","mecanismo":"À vista","forma":"PIX","conta":"Conta PJ","cliente":"","pago":true},{"id":"ne151","tipo":"despesa","desc":"Ocular Sounds - SFX","valor":375,"data":"2026-06-15","categoria":"Softwares","natureza":"Variável","mecanismo":"Assinatura","forma":"Crédito","conta":"Nubank","cliente":"","pago":true},{"id":"ne152","tipo":"despesa","desc":"Notion","valor":65,"data":"2026-06-18","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne153","tipo":"despesa","desc":"Canva","valor":47,"data":"2026-06-18","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne154","tipo":"despesa","desc":"Apple Icloud","valor":70,"data":"2026-06-19","categoria":"Softwares","natureza":"Fixo","mecanismo":"Assinatura","forma":"Crédito","conta":"BTG","cliente":"","pago":true},{"id":"ne155","tipo":"despesa","desc":"Lanterna Ulanzi","valor":75.49,"data":"2026-06-30","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g6d7","parcelaN":6,"parcelasTot":6},{"id":"ne156","tipo":"despesa","desc":"SSD","valor":63,"data":"2026-07-08","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":true,"grupoId":"g108","parcelaN":11,"parcelasTot":13},{"id":"nr22","tipo":"receita","desc":"Dot Energy","valor":900,"data":"2026-06-01","tipoReceita":"Extra","aliquota":0,"forma":"PIX","conta":"Conta PJ","cliente":"Dot Energy","pago":true},{"id":"ne158","tipo":"despesa","desc":"SSD","valor":63,"data":"2026-08-08","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g108","parcelaN":12,"parcelasTot":13},{"id":"ne159","tipo":"despesa","desc":"SSD","valor":63,"data":"2026-09-08","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g108","parcelaN":13,"parcelasTot":13},{"id":"ne160","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-07-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g924","parcelaN":10,"parcelasTot":12},{"id":"ne161","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-08-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g924","parcelaN":11,"parcelasTot":12},{"id":"ne162","tipo":"despesa","desc":"Kit Iluminação","valor":79.04,"data":"2026-09-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g924","parcelaN":12,"parcelasTot":12},{"id":"ne163","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-07-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g52a","parcelaN":10,"parcelasTot":12},{"id":"ne164","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-08-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g52a","parcelaN":11,"parcelasTot":12},{"id":"ne165","tipo":"despesa","desc":"Ulanzi Luz 120w","valor":43.67,"data":"2026-09-06","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g52a","parcelaN":12,"parcelasTot":12},{"id":"ne166","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-07-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gfa7","parcelaN":10,"parcelasTot":12},{"id":"ne167","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-08-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gfa7","parcelaN":11,"parcelasTot":12},{"id":"ne168","tipo":"despesa","desc":"Microfone Comica","valor":86.46,"data":"2026-09-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gfa7","parcelaN":12,"parcelasTot":12},{"id":"ne169","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-07-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gc9d","parcelaN":9,"parcelasTot":12},{"id":"ne170","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-08-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gc9d","parcelaN":10,"parcelasTot":12},{"id":"ne171","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-09-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gc9d","parcelaN":11,"parcelasTot":12},{"id":"ne172","tipo":"despesa","desc":"SSD 2","valor":110.83,"data":"2026-10-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gc9d","parcelaN":12,"parcelasTot":12},{"id":"ne173","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-07-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g036","parcelaN":9,"parcelasTot":12},{"id":"ne174","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-08-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g036","parcelaN":10,"parcelasTot":12},{"id":"ne175","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-09-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g036","parcelaN":11,"parcelasTot":12},{"id":"ne176","tipo":"despesa","desc":"Teleprompter","valor":50.57,"data":"2026-10-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g036","parcelaN":12,"parcelasTot":12},{"id":"ne177","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-07-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g9ec","parcelaN":9,"parcelasTot":12},{"id":"ne178","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-08-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g9ec","parcelaN":10,"parcelasTot":12},{"id":"ne179","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-09-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g9ec","parcelaN":11,"parcelasTot":12},{"id":"ne180","tipo":"despesa","desc":"Brands Decoded IA","valor":26.11,"data":"2026-10-15","categoria":"Softwares","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g9ec","parcelaN":12,"parcelasTot":12},{"id":"ne181","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-07-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gda3","parcelaN":6,"parcelasTot":10},{"id":"ne182","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-08-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gda3","parcelaN":7,"parcelasTot":10},{"id":"ne183","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-09-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gda3","parcelaN":8,"parcelasTot":10},{"id":"ne184","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-10-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gda3","parcelaN":9,"parcelasTot":10},{"id":"ne185","tipo":"despesa","desc":"Kit Monitor Câmera","valor":158.78,"data":"2026-11-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gda3","parcelaN":10,"parcelasTot":10},{"id":"ne186","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-07-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":4,"parcelasTot":12},{"id":"ne187","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-08-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":5,"parcelasTot":12},{"id":"ne188","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-09-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":6,"parcelasTot":12},{"id":"ne189","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-10-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":7,"parcelasTot":12},{"id":"ne190","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-11-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":8,"parcelasTot":12},{"id":"ne191","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2026-12-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":9,"parcelasTot":12},{"id":"ne192","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2027-01-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":10,"parcelasTot":12},{"id":"ne193","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2027-02-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":11,"parcelasTot":12},{"id":"ne194","tipo":"despesa","desc":"Tripé KF","valor":59.05,"data":"2027-03-01","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"g8da","parcelaN":12,"parcelasTot":12},{"id":"ne195","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2026-07-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gabf","parcelaN":3,"parcelasTot":10},{"id":"ne196","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2026-08-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gabf","parcelaN":4,"parcelasTot":10},{"id":"ne197","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2026-09-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gabf","parcelaN":5,"parcelasTot":10},{"id":"ne198","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2026-10-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gabf","parcelaN":6,"parcelasTot":10},{"id":"ne199","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2026-11-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gabf","parcelaN":7,"parcelasTot":10},{"id":"ne200","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2026-12-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gabf","parcelaN":8,"parcelasTot":10},{"id":"ne201","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2027-01-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gabf","parcelaN":9,"parcelasTot":10},{"id":"ne202","tipo":"despesa","desc":"Carregador Portátil","valor":29.42,"data":"2027-02-05","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gabf","parcelaN":10,"parcelasTot":10},{"id":"ne203","tipo":"despesa","desc":"Calça Zara","valor":93.18,"data":"2026-07-14","categoria":"Outros","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"BTG","cliente":"","pago":false,"grupoId":"gc23","parcelaN":3,"parcelasTot":3},{"id":"ne204","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2026-07-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g02a","parcelaN":3,"parcelasTot":10},{"id":"ne205","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2026-08-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g02a","parcelaN":4,"parcelasTot":10},{"id":"ne206","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2026-09-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g02a","parcelaN":5,"parcelasTot":10},{"id":"ne207","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2026-10-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g02a","parcelaN":6,"parcelasTot":10},{"id":"ne208","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2026-11-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g02a","parcelaN":7,"parcelasTot":10},{"id":"ne209","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2026-12-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g02a","parcelaN":8,"parcelasTot":10},{"id":"ne210","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2027-01-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g02a","parcelaN":9,"parcelasTot":10},{"id":"ne211","tipo":"despesa","desc":"Tilta Handles Câmera","valor":60.08,"data":"2027-02-09","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g02a","parcelaN":10,"parcelasTot":10},{"id":"ne212","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2026-07-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":2,"parcelasTot":10},{"id":"ne213","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2026-08-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":3,"parcelasTot":10},{"id":"ne214","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2026-09-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":4,"parcelasTot":10},{"id":"ne215","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2026-10-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":5,"parcelasTot":10},{"id":"ne216","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2026-11-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":6,"parcelasTot":10},{"id":"ne217","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2026-12-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":7,"parcelasTot":10},{"id":"ne218","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2027-01-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":8,"parcelasTot":10},{"id":"ne219","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2027-02-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":9,"parcelasTot":10},{"id":"ne220","tipo":"despesa","desc":"Cage + SSD","valor":171.2,"data":"2027-03-03","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gacd","parcelaN":10,"parcelasTot":10},{"id":"ne221","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2026-07-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":2,"parcelasTot":10},{"id":"ne222","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2026-08-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":3,"parcelasTot":10},{"id":"ne223","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2026-09-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":4,"parcelasTot":10},{"id":"ne224","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2026-10-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":5,"parcelasTot":10},{"id":"ne225","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2026-11-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":6,"parcelasTot":10},{"id":"ne226","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2026-12-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":7,"parcelasTot":10},{"id":"ne227","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2027-01-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":8,"parcelasTot":10},{"id":"ne228","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2027-02-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":9,"parcelasTot":10},{"id":"ne229","tipo":"despesa","desc":"Leitor de Cartão CF","valor":44.14,"data":"2027-03-04","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"gaf7","parcelaN":10,"parcelasTot":10},{"id":"ne230","tipo":"despesa","desc":"Coisas Mac & Iphone","valor":79.29,"data":"2026-07-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g5a1","parcelaN":2,"parcelasTot":2},{"id":"ne231","tipo":"despesa","desc":"Coisas Iphone & Mac 2","valor":44.66,"data":"2026-07-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g12e","parcelaN":2,"parcelasTot":3},{"id":"ne232","tipo":"despesa","desc":"Coisas Iphone & Mac 2","valor":44.66,"data":"2026-08-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g12e","parcelaN":3,"parcelasTot":3},{"id":"ne233","tipo":"despesa","desc":"Capinhas Macbooks","valor":32.6,"data":"2026-07-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g911","parcelaN":2,"parcelasTot":6},{"id":"ne234","tipo":"despesa","desc":"Capinhas Macbooks","valor":32.6,"data":"2026-08-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g911","parcelaN":3,"parcelasTot":6},{"id":"ne235","tipo":"despesa","desc":"Capinhas Macbooks","valor":32.6,"data":"2026-09-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g911","parcelaN":4,"parcelasTot":6},{"id":"ne236","tipo":"despesa","desc":"Capinhas Macbooks","valor":32.6,"data":"2026-10-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g911","parcelaN":5,"parcelasTot":6},{"id":"ne237","tipo":"despesa","desc":"Capinhas Macbooks","valor":32.6,"data":"2026-11-12","categoria":"Equipamentos","natureza":"Fixo","mecanismo":"Parcelamento","forma":"Crédito","conta":"Nubank","cliente":"","pago":false,"grupoId":"g911","parcelaN":6,"parcelasTot":6}],"projetos":[{"id":"np1","nome":"Expert XP — Reels","cliente":"Camila Bevilacqua","fase":"Revisão","entrega":"2026-07-29","leadId":null},{"id":"np2","nome":"Longevitar Talks","cliente":"Longevitar","fase":"Edição","entrega":"2026-07-30","leadId":null},{"id":"np3","nome":"Campanha Thomas Ruegg (Dia dos Pais + Shopping)","cliente":"Thomas Ruegg","fase":"Pré-produção","entrega":"2026-08-10","leadId":null}],"assinaturas":[{"id":"na1","nome":"Telefone Vivo","valor":60,"conta":"BTG","categoria":"Operação","tipo":"Mensal","ativa":true},{"id":"na2","nome":"Google Workspace","valor":50,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na3","nome":"Capcut","valor":35,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na4","nome":"Higgsfield AI","valor":80,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na5","nome":"Captions","valor":50,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na6","nome":"Adobe","valor":55,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na7","nome":"Contador","valor":250,"conta":"Conta PJ","categoria":"Operação","tipo":"Mensal","ativa":true},{"id":"na8","nome":"Claude","valor":120,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na9","nome":"Google Drive","valor":50,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na10","nome":"Canva","valor":47,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na11","nome":"Artlist","valor":85,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na12","nome":"Chat GPT","valor":45,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na13","nome":"Notion","valor":65,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true},{"id":"na14","nome":"Apple Icloud","valor":70,"conta":"BTG","categoria":"Softwares","tipo":"Mensal","ativa":true}]};
 
 /* ═══ STATE ═══ */
+const PRICING_DEFAULT={
+  capt:{
+    tabs:[
+      {id:'simples',nome:'Simples (SP capital / ABC)',tiers:[{h:4,v:650},{h:6,v:950},{h:8,v:1250}]},
+      {id:'cirurgia',nome:'Cirurgia / procedimento / evento',tiers:[{h:4,v:850},{h:6,v:1150},{h:8,v:1450}]},
+      {id:'ummes',nome:'Um Mês em Um Dia',tiers:[{h:4,v:850}]}
+    ],
+    horaExtra:150,minimo:650,
+    descMultiDiarias:{min:2,pct:15},
+    videoMaisFotosPct:50,
+    fotos:{base:30,valorBase:200,bloco:30,valorBloco:180},
+    desloc:{kmFaixa:7,valorFaixa:3.60,valorHora:50}
+  },
+  edicao:{
+    unit:{pacoteSimples:140,pacoteDinamico:160,pontualSimples:160,pontualDinamico:200,aftermovie:380},
+    minPacote:10,
+    versaoExtra:80,revisaoExtra:80,revisoesInclusas:2,minimo:160,
+    durMult:[{max:60,mult:1},{max:120,mult:1.4},{max:180,mult:1.7},{max:300,mult:2.2}],
+    volDesc:[{min:3,max:5,pct:10},{min:6,max:9,pct:15}],
+    urg:{minDias:3,porVideoDias:1.5,acrescimoPct:30,sameDayMult:2}
+  },
+  geral:{sinalPct:40,reagendLimiteH:48,validadeDias:30}
+};
 let S={
 leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],
+pricing:JSON.parse(JSON.stringify(PRICING_DEFAULT)),orcamentos:[],
 active:'dashboard',
 sort:{},
-tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana'},
+tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana',calc:'nova'},
 q:{},f:{},
-wiz:null
+wiz:null,calc:null,propWiz:null
 };
 
 /* ═══ STORAGE — adaptador ═══
@@ -693,7 +817,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos'];
 async function load(){
   let got=false;
   try{
@@ -816,7 +940,7 @@ function clientes(){ /* base derivada: todos os nomes de cliente do sistema */
 function greeting(){const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';}
 
 /* ═══ NAV ═══ */
-const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','contratos','central','lixeira','ajustes']}];
+const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','calculadora','contratos','central','lixeira','ajustes']}];
 function buildNav(){
   const exp=!S.prefs||S.prefs.sb!==0;
   const sb=document.getElementById('sidebar');
@@ -858,7 +982,7 @@ function tabsHtml(mod,list){
 function render(){
   const c=document.getElementById('content');
   ({dashboard:renderDashboard,comercial:renderComercial,demandas:renderDemandas,tarefas:renderTarefas,
-    projetos:renderProjetos,agenda:renderAgenda,financeiro:renderFin,propostas:renderPropostas,
+    projetos:renderProjetos,agenda:renderAgenda,financeiro:renderFin,propostas:renderPropostas,calculadora:renderCalculadora,
     central:renderCentral,ajustes:renderAjustes,clientes:renderClientes,lixeira:renderLixeira}[S.active]||renderPlaceholder)(c);
   if(typeof renderSyncPill==='function')renderSyncPill();
 }
@@ -947,12 +1071,12 @@ const COLDEFS={
     {k:'dems',l:'Demandas',def:0,get:r=>S.demandas.filter(d=>d.cliente===r.cl).length,cell:r=>String(S.demandas.filter(d=>d.cliente===r.cl).length)}
   ]},
   propostas:{nome:'Propostas',cols:[
-    {k:'projeto',l:'Projeto',def:1,get:r=>r.projeto||'',cell:r=>`<span style="font-weight:500">${esc(r.projeto)}</span>`},
-    {k:'empresa',l:'Cliente',def:1,get:r=>r.empresa||'',cell:r=>`<span style="color:var(--t2)">${esc(r.empresa)}</span>`},
+    {k:'projeto',l:'Projeto',def:1,get:r=>r.projeto||r.titulo||'',cell:r=>`<span style="font-weight:500">${esc(r.projeto||r.titulo)}</span>${r.versao===2?' <span class="bdg" title="Gerada pelo assistente de proposta">v2</span>':''}`},
+    {k:'empresa',l:'Cliente',def:1,get:r=>r.empresa||'',cell:r=>`<span style="color:var(--t2)">${esc(r.empresa)||esc(r.cliente)||'—'}</span>`},
     {k:'contato',l:'Contato',def:0,get:r=>r.cliente||'',cell:r=>`<span style="color:var(--t2)">${esc(r.cliente)||'—'}</span>`},
-    {k:'formato',l:'Formato',def:1,get:r=>r.formato||'',cell:r=>`<span class="bdg">${r.formato}</span>`},
-    {k:'investimento',l:'Investimento',def:1,get:r=>r.investimento||0,cell:r=>fmtBRL(r.investimento)},
-    {k:'entregas',l:'Entregas',def:0,get:r=>(r.entregas||[]).length,cell:r=>String((r.entregas||[]).length)},
+    {k:'formato',l:'Formato',def:1,get:r=>r.formato||(r.recorrente?'Recorrente':'Projeto'),cell:r=>`<span class="bdg">${r.formato||(r.recorrente?'Recorrente':'Projeto')}</span>`},
+    {k:'investimento',l:'Investimento',def:1,get:r=>r.investimento||r.total||0,cell:r=>fmtBRL(r.investimento||r.total)},
+    {k:'entregas',l:'Entregas',def:0,get:r=>(r.entregas||r.itens||[]).length,cell:r=>String((r.entregas||r.itens||[]).length)},
     {k:'criada',l:'Criada em',def:0,get:r=>r.criada||'',cell:r=>`<span style="color:var(--t2);font-size:12px">${fmtD(r.criada)}</span>`},
     {k:'validade',l:'Validade',def:1,get:r=>r.validade||'',cell:r=>`<span style="color:var(--t2);font-size:12px">${fmtD(r.validade)}</span>`},
     {k:'status',l:'Status',def:1,get:r=>r.status||'',cell:r=>{const c={Rascunho:'s-gray',Enviada:'s-amber',Aprovada:'s-green',Recusada:'s-red'}[r.status]||'s-gray';return `<span class="sdot ${c}"></span><button class="btn-sm" onclick="cycleProp('${r.id}')">${r.status}</button>`;}}
@@ -2509,9 +2633,9 @@ function renderPropostas(c){
   const ps=[...S.propostas].sort((a,b)=>String(b.criada).localeCompare(a.criada));
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Propostas</div></div>
-    <button class="btn" onclick="startWizard()">+ Nova proposta</button></div>
+    <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="startWizard()">+ Nova (rápida)</button><button class="btn" onclick="startPropBlank()">+ Nova proposta guiada</button></div></div>
     ${ps.length?`<div class="toolbar">${colBtn('propostas')}${csvBtn('propostas',ps)}</div><div class="card" style="padding:6px 20px;">${renderDataTable('propostas',applyTableSort('propostas',ps),p=>`<button class="ibtn" title="baixar HTML" onclick="downloadProp('${p.id}')">↓</button><button class="ibtn" title="visualizar" onclick="previewProp('${p.id}')">👁</button><button class="ibtn del" onclick="delProp('${p.id}')">✕</button>`)}</div>`
-    :`<div class="card"><div class="empty-msg">Nenhuma proposta criada ainda. O construtor usa a tabela de preços da Calculadora Lozy — captação, edição, fotos e deslocamento.</div></div>`}`;
+    :`<div class="card"><div class="empty-msg">Nenhuma proposta criada ainda. A proposta guiada puxa direto de um orçamento calculado na Calculadora — ou comece do zero em "Nova proposta guiada".</div></div>`}`;
 }
 function cycleProp(id){const p=S.propostas.find(x=>x.id===id);const st=['Rascunho','Enviada','Aprovada','Recusada'];p.status=st[(st.indexOf(p.status)+1)%st.length];save();render();}
 function delProp(id){softDel('propostas',id);}
@@ -2601,22 +2725,22 @@ function propHTML(p){
     :p.entregas.map(e=>'<tr><td>'+esc(e.nome)+'</td><td class="c">'+e.qtd+'</td><td class="r">—</td></tr>').join('');
   const conc=p.conceito.split('\n');
   return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Proposta — '+esc(p.projeto)+'</title>'+
-  '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,system-ui,sans-serif;background:#0a0a0a;color:#f5f5f5;line-height:1.6}'+
+  '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,system-ui,sans-serif;background:#EAE3D6;color:#1A1B1D;line-height:1.6}'+
   '.wrap{max-width:720px;margin:0 auto;padding:60px 24px}'+
-  '.mark{width:44px;height:44px;border-radius:12px;background:#f5f5f5;color:#0a0a0a;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;margin-bottom:36px}'+
+  '.mark{width:44px;height:44px;border-radius:12px;border:1.5px solid #1A1B1D;color:#1A1B1D;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;margin-bottom:36px}'+
   'h1{font-size:30px;font-weight:650;letter-spacing:-.03em;margin-bottom:6px}'+
-  '.sub{color:#a3a3a3;font-size:14px;margin-bottom:44px}'+
-  'h2{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#6b6b6b;margin:40px 0 14px;font-weight:600}'+
+  '.sub{color:#847d6d;font-size:14px;margin-bottom:44px}'+
+  'h2{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#847d6d;margin:40px 0 14px;font-weight:600}'+
   '.lead{font-size:19px;font-weight:550;letter-spacing:-.01em;margin-bottom:10px}'+
-  'p{color:#c9c9c9;font-size:14.5px}'+
+  'p{color:#4a463f;font-size:14.5px}'+
   'table{width:100%;border-collapse:collapse;margin-top:6px}'+
-  'td,th{padding:12px 0;border-bottom:1px solid #222;font-size:14px;text-align:left}'+
-  'td.c{text-align:center;color:#a3a3a3}td.r{text-align:right}'+
-  '.inv{background:#141414;border:1px solid #262626;border-radius:16px;padding:24px;margin-top:14px}'+
-  '.tot{display:flex;justify-content:space-between;font-size:22px;font-weight:650;letter-spacing:-.02em;padding-top:14px;border-top:1px solid #2a2a2a;margin-top:10px}'+
-  '.cond{font-size:12.5px;color:#8a8a8a;line-height:1.8}'+
-  '.foot{margin-top:56px;padding-top:20px;border-top:1px solid #1e1e1e;color:#6b6b6b;font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}'+
-  'details{border-bottom:1px solid #222}summary{padding:12px 0;cursor:pointer;font-size:14px;font-weight:500;list-style:none}summary::after{content:"+";float:right;color:#6b6b6b}details[open] summary::after{content:"−"}details p{padding:0 0 14px;font-size:13px}'+
+  'td,th{padding:12px 0;border-bottom:1px solid #d9d0bc;font-size:14px;text-align:left}'+
+  'td.c{text-align:center;color:#847d6d}td.r{text-align:right}'+
+  '.inv{background:#F2EDE1;border:1px solid #d9d0bc;border-radius:16px;padding:24px;margin-top:14px}'+
+  '.tot{display:flex;justify-content:space-between;font-size:22px;font-weight:650;letter-spacing:-.02em;padding-top:14px;border-top:1px solid #d9d0bc;margin-top:10px}'+
+  '.cond{font-size:12.5px;color:#847d6d;line-height:1.8}'+
+  '.foot{margin-top:56px;padding-top:20px;border-top:1px solid #d9d0bc;color:#847d6d;font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}'+
+  'details{border-bottom:1px solid #d9d0bc}summary{padding:12px 0;cursor:pointer;font-size:14px;font-weight:500;list-style:none}summary::after{content:"+";float:right;color:#847d6d}details[open] summary::after{content:"−"}details p{padding:0 0 14px;font-size:13px}'+
   '@media print{body{background:#fff;color:#111}.inv{background:#f5f5f5;border-color:#ddd}td,th{border-color:#ddd}p{color:#333}.sub,.cond{color:#666}}</style></head><body><div class="wrap">'+
   '<div class="mark">L</div>'+
   '<h1>'+esc(p.projeto)+'</h1>'+
@@ -2637,18 +2761,556 @@ function propHTML(p){
 }
 function downloadProp(id){
   const p=S.propostas.find(x=>x.id===id);
-  const blob=new Blob([propHTML(p)],{type:'text/html'});
+  const blob=new Blob([p.versao===2?propostaHTML2(p):propHTML(p)],{type:'text/html'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='proposta-'+(p.empresa||'lozy').toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.html';a.click();
+  a.download='proposta-'+(p.empresa||p.cliente||'lozy').toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.html';a.click();
 }
 function previewProp(id){
   const p=S.propostas.find(x=>x.id===id);
-  document.getElementById('modal-title').textContent='Preview — '+p.projeto;
-  document.getElementById('modal-body').innerHTML='<iframe style="width:100%;height:60vh;border:1px solid var(--b2);border-radius:10px;background:#0a0a0a" sandbox="allow-same-origin"></iframe>';
+  document.getElementById('modal-title').textContent='Preview — '+(p.projeto||p.titulo);
+  document.getElementById('modal-body').innerHTML='<iframe style="width:100%;height:60vh;border:1px solid var(--b2);border-radius:10px;background:#EAE3D6" sandbox="allow-same-origin"></iframe>';
   document.getElementById('modal').classList.add('wide');
   document.getElementById('modal-actions').innerHTML='<button class="btn-ghost" onclick="closeModal()">Fechar</button><button class="btn" onclick="downloadProp(\''+id+'\')">↓ Baixar HTML</button>';
   document.getElementById('overlay').classList.add('show');
-  setTimeout(()=>{document.querySelector('#modal-body iframe').srcdoc=propHTML(p);},50);
+  setTimeout(()=>{document.querySelector('#modal-body iframe').srcdoc=(p.versao===2?propostaHTML2(p):propHTML(p));},50);
+}
+
+/* ═══ CALCULADORA — MÓDULO (Nova / Histórico / Ajustes) ═══ */
+function renderCalculadora(c){
+  if(S.propWiz)return renderPropWizard(c);
+  c.innerHTML=`
+    <div class="page-hd"><div><div class="page-title">Calculadora</div></div></div>
+    ${tabsHtml('calc',[{id:'nova',l:'Novo orçamento'},{id:'historico',l:'Histórico'},{id:'ajustes',l:'Ajustes'}])}
+    <div id="calc-body"></div>`;
+  const b=document.getElementById('calc-body');
+  const t=S.tab.calc;
+  if(t==='historico')calcHistorico(b);
+  else if(t==='ajustes')calcAjustes(b);
+  else calcNova(b);
+}
+function ensureCalc(){
+  if(!S.calc)S.calc={
+    cliente:'',empresa:'',escopo:'completo',modo:'interno',
+    capt:{tabelaId:'simples',horas:4,diarias:1,complexaExtra:0,videoMaisFotos:false,fotosQtd:0,deslocKm:0,deslocHoras:0},
+    edicaoItens:[{tipo:'simples',qtd:1,duracaoSeg:60,prazoDesejadoDias:null,sameDay:false,versoesExtra:0,revisoesExtra:0}],
+    descontoPct:0,deslocExtra:0
+  };
+  return S.calc;
+}
+function refreshCalc(){const el=document.getElementById('calc-out');if(el)el.innerHTML=calcOut();}
+function calcOut(){const w=ensureCalc();return calcBreakdownHtml(calcOrcamento(S.pricing,w),w);}
+function calcBreakdownHtml(r,w){
+  if(r.edicao&&r.edicao.manual&&w.modo==='cliente')
+    return `<div class="inv-line total"><span>Investimento</span><span style="color:var(--amber);font-size:14px">Orçar manualmente — duração acima de 5min</span></div>`;
+  if(w.modo==='cliente')
+    return `<div class="inv-line total"><span>Investimento${r.capt&&r.capt.aPartir?' (a partir de)':''}</span><span>${fmtBRL2(r.total)}</span></div>`;
+  let h='';
+  if(r.capt){
+    const cp=r.capt;
+    h+=`<div class="inv-line" style="font-weight:600;padding-top:2px;">Captação${cp.aPartir?' (a partir de)':''}</div>
+    <div class="inv-line"><span>${fmtBRL2(cp.unit)} × ${cp.diarias} diária${cp.diarias>1?'s':''}</span><span>${fmtBRL2(cp.servicoBase)}</span></div>
+    ${cp.descMulti?`<div class="inv-line"><span>Desconto múltiplas diárias</span><span>−${fmtBRL2(cp.descMulti)}</span></div>`:''}
+    ${cp.acrescVideoFotos?`<div class="inv-line"><span>Vídeo + fotos (+${S.pricing.capt.videoMaisFotosPct}%)</span><span>+${fmtBRL2(cp.acrescVideoFotos)}</span></div>`:''}
+    ${cp.fotosCusto?`<div class="inv-line"><span>Tratamento de fotos</span><span>${fmtBRL2(cp.fotosCusto)}</span></div>`:''}
+    ${cp.desloc?`<div class="inv-line"><span>Deslocamento (captação)</span><span>${fmtBRL2(cp.desloc)}</span></div>`:''}`;
+  }
+  if(r.edicao){
+    h+=`<div class="inv-line" style="font-weight:600;padding-top:10px;">Edição</div>`;
+    if(r.edicao.manual)h+=`<div class="inv-line" style="color:var(--amber)">Um ou mais vídeos passam de 5min — orçar essa parte manualmente.</div>`;
+    else r.edicao.linhas.forEach((l,i)=>{
+      h+=`<div class="inv-line"><span>Vídeo ${i+1} — ${fmtBRL2(l.unit)} × ${l.qtd}${l.isPacote?' · pacote':''}${l.volPct?' · −'+l.volPct+'% volume':''}${l.durMult>1?' · ×'+l.durMult+' duração':''}${l.urgTipo==='same-day'?' · same day':l.urgTipo==='urgencia'?' · urgência':''}</span><span>${fmtBRL2(l.subtotal)}</span></div>`;
+    });
+  }
+  h+=`<div class="inv-line" style="font-weight:600;padding-top:10px;">Resumo</div>
+  <div class="inv-line"><span>Serviço total</span><span>${fmtBRL2(r.servicoTotal)}</span></div>
+  ${r.desconto?`<div class="inv-line"><span>Desconto adicional (${w.descontoPct}%)</span><span>−${fmtBRL2(r.desconto)}</span></div>`:''}
+  ${r.deslocTotal?`<div class="inv-line"><span>Deslocamento total</span><span>${fmtBRL2(r.deslocTotal)}</span></div>`:''}
+  <div class="inv-line total"><span>Investimento total</span><span>${fmtBRL2(r.total)}</span></div>`;
+  return h;
+}
+function calcNova(b){
+  const w=ensureCalc();
+  const captBlock=w.escopo!=='edicao'?`
+    <div class="card" style="margin-bottom:12px;">
+      <div class="widget-hd"><span class="widget-ttl">Captação</span></div>
+      <div class="f2">
+        <div class="field"><label>Tabela</label><select onchange="S.calc.capt.tabelaId=this.value;render()">
+          ${S.pricing.capt.tabs.map(t=>`<option value="${t.id}" ${w.capt.tabelaId===t.id?'selected':''}>${esc(t.nome)}</option>`).join('')}
+          <option value="complexa" ${w.capt.tabelaId==='complexa'?'selected':''}>Captação complexa (equipe/equip. extra)</option>
+        </select></div>
+        <div class="field"><label>Duração (horas)</label><input type="number" min="1" step="0.5" value="${w.capt.horas}" oninput="S.calc.capt.horas=Number(this.value)||4;refreshCalc()"></div>
+      </div>
+      <div class="f2">
+        <div class="field"><label>Nº de diárias</label><input type="number" min="1" value="${w.capt.diarias}" oninput="S.calc.capt.diarias=Number(this.value)||1;refreshCalc()"></div>
+        ${w.capt.tabelaId==='complexa'?`<div class="field"><label>Custo extra — equipe/equipamento (R$)</label><input type="number" step="0.01" value="${w.capt.complexaExtra}" oninput="S.calc.capt.complexaExtra=Number(this.value)||0;refreshCalc()"></div>`:'<div></div>'}
+      </div>
+      <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto" ${w.capt.videoMaisFotos?'checked':''} onchange="S.calc.capt.videoMaisFotos=this.checked;render()"><label style="margin:0">Vídeo + fotos (+${S.pricing.capt.videoMaisFotosPct}%)</label></div>
+      ${w.capt.videoMaisFotos?`<div class="field"><label>Quantidade de fotos tratadas</label><input type="number" min="0" value="${w.capt.fotosQtd}" oninput="S.calc.capt.fotosQtd=Number(this.value)||0;refreshCalc()"></div>`:''}
+      <div class="f2">
+        <div class="field"><label>Deslocamento — km (ida e volta)</label><input type="number" min="0" value="${w.capt.deslocKm}" oninput="S.calc.capt.deslocKm=Number(this.value)||0;refreshCalc()"></div>
+        <div class="field"><label>Deslocamento — horas</label><input type="number" min="0" step="0.5" value="${w.capt.deslocHoras}" oninput="S.calc.capt.deslocHoras=Number(this.value)||0;refreshCalc()"></div>
+      </div>
+    </div>`:'';
+  const edicaoBlock=w.escopo!=='captacao'?`
+    <div class="card" style="margin-bottom:12px;">
+      <div class="widget-hd"><span class="widget-ttl">Edição</span></div>
+      ${w.edicaoItens.map((it,i)=>`
+        <div style="border:1px solid var(--b2);border-radius:10px;padding:12px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:11.5px;font-weight:600;color:var(--t2)">Vídeo ${i+1}</span>${w.edicaoItens.length>1?`<button class="ibtn del" onclick="S.calc.edicaoItens.splice(${i},1);render()">✕</button>`:''}</div>
+          <div class="f2">
+            <div class="field"><label>Tipo</label><select onchange="S.calc.edicaoItens[${i}].tipo=this.value;render()">
+              <option value="simples" ${it.tipo==='simples'?'selected':''}>Simples</option>
+              <option value="dinamico" ${it.tipo==='dinamico'?'selected':''}>Dinâmico/complexo</option>
+              <option value="aftermovie" ${it.tipo==='aftermovie'?'selected':''}>Aftermovie (evento)</option>
+            </select></div>
+            <div class="field"><label>Quantidade</label><input type="number" min="1" value="${it.qtd}" oninput="S.calc.edicaoItens[${i}].qtd=Number(this.value)||1;refreshCalc()"></div>
+          </div>
+          <div class="f2">
+            <div class="field"><label>Duração final (segundos)</label><input type="number" min="1" value="${it.duracaoSeg}" oninput="S.calc.edicaoItens[${i}].duracaoSeg=Number(this.value)||60;refreshCalc()"></div>
+            <div class="field"><label>Prazo desejado (dias úteis, opcional)</label><input type="number" min="0" step="0.5" value="${it.prazoDesejadoDias||''}" oninput="S.calc.edicaoItens[${i}].prazoDesejadoDias=Number(this.value)||null;refreshCalc()"></div>
+          </div>
+          <div class="f2">
+            <div class="field"><label>Versões extra</label><input type="number" min="0" value="${it.versoesExtra}" oninput="S.calc.edicaoItens[${i}].versoesExtra=Number(this.value)||0;refreshCalc()"></div>
+            <div class="field"><label>Revisões extra (além das ${S.pricing.edicao.revisoesInclusas} inclusas)</label><input type="number" min="0" value="${it.revisoesExtra}" oninput="S.calc.edicaoItens[${i}].revisoesExtra=Number(this.value)||0;refreshCalc()"></div>
+          </div>
+          <div class="field" style="display:flex;align-items:center;gap:8px;margin-bottom:0;"><input type="checkbox" style="width:auto" ${it.sameDay?'checked':''} onchange="S.calc.edicaoItens[${i}].sameDay=this.checked;refreshCalc()"><label style="margin:0">Same day (dobro do valor da edição)</label></div>
+        </div>`).join('')}
+      <button class="btn-sm" onclick="S.calc.edicaoItens.push({tipo:'simples',qtd:1,duracaoSeg:60,prazoDesejadoDias:null,sameDay:false,versoesExtra:0,revisoesExtra:0});render()">+ Adicionar vídeo</button>
+    </div>`:'';
+  b.innerHTML=`
+    <div class="card" style="margin-bottom:12px;">
+      <div class="f2">
+        <div class="field"><label>Cliente</label><input value="${esc(w.cliente)}" list="cl-listcalc" oninput="S.calc.cliente=this.value"><datalist id="cl-listcalc">${clientes().map(cl=>`<option>${esc(cl)}</option>`).join('')}</datalist></div>
+        <div class="field"><label>Empresa/marca (opcional)</label><input value="${esc(w.empresa)}" oninput="S.calc.empresa=this.value"></div>
+      </div>
+      <div class="f2">
+        <div class="field"><label>Escopo</label><select onchange="S.calc.escopo=this.value;render()">
+          <option value="completo" ${w.escopo==='completo'?'selected':''}>Completo (captação + edição)</option>
+          <option value="captacao" ${w.escopo==='captacao'?'selected':''}>Só captação</option>
+          <option value="edicao" ${w.escopo==='edicao'?'selected':''}>Só edição</option>
+        </select></div>
+        <div class="field"><label>Visualização</label><select onchange="S.calc.modo=this.value;render()">
+          <option value="interno" ${w.modo==='interno'?'selected':''}>Interna (detalhado)</option>
+          <option value="cliente" ${w.modo==='cliente'?'selected':''}>Cliente (só o total)</option>
+        </select></div>
+      </div>
+    </div>
+    ${captBlock}${edicaoBlock}
+    <div class="card" style="margin-bottom:12px;">
+      <div class="f2">
+        <div class="field"><label>Desconto adicional sobre serviço (%)</label><input type="number" min="0" max="50" value="${w.descontoPct}" oninput="S.calc.descontoPct=Number(this.value)||0;refreshCalc()"></div>
+        <div class="field"><label>Deslocamento extra fora da fórmula (R$)</label><input type="number" step="0.01" value="${w.deslocExtra}" oninput="S.calc.deslocExtra=Number(this.value)||0;refreshCalc()"></div>
+      </div>
+    </div>
+    <div class="inv-box" id="calc-out">${calcOut()}</div>
+    <div style="font-size:11px;color:var(--t3);margin:8px 0 14px;">Regras Lozy aplicadas automaticamente: desconto nunca incide sobre deslocamento · duração acima de 5min vira orçamento manual · desconto por volume nunca derruba abaixo do preço de pacote · mínimos ${fmtBRL(S.pricing.capt.minimo)} captação / ${fmtBRL(S.pricing.edicao.minimo)} edição.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" onclick="saveOrcamento()">Salvar orçamento</button>
+      <button class="btn-ghost" onclick="S.calc=null;render()">Limpar</button>
+    </div>`;
+}
+function saveOrcamento(){
+  const w=ensureCalc();
+  const r=calcOrcamento(S.pricing,w);
+  if(r.edicao&&r.edicao.manual)return toast('Um dos vídeos passa de 5min — ajuste a duração ou orce essa parte manualmente antes de salvar.');
+  const o={id:uid('orc'),cliente:w.cliente.trim(),empresa:w.empresa.trim(),escopo:w.escopo,modo:w.modo,input:JSON.parse(JSON.stringify(w)),total:r.total,desconto:r.desconto,status:'Aberto',criado:todayStr()};
+  S.orcamentos.unshift(o);save();
+  S.calc=null;
+  S.tab.calc='historico';render();
+  toast('Orçamento salvo'+(o.cliente?' para '+o.cliente:'')+'.');
+}
+function orcStatusCycle(id){const o=S.orcamentos.find(x=>x.id===id);if(!o)return;const st=['Aberto','Ganho','Perdido'];o.status=st[(st.indexOf(o.status)+1)%st.length];save();render();}
+function delOrc(id){
+  const idx=S.orcamentos.findIndex(x=>x.id===id);if(idx<0)return;
+  pushUndo('excluir orçamento',['orcamentos']);
+  S.orcamentos.splice(idx,1);save();render();
+  toast('Orçamento excluído.','Desfazer','doUndo()');
+}
+function orcamentosCsv(){
+  const rows=[['Cliente','Empresa','Escopo','Total','Desconto','Status','Criado']];
+  S.orcamentos.forEach(o=>rows.push([o.cliente,o.empresa,o.escopo,o.total.toFixed(2),o.desconto.toFixed(2),o.status,o.criado]));
+  const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='orcamentos-lozy.csv';a.click();
+}
+function calcHistorico(b){
+  const os=[...S.orcamentos].sort((a,b2)=>String(b2.criado).localeCompare(a.criado));
+  const ganhos=os.filter(o=>o.status==='Ganho'),perdidos=os.filter(o=>o.status==='Perdido');
+  const conv=(ganhos.length+perdidos.length)?ganhos.length/(ganhos.length+perdidos.length)*100:0;
+  const ticket=ganhos.length?sum(ganhos,o=>o.total)/ganhos.length:0;
+  const descMedio=os.length?os.reduce((a,o)=>a+(o.desconto&&o.total?o.desconto/(o.desconto+o.total)*100:0),0)/os.length:0;
+  b.innerHTML=`
+    <div class="g4" style="margin-bottom:14px;">
+      <div class="card"><div class="clabel">Orçamentos</div><div class="metric">${os.length}</div></div>
+      <div class="card"><div class="clabel">Ticket médio (ganhos)</div><div class="metric">${fmtBRL(ticket)}</div></div>
+      <div class="card"><div class="clabel">Taxa de conversão</div><div class="metric">${conv.toFixed(0)}%</div><div class="metric-s">${ganhos.length} ganhos / ${perdidos.length} perdidos</div></div>
+      <div class="card"><div class="clabel">Desconto médio</div><div class="metric">${descMedio.toFixed(1)}%</div></div>
+    </div>
+    ${os.length?`<div class="toolbar"><button class="btn-ghost" onclick="orcamentosCsv()">↓ Exportar CSV</button></div>
+    <div class="card" style="padding:6px 20px;">${os.map(o=>`
+      <div class="row-item"><div style="min-width:0;flex:1;">
+        <div class="ri-name">${esc(o.cliente||'Sem cliente')}${o.empresa?' · '+esc(o.empresa):''}</div>
+        <div class="ri-sub">${o.escopo==='completo'?'Completo':o.escopo==='captacao'?'Só captação':'Só edição'} · ${fmtD(o.criado)} · ${fmtBRL2(o.total)}</div>
+      </div>
+      <button style="border:none;background:none;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="orcStatusCycle('${o.id}')"><span class="sdot ${o.status==='Ganho'?'s-green':o.status==='Perdido'?'s-red':'s-amber'}"></span><span style="font-size:12px;color:var(--t2)">${o.status}</span></button>
+      <div style="display:flex;gap:4px;margin-left:8px;">
+        <button class="ibtn" title="Gerar proposta" onclick="startPropFromOrc('${o.id}')">📄</button>
+        <button class="ibtn del" onclick="delOrc('${o.id}')">✕</button>
+      </div></div>`).join('')}</div>`
+    :'<div class="card"><div class="empty-msg">Nenhum orçamento salvo ainda. Calcule um em "Novo orçamento" e clique em Salvar.</div></div>'}`;
+}
+function calcAjustes(b){
+  const p=S.pricing;
+  const numIn=(path,step)=>`<input type="number" step="${step||1}" value="${getPricing(path)}" oninput="setPricing('${path}',Number(this.value)||0)" style="width:100%">`;
+  b.innerHTML=`
+  <div style="font-size:11.5px;color:var(--t3);margin-bottom:14px;">Esses valores alimentam o cálculo em "Novo orçamento" e, mais adiante, as propostas geradas a partir dele. Mudou um preço? Ajuste aqui — não precisa mexer em código.</div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="widget-hd"><span class="widget-ttl">Captação — diárias por tabela</span></div>
+    ${p.capt.tabs.map((tab,ti)=>`
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:6px;">${esc(tab.nome)}</div>
+        <div style="display:grid;grid-template-columns:repeat(${tab.tiers.length},1fr);gap:8px;">
+          ${tab.tiers.map((tier,ii)=>`<div class="field"><label>${tier.h}h (R$)</label>${numIn('capt.tabs.'+ti+'.tiers.'+ii+'.v',10)}</div>`).join('')}
+        </div>
+      </div>`).join('')}
+    <div class="f2">
+      <div class="field"><label>Hora extra acima do teto (R$)</label>${numIn('capt.horaExtra',10)}</div>
+      <div class="field"><label>Mínimo de captação (R$)</label>${numIn('capt.minimo',10)}</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="widget-hd"><span class="widget-ttl">Captação — ajustes</span></div>
+    <div class="f2">
+      <div class="field"><label>Desconto múltiplas diárias — a partir de quantas</label>${numIn('capt.descMultiDiarias.min')}</div>
+      <div class="field"><label>Desconto múltiplas diárias (%)</label>${numIn('capt.descMultiDiarias.pct')}</div>
+    </div>
+    <div class="field"><label>Acréscimo vídeo + fotos (%)</label>${numIn('capt.videoMaisFotosPct')}</div>
+    <div class="f2">
+      <div class="field"><label>Fotos inclusas no pacote base</label>${numIn('capt.fotos.base')}</div>
+      <div class="field"><label>Valor do pacote base de fotos (R$)</label>${numIn('capt.fotos.valorBase',10)}</div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Bloco adicional de fotos (qtd)</label>${numIn('capt.fotos.bloco')}</div>
+      <div class="field"><label>Valor do bloco adicional (R$)</label>${numIn('capt.fotos.valorBloco',10)}</div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Deslocamento — a cada quantos km</label>${numIn('capt.desloc.kmFaixa')}</div>
+      <div class="field"><label>Valor por faixa de km (R$)</label>${numIn('capt.desloc.valorFaixa',0.1)}</div>
+    </div>
+    <div class="field"><label>Deslocamento — valor por hora (R$)</label>${numIn('capt.desloc.valorHora',10)}</div>
+  </div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="widget-hd"><span class="widget-ttl">Edição — valores unitários</span></div>
+    <div class="f2">
+      <div class="field"><label>Pacote (10+) — simples (R$)</label>${numIn('edicao.unit.pacoteSimples',10)}</div>
+      <div class="field"><label>Pacote (10+) — dinâmico/complexo (R$)</label>${numIn('edicao.unit.pacoteDinamico',10)}</div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Pontual — simples (R$)</label>${numIn('edicao.unit.pontualSimples',10)}</div>
+      <div class="field"><label>Pontual — dinâmico/complexo (R$)</label>${numIn('edicao.unit.pontualDinamico',10)}</div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Aftermovie (R$)</label>${numIn('edicao.unit.aftermovie',10)}</div>
+      <div class="field"><label>A partir de quantos vídeos vira pacote</label>${numIn('edicao.minPacote')}</div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Versão extra (R$)</label>${numIn('edicao.versaoExtra',10)}</div>
+      <div class="field"><label>Revisão extra (R$)</label>${numIn('edicao.revisaoExtra',10)}</div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Revisões inclusas por vídeo</label>${numIn('edicao.revisoesInclusas')}</div>
+      <div class="field"><label>Mínimo de edição (R$)</label>${numIn('edicao.minimo',10)}</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="widget-hd"><span class="widget-ttl">Edição — multiplicador de duração</span></div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">Aplicado quando a duração final passa de 60s. Acima do último teto, vira orçamento manual.</div>
+    <div style="display:grid;grid-template-columns:repeat(${p.edicao.durMult.length},1fr);gap:8px;">
+      ${p.edicao.durMult.map((d,i)=>`<div class="field"><label>até ${d.max}s</label>${numIn('edicao.durMult.'+i+'.mult',0.1)}</div>`).join('')}
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="widget-hd"><span class="widget-ttl">Edição — desconto por volume (trabalho pontual)</span></div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">Nunca derruba o valor unitário abaixo do preço de pacote.</div>
+    ${p.edicao.volDesc.map((v,i)=>`<div class="f2"><div class="field"><label>De ${v.min} a ${v.max} vídeos — desconto (%)</label>${numIn('edicao.volDesc.'+i+'.pct')}</div><div></div></div>`).join('')}
+  </div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="widget-hd"><span class="widget-ttl">Edição — urgência</span></div>
+    <div class="f2">
+      <div class="field"><label>Prazo padrão mínimo (dias)</label>${numIn('edicao.urg.minDias',0.5)}</div>
+      <div class="field"><label>Dias por vídeo (soma ao prazo padrão)</label>${numIn('edicao.urg.porVideoDias',0.5)}</div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Acréscimo por urgência (%)</label>${numIn('edicao.urg.acrescimoPct')}</div>
+      <div class="field"><label>Multiplicador same day (×)</label>${numIn('edicao.urg.sameDayMult',0.1)}</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="widget-hd"><span class="widget-ttl">Regras gerais</span></div>
+    <div class="f2">
+      <div class="field"><label>Sinal de reserva — captação (%)</label>${numIn('geral.sinalPct')}</div>
+      <div class="field"><label>Limite pra reagendar sem custo (horas)</label>${numIn('geral.reagendLimiteH')}</div>
+    </div>
+    <div class="field"><label>Validade padrão do orçamento (dias)</label>${numIn('geral.validadeDias')}</div>
+  </div>
+  <div style="margin-top:14px;"><button class="btn-ghost" onclick="if(confirm('Restaurar todos os valores de precificação para o padrão original da Lozy? Isso substitui qualquer ajuste que você já fez.')){S.pricing=JSON.parse(JSON.stringify(PRICING_DEFAULT));save();render();}">↺ Restaurar padrão original</button></div>`;
+}
+function getPricing(path){return path.split('.').reduce((o,k)=>o&&o[k],S.pricing);}
+function setPricing(path,val){
+  const parts=path.split('.');let o=S.pricing;
+  for(let i=0;i<parts.length-1;i++)o=o[parts[i]];
+  o[parts[parts.length-1]]=val;save();
+}
+
+/* ═══ GERAR PROPOSTA — assistente de perguntas + template com a identidade Lozy ═══
+   Paleta usada: a oficial do Guia de Voz (cream #EAE3D6, quase-preto #1A1B1D,
+   wine #4E1A1D, terracotta #8C4530) — é a mesma já em uso no Hub e nos logos.
+   O site público usa um cream ligeiramente diferente (#F5F0E8); se você preferir
+   unificar com essa paleta na proposta também, troque os valores em :root dentro
+   de propostaHTML2 — é a única função que precisa mudar. */
+function round2(n){return Math.round((Number(n)||0)*100)/100;}
+function nextPropNumero(){return Math.max(0,...S.propostas.filter(p=>p.numero).map(p=>p.numero))+1;}
+function startPropFromOrc(id){
+  const o=S.orcamentos.find(x=>x.id===id);if(!o)return;
+  const r=calcOrcamento(S.pricing,o.input);
+  if(r.edicao&&r.edicao.manual)return toast('Esse orçamento tem um vídeo acima de 5min marcado pra orçar manualmente — ajuste antes de gerar a proposta.');
+  const itens=[];
+  if(r.capt){
+    const tabNome=o.input.capt.tabelaId==='complexa'?'Captação complexa':((S.pricing.capt.tabs.find(t=>t.id===o.input.capt.tabelaId)||{}).nome||'Captação');
+    itens.push({descricao:'Captação — '+tabNome+' ('+o.input.capt.diarias+'× '+o.input.capt.horas+'h)',qtd:1,valor:round2(r.capt.total-r.capt.desloc)});
+  }
+  if(r.edicao&&!r.edicao.manual)r.edicao.linhas.forEach((l,i)=>{
+    itens.push({descricao:'Edição — vídeo '+(i+1)+(l.ref.tipo==='aftermovie'?' (aftermovie)':l.isPacote?' (pacote)':''),qtd:l.qtd,valor:round2(l.qtd?l.subtotal/l.qtd:0)});
+  });
+  S.propWiz={
+    step:0,orcId:id,numero:nextPropNumero(),
+    cliente:o.cliente||'',empresa:o.empresa||'',titulo:'',subtitulo:'',contexto:'',recorrente:false,
+    itens,desconto:round2(r.desconto),deslocamento:round2(r.deslocTotal),
+    cronograma:[
+      {etapa:'Alinhamento e aprovação da proposta',prazo:'Semana 1'},
+      {etapa:'Captação',prazo:'Semana 2'},
+      {etapa:'Edição e primeira entrega',prazo:'Semana 3'},
+      {etapa:'Ajustes finais',prazo:'Semana 4'}
+    ],
+    condicoes:{sinalPct:S.pricing.geral.sinalPct,quandoQuita:'Na entrega final',revisoesInclusas:S.pricing.edicao.revisoesInclusas,validadeDias:S.pricing.geral.validadeDias,obs:'Valores já consideram os impostos — o total desta proposta é final.'},
+    notas:[
+      {titulo:'Revisões inclusas',texto:'Cada vídeo inclui '+S.pricing.edicao.revisoesInclusas+' rodadas de ajuste, dentro do escopo aprovado.'},
+      {titulo:'Reagendamento',texto:'Reagendável sem custo até '+S.pricing.geral.reagendLimiteH+'h antes da data marcada — após esse prazo, o sinal é retido.'}
+    ],
+    accent:'wine'
+  };
+  goTo('calculadora');
+}
+function startPropBlank(){
+  S.propWiz={step:0,orcId:null,numero:nextPropNumero(),cliente:'',empresa:'',titulo:'',subtitulo:'',contexto:'',recorrente:false,
+    itens:[{descricao:'',qtd:1,valor:0}],desconto:0,deslocamento:0,
+    cronograma:[{etapa:'Alinhamento e aprovação da proposta',prazo:'Semana 1'}],
+    condicoes:{sinalPct:S.pricing.geral.sinalPct,quandoQuita:'Na entrega final',revisoesInclusas:S.pricing.edicao.revisoesInclusas,validadeDias:S.pricing.geral.validadeDias,obs:'Valores já consideram os impostos — o total desta proposta é final.'},
+    notas:[],accent:'wine'};
+  S.active='calculadora';goTo('calculadora');
+}
+const PROPWSTEPS=['Cliente','Contexto','Investimento','Cronograma & condições','Notas & estilo','Gerar'];
+function propWStep(n){S.propWiz.step=n;render();}
+function propWizTotal(w){
+  const serv=w.itens.reduce((a,i)=>a+Number(i.qtd||0)*Number(i.valor||0),0);
+  return serv-Number(w.desconto||0)+Number(w.deslocamento||0);
+}
+function refreshPropTotal(){const el=document.getElementById('prop-total');if(el)el.innerHTML='<div class="inv-line total"><span>Investimento total</span><span>'+fmtBRL2(propWizTotal(S.propWiz))+'</span></div>';}
+function renderPropWizard(c){
+  const w=S.propWiz;
+  let body='';
+  if(w.step===0)body=`
+    <div class="f2">
+      <div class="field"><label>Cliente (pessoa)</label><input value="${esc(w.cliente)}" oninput="S.propWiz.cliente=this.value"></div>
+      <div class="field"><label>Empresa ou marca</label><input value="${esc(w.empresa)}" oninput="S.propWiz.empresa=this.value"></div>
+    </div>
+    <div class="field"><label>Título do projeto</label><input value="${esc(w.titulo)}" placeholder="Ex: Conteúdo audiovisual para autoridade médica" oninput="S.propWiz.titulo=this.value"></div>
+    <div class="field"><label>Subtítulo (1-2 linhas)</label><textarea rows="2" oninput="S.propWiz.subtitulo=this.value">${esc(w.subtitulo)}</textarea></div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto" ${w.recorrente?'checked':''} onchange="S.propWiz.recorrente=this.checked"><label style="margin:0">Formato recorrente (Lozy Pro) — adiciona a seção "o que você recebe todo mês"</label></div>`;
+  else if(w.step===1)body=`
+    <div class="field"><label>Contexto</label><textarea rows="7" placeholder="O momento do cliente, o desafio e o raciocínio por trás da proposta..." oninput="S.propWiz.contexto=this.value">${esc(w.contexto)}</textarea></div>
+    <div style="font-size:11px;color:var(--t3);">Vira o texto da seção "O ponto de partida" na proposta.</div>`;
+  else if(w.step===2)body=`
+    <div style="font-size:11.5px;color:var(--t3);margin-bottom:10px;">${w.orcId?'Pré-preenchido a partir do orçamento calculado — edite os nomes/valores se quiser.':'Adicione as entregas manualmente.'}</div>
+    ${w.itens.map((it,i)=>`<div class="entrega-row">
+      <input class="task-input" value="${esc(it.descricao)}" placeholder="Descrição" oninput="S.propWiz.itens[${i}].descricao=this.value">
+      <input class="task-input" type="number" min="1" value="${it.qtd}" oninput="S.propWiz.itens[${i}].qtd=Number(this.value)||1;refreshPropTotal()">
+      <input class="task-input" type="number" step="0.01" value="${it.valor}" oninput="S.propWiz.itens[${i}].valor=Number(this.value)||0;refreshPropTotal()">
+      <button class="ibtn del" onclick="S.propWiz.itens.splice(${i},1);render()">✕</button></div>`).join('')}
+    <button class="btn-sm" onclick="S.propWiz.itens.push({descricao:'',qtd:1,valor:0});render()">+ Entrega</button>
+    <div class="f2" style="margin-top:12px;">
+      <div class="field"><label>Desconto (R$)</label><input type="number" step="0.01" value="${w.desconto}" oninput="S.propWiz.desconto=Number(this.value)||0;refreshPropTotal()"></div>
+      <div class="field"><label>Deslocamento (R$)</label><input type="number" step="0.01" value="${w.deslocamento}" oninput="S.propWiz.deslocamento=Number(this.value)||0;refreshPropTotal()"></div>
+    </div>
+    <div class="inv-box" id="prop-total" style="margin-top:8px;"><div class="inv-line total"><span>Investimento total</span><span>${fmtBRL2(propWizTotal(w))}</span></div></div>`;
+  else if(w.step===3)body=`
+    <div class="widget-hd" style="margin-top:0"><span class="widget-ttl">Cronograma</span></div>
+    ${w.cronograma.map((e,i)=>`<div class="entrega-row">
+      <input class="task-input" style="flex:2" value="${esc(e.etapa)}" placeholder="Etapa" oninput="S.propWiz.cronograma[${i}].etapa=this.value">
+      <input class="task-input" value="${esc(e.prazo)}" placeholder="Prazo" oninput="S.propWiz.cronograma[${i}].prazo=this.value">
+      <button class="ibtn del" onclick="S.propWiz.cronograma.splice(${i},1);render()">✕</button></div>`).join('')}
+    <button class="btn-sm" onclick="S.propWiz.cronograma.push({etapa:'',prazo:''});render()">+ Etapa</button>
+    <div class="widget-hd" style="margin-top:18px"><span class="widget-ttl">Condições de pagamento</span></div>
+    <div class="f2">
+      <div class="field"><label>Sinal (%)</label><input type="number" value="${w.condicoes.sinalPct}" oninput="S.propWiz.condicoes.sinalPct=Number(this.value)||0"></div>
+      <div class="field"><label>Quando quita o restante</label><input value="${esc(w.condicoes.quandoQuita)}" oninput="S.propWiz.condicoes.quandoQuita=this.value"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>Revisões inclusas por vídeo</label><input type="number" value="${w.condicoes.revisoesInclusas}" oninput="S.propWiz.condicoes.revisoesInclusas=Number(this.value)||0"></div>
+      <div class="field"><label>Validade da proposta (dias)</label><input type="number" value="${w.condicoes.validadeDias}" oninput="S.propWiz.condicoes.validadeDias=Number(this.value)||30"></div>
+    </div>
+    <div class="field"><label>Observações</label><textarea rows="3" oninput="S.propWiz.condicoes.obs=this.value">${esc(w.condicoes.obs)}</textarea></div>`;
+  else if(w.step===4)body=`
+    <div class="widget-hd" style="margin-top:0"><span class="widget-ttl">Notas importantes</span></div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">Aparecem como cards no fim da proposta — pontos que evitam ruído na aprovação.</div>
+    ${w.notas.map((n,i)=>`<div style="border:1px solid var(--b2);border-radius:10px;padding:10px;margin-bottom:8px;">
+      <input class="task-input" style="margin-bottom:6px;" value="${esc(n.titulo)}" placeholder="Título" oninput="S.propWiz.notas[${i}].titulo=this.value">
+      <textarea rows="2" oninput="S.propWiz.notas[${i}].texto=this.value" placeholder="Texto">${esc(n.texto)}</textarea>
+      <button class="ibtn del" onclick="S.propWiz.notas.splice(${i},1);render()">✕ remover</button></div>`).join('')}
+    <button class="btn-sm" onclick="S.propWiz.notas.push({titulo:'',texto:''});render()">+ Nota</button>
+    <div class="widget-hd" style="margin-top:18px"><span class="widget-ttl">Cor de destaque</span></div>
+    <div style="display:flex;gap:14px;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="accent" style="width:auto" ${w.accent==='wine'?'checked':''} onchange="S.propWiz.accent='wine'"><span style="width:16px;height:16px;border-radius:4px;background:#4E1A1D;display:inline-block;"></span>Wine</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="accent" style="width:auto" ${w.accent==='terracotta'?'checked':''} onchange="S.propWiz.accent='terracotta'"><span style="width:16px;height:16px;border-radius:4px;background:#8C4530;display:inline-block;"></span>Terracotta</label>
+    </div>`;
+  else body=`
+    <div class="inv-box"><div class="inv-line total"><span>Investimento total</span><span>${fmtBRL2(propWizTotal(w))}</span></div></div>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+      <button class="btn" onclick="savePropWiz(true)">Salvar + baixar HTML</button>
+      <button class="btn-ghost" onclick="savePropWiz(false)">Só salvar</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--t3);margin-top:12px;">Gera uma página HTML standalone com a identidade Lozy — envie o arquivo direto pro cliente ou hospede no seu domínio.</div>`;
+  c.innerHTML=`
+    <div class="page-hd"><div><div class="page-title">${esc(w.titulo)||'Gerar proposta'}</div></div>
+    <button class="btn-ghost" onclick="S.propWiz=null;S.tab.calc='historico';render()">← Cancelar</button></div>
+    <div class="wiz-steps">${PROPWSTEPS.map((s,i)=>`<div class="wstep ${i<w.step?'done':i===w.step?'cur':''}" style="cursor:pointer" onclick="propWStep(${i})"><span class="n">${i<w.step?'✓':i+1}</span>${s}</div>`).join('')}</div>
+    <div class="wiz-body card">${body}</div>
+    <div class="wiz-nav">
+      <button class="btn-ghost" ${w.step===0?'style="visibility:hidden"':''} onclick="propWStep(${w.step-1})">Anterior</button>
+      ${w.step<PROPWSTEPS.length-1?`<button class="btn" onclick="propWStep(${w.step+1})">Próximo</button>`:''}
+    </div>`;
+}
+function savePropWiz(dl){
+  const w=S.propWiz;
+  const p={id:uid('pp'),versao:2,numero:w.numero,orcId:w.orcId,cliente:w.cliente.trim(),empresa:w.empresa.trim(),
+    titulo:w.titulo||'Proposta Lozy',subtitulo:w.subtitulo,contexto:w.contexto,recorrente:w.recorrente,
+    itens:w.itens,desconto:w.desconto,deslocamento:w.deslocamento,total:propWizTotal(w),
+    cronograma:w.cronograma,condicoes:w.condicoes,notas:w.notas,accent:w.accent,
+    validade:(()=>{const d=new Date();d.setDate(d.getDate()+Number(w.condicoes.validadeDias||30));return dstr(d);})(),
+    status:'Rascunho',criada:todayStr()};
+  S.propostas.push(p);save();
+  if(w.orcId){const o=S.orcamentos.find(x=>x.id===w.orcId);if(o){o.propostaId=p.id;save();}}
+  S.propWiz=null;S.active='propostas';S.tab.propostas='lista';
+  buildNav();render();
+  if(dl)downloadProp(p.id);
+  toast('Proposta salva'+(p.cliente?' para '+p.cliente:'')+'.');
+}
+function propIcon(name){
+  const M={
+    partida:'<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2"/>',
+    escopo:'<path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 13h6M10 16.5h6"/>',
+    mensal:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    crono:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 3"/>',
+    cond:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
+    notas:'<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>'
+  };
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(M[name]||'')+'</svg>';
+}
+function propSecHd(num,icon,titulo,desc){
+  return '<div class="sec-hd"><div class="sec-badge"><span class="sec-icon">'+propIcon(icon)+'</span><span class="sec-num">'+num+'</span></div><div class="sec-title-group"><h2>'+esc(titulo)+'</h2><p class="sec-desc">'+esc(desc)+'</p></div></div>';
+}
+function propostaHTML2(p){
+  const accentHex=p.accent==='terracotta'?'#8C4530':'#4E1A1D';
+  const tWords=(p.titulo||'').trim().split(/\s+/);
+  const tLast=tWords.pop()||'';
+  const tituloHtml=(tWords.length?esc(tWords.join(' '))+' ':'')+'<span class="accw">'+esc(tLast)+'</span>';
+  const itensRows=p.itens.map((it,i)=>'<div class="item" style="transition-delay:'+(i*35)+'ms"><div class="idesc">'+esc(it.descricao)+'</div><div class="ivalores"><span class="iqtd">'+it.qtd+'×</span><span class="ival">'+fmtBRL2(Number(it.qtd)*Number(it.valor))+'</span></div></div>').join('');
+  const cronoRows=p.cronograma.map((e,i)=>'<div class="crono-item" style="transition-delay:'+(i*45)+'ms"><div class="crono-dot"></div><div class="crono-body"><div class="crono-etapa">'+esc(e.etapa)+'</div><div class="crono-prazo">'+esc(e.prazo)+'</div></div></div>').join('');
+  const notasCards=p.notas.map((n,i)=>'<div class="nota-card" style="transition-delay:'+(i*45)+'ms"><div class="nota-titulo">'+esc(n.titulo)+'</div><div class="nota-texto">'+esc(n.texto)+'</div></div>').join('');
+  const serv=p.itens.reduce((a,i)=>a+Number(i.qtd)*Number(i.valor),0);
+  const mensalSection=p.recorrente?('<section class="sec reveal">'+propSecHd('03','mensal','O que você recebe todo mês','Volume de entregas incluído em cada ciclo mensal.')+'<div class="mensal-list">'+p.itens.map(it=>'<div class="mensal-li">'+it.qtd+'× '+esc(it.descricao)+'</div>').join('')+'</div></section>'):'';
+  const nCrono=p.recorrente?'04':'03',nCond=p.recorrente?'05':'04',nNotas=p.recorrente?'06':'05';
+  return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
+  '<title>Proposta — '+esc(p.titulo)+'</title>'+
+  '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">'+
+  '<style>:root{--bg:#EAE3D6;--ink:#1A1B1D;--ink2:#4a463f;--ink3:#847d6d;--accent:'+accentHex+';--accent-soft:'+accentHex+'17;--line:#d9d0bc;--card:#F2EDE1;--glow:'+accentHex+'1c;}'+
+  '*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}'+
+  'body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.65;-webkit-font-smoothing:antialiased}'+
+  '.wrap{max-width:760px;margin:0 auto;padding:64px 24px 90px;position:relative}'+
+  '.hero{position:relative;padding-bottom:4px}'+
+  '.hero::before{content:"";position:absolute;top:-90px;right:-140px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,var(--glow),transparent 70%);pointer-events:none;z-index:0}'+
+  '.hero-in{position:relative;z-index:1}'+
+  '.mark{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:Montserrat;font-weight:500;font-size:18px;margin-bottom:30px}'+
+  '.tag{display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:26px;font-weight:500}'+
+  '.tag::before{content:"";width:32px;height:1px;background:currentColor}'+
+  'h1{font-family:Montserrat;font-weight:300;font-size:clamp(2rem,5.4vw,3.4rem);letter-spacing:-.01em;line-height:1.06;text-transform:uppercase;max-width:19ch;text-wrap:balance}'+
+  'h1 .accw{color:var(--accent);font-style:italic}'+
+  '.subt{font-size:14px;letter-spacing:.01em;line-height:1.85;color:var(--ink2);font-weight:300;max-width:54ch;margin-top:24px}'+
+  '.sec{padding-top:58px;border-top:1px solid var(--line);margin-top:0;position:relative}'+
+  '.sec-hd{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:16px;margin-bottom:26px}'+
+  '.sec-badge{display:flex;align-items:center;gap:9px}'+
+  '.sec-icon{flex:0 0 auto;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:999px;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-soft)}'+
+  '.sec-icon svg{width:15px;height:15px}'+
+  '.sec-num{font-family:Montserrat;font-size:10.5px;letter-spacing:.16em;color:var(--ink3);font-weight:500}'+
+  '.sec-title-group{display:grid;gap:5px;min-width:0}'+
+  'h2{font-family:Montserrat;font-weight:500;font-size:clamp(1.05rem,2vw,1.4rem);letter-spacing:-.01em;line-height:1.1;text-transform:uppercase}'+
+  '.sec-desc{font-size:11.5px;letter-spacing:.03em;color:var(--ink3);font-weight:400;max-width:58ch}'+
+  'p.lead{font-size:15px;color:var(--ink2);font-weight:300;line-height:1.85;max-width:64ch}'+
+  '.item{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:15px 14px;border-bottom:1px solid var(--line);border-radius:10px;transition:background .18s ease,transform .18s ease}'+
+  '.item:hover{background:var(--accent-soft);transform:translateX(2px)}'+
+  '.item:last-child{border-bottom:none}'+
+  '.idesc{font-size:13.5px;font-weight:500;color:var(--ink)}'+
+  '.ivalores{display:flex;align-items:baseline;gap:10px;flex-shrink:0}'+
+  '.iqtd{font-size:11px;color:var(--ink3)}.ival{font-size:13.5px;font-weight:500;font-variant-numeric:tabular-nums}'+
+  '.inv{position:relative;border-radius:24px;padding:28px;margin-top:18px;border:1px solid var(--accent-soft);background:radial-gradient(circle at 100% 0%,var(--glow),transparent 20rem),var(--card);overflow:hidden}'+
+  '.inv-row{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2);padding:3px 0}'+
+  '.inv-tot{display:flex;justify-content:space-between;align-items:baseline;font-family:Montserrat;font-weight:500;font-size:26px;letter-spacing:-.01em;padding-top:16px;margin-top:12px;border-top:1px solid var(--line)}'+
+  '.mensal-list{display:grid;gap:8px}.mensal-li{font-size:13.5px;font-weight:500;padding:12px 16px;background:var(--card);border-radius:12px;border:1px solid var(--line);transition:border-color .18s ease}'+
+  '.mensal-li:hover{border-color:var(--accent)}'+
+  '.crono-item{display:flex;gap:15px;padding:13px 0}.crono-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0;box-shadow:0 0 0 4px var(--accent-soft)}'+
+  '.crono-etapa{font-size:14px;font-weight:500}.crono-prazo{font-size:11.5px;letter-spacing:.03em;color:var(--ink3);margin-top:2px}'+
+  '.cond-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}'+
+  '.cond-item{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;transition:border-color .18s ease,transform .18s ease}'+
+  '.cond-item:hover{border-color:var(--accent);transform:translateY(-2px)}'+
+  '.cond-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:5px;font-weight:500}'+
+  '.cond-val{font-size:14px;font-weight:500}.cond-obs{font-size:12.5px;color:var(--ink3);line-height:1.85;font-weight:300}'+
+  '.notas-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}'+
+  '.nota-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}'+
+  '.nota-card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 14px 28px -18px rgba(26,27,29,.35)}'+
+  '.nota-titulo{font-weight:600;font-size:13px;margin-bottom:6px}.nota-texto{font-size:12px;color:var(--ink3);line-height:1.7;font-weight:400}'+
+  '.foot{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);color:var(--ink3);font-size:11px;letter-spacing:.02em;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}'+
+  '.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}.reveal.visible{opacity:1;transform:translateY(0)}'+
+  '.item,.crono-item,.nota-card{opacity:0;transform:translateY(10px);transition:opacity .5s ease,transform .5s ease,background .18s ease}'+
+  '.sec.visible .item,.sec.visible .crono-item,.sec.visible .nota-card{opacity:1;transform:translateY(0)}'+
+  '@media (prefers-reduced-motion:reduce){.reveal,.item,.crono-item,.nota-card{opacity:1;transform:none;transition:none}}'+
+  '@media print{body{background:#fff}.inv,.item:hover{background:#fafafa}}'+
+  '@media (max-width:640px){.cond-grid,.notas-grid{grid-template-columns:1fr}h1{font-size:32px}}'+
+  '</style></head><body><div class="wrap">'+
+  '<div class="hero reveal"><div class="hero-in">'+
+  '<div class="mark">L</div>'+
+  '<div class="tag">Proposta Nº '+p.numero+' · '+new Date(p.criada+'T00:00:00').getFullYear()+(p.empresa?' · '+esc(p.empresa):'')+'</div>'+
+  '<h1>'+tituloHtml+'</h1>'+
+  (p.subtitulo?'<p class="subt">'+esc(p.subtitulo)+'</p>':'')+
+  '</div></div>'+
+  (p.contexto?'<section class="sec reveal">'+propSecHd('01','partida','O ponto de partida','Contexto da oportunidade e raciocínio por trás da proposta.')+'<p class="lead">'+esc(p.contexto)+'</p></section>':'')+
+  '<section class="sec reveal">'+propSecHd('02','escopo','Escopo e investimento','Itens contratados e composição do valor final.')+
+  '<div class="itens-list">'+itensRows+'</div>'+
+  '<div class="inv"><div class="inv-row"><span>Serviços</span><span>'+fmtBRL2(serv)+'</span></div>'+
+  (p.desconto?'<div class="inv-row"><span>Desconto</span><span>−'+fmtBRL2(p.desconto)+'</span></div>':'')+
+  (p.deslocamento?'<div class="inv-row"><span>Deslocamento</span><span>'+fmtBRL2(p.deslocamento)+'</span></div>':'')+
+  '<div class="inv-tot"><span>Investimento total</span><span>'+fmtBRL2(p.total)+'</span></div></div></section>'+
+  mensalSection+
+  '<section class="sec reveal">'+propSecHd(nCrono,'crono','Cronograma','Sequência prevista até a rotina estar rodando.')+cronoRows+'</section>'+
+  '<section class="sec reveal">'+propSecHd(nCond,'cond','Condições de pagamento','Etapas de pagamento e critérios gerais.')+
+  '<div class="cond-grid"><div class="cond-item"><div class="cond-label">Sinal</div><div class="cond-val">'+p.condicoes.sinalPct+'% na aprovação</div></div>'+
+  '<div class="cond-item"><div class="cond-label">Restante</div><div class="cond-val">'+esc(p.condicoes.quandoQuita)+'</div></div>'+
+  '<div class="cond-item"><div class="cond-label">Revisões inclusas</div><div class="cond-val">'+p.condicoes.revisoesInclusas+' por vídeo</div></div>'+
+  '<div class="cond-item"><div class="cond-label">Validade</div><div class="cond-val">'+p.condicoes.validadeDias+' dias (até '+new Date(p.validade+'T00:00:00').toLocaleDateString('pt-BR')+')</div></div></div>'+
+  (p.condicoes.obs?'<p class="cond-obs">'+esc(p.condicoes.obs)+'</p>':'')+'</section>'+
+  (p.notas.length?'<section class="sec reveal">'+propSecHd(nNotas,'notas','Notas importantes','Pontos que evitam ruído na aprovação e execução.')+'<div class="notas-grid">'+notasCards+'</div></section>':'')+
+  '<div class="foot"><span>Lozy Creative — lozycreative.com</span><span>São Paulo · '+new Date(p.criada+'T00:00:00').toLocaleDateString('pt-BR')+'</span></div>'+
+  '</div><script>(function(){var els=document.querySelectorAll(".reveal");if(!("IntersectionObserver" in window)){els.forEach(function(e){e.classList.add("visible")});return;}var io=new IntersectionObserver(function(entries){entries.forEach(function(en){if(en.isIntersecting){en.target.classList.add("visible");io.unobserve(en.target);}});},{threshold:.1});els.forEach(function(e){io.observe(e);});})();<'+'/script>'+
+  '</body></html>';
 }
 
 /* ═══ QUICK CREATE + MODAL INFRA ═══ */

@@ -799,7 +799,7 @@ active:'dashboard',
 sort:{},
 tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana',calc:'nova'},
 q:{},f:{},
-wiz:null,calc:null,propWiz:null
+wiz:null,calc:null,propWiz:null,perfis:[]
 };
 
 /* ═══ STORAGE — adaptador ═══
@@ -817,7 +817,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis'];
 async function load(){
   let got=false;
   try{
@@ -3070,6 +3070,14 @@ function setPricing(path,val){
    de propostaHTML2 — é a única função que precisa mudar. */
 function round2(n){return Math.round((Number(n)||0)*100)/100;}
 function nextPropNumero(){return Math.max(0,...S.propostas.filter(p=>p.numero).map(p=>p.numero))+1;}
+const PROP_TEXTOS_PADRAO={
+  partida_titulo:'O ponto de partida',partida_desc:'Contexto da oportunidade e raciocínio por trás da proposta.',
+  escopo_titulo:'Escopo e investimento',escopo_desc:'Itens contratados e composição do valor final.',
+  mensal_titulo:'O que você recebe todo mês',mensal_desc:'Volume de entregas incluído em cada ciclo mensal.',
+  crono_titulo:'Cronograma',crono_desc:'Sequência prevista até a rotina estar rodando.',
+  cond_titulo:'Condições de pagamento',cond_desc:'Etapas de pagamento e critérios gerais.',
+  notas_titulo:'Notas importantes',notas_desc:'Pontos que evitam ruído na aprovação e execução.'
+};
 function startPropFromOrc(id){
   const o=S.orcamentos.find(x=>x.id===id);if(!o)return;
   const r=calcOrcamento(S.pricing,o.input);
@@ -3097,7 +3105,7 @@ function startPropFromOrc(id){
       {titulo:'Revisões inclusas',texto:'Cada vídeo inclui '+S.pricing.edicao.revisoesInclusas+' rodadas de ajuste, dentro do escopo aprovado.'},
       {titulo:'Reagendamento',texto:'Reagendável sem custo até '+S.pricing.geral.reagendLimiteH+'h antes da data marcada — após esse prazo, o sinal é retido.'}
     ],
-    accent:'wine'
+    accent:'wine',textos:{...PROP_TEXTOS_PADRAO},perfilId:null
   };
   goTo('calculadora');
 }
@@ -3106,11 +3114,23 @@ function startPropBlank(){
     itens:[{descricao:'',qtd:1,valor:0}],desconto:0,deslocamento:0,
     cronograma:[{etapa:'Alinhamento e aprovação da proposta',prazo:'Semana 1'}],
     condicoes:{sinalPct:S.pricing.geral.sinalPct,quandoQuita:'Na entrega final',revisoesInclusas:S.pricing.edicao.revisoesInclusas,validadeDias:S.pricing.geral.validadeDias,obs:'Valores já consideram os impostos — o total desta proposta é final.'},
-    notas:[],accent:'wine'};
+    notas:[],accent:'wine',textos:{...PROP_TEXTOS_PADRAO},perfilId:null};
   S.active='calculadora';goTo('calculadora');
 }
-const PROPWSTEPS=['Cliente','Contexto','Investimento','Cronograma & condições','Notas & estilo','Gerar'];
+const PROPWSTEPS=['Cliente','Contexto','Investimento','Cronograma & condições','Textos das seções','Notas & estilo','Gerar'];
 function propWStep(n){S.propWiz.step=n;render();}
+function applyPerfil(id){
+  if(!id){S.propWiz.perfilId=null;return;}
+  const pf=S.perfis.find(x=>x.id===id);if(!pf)return;
+  S.propWiz.textos={...PROP_TEXTOS_PADRAO,...pf.textos};S.propWiz.perfilId=id;render();
+}
+function savePerfilFromWiz(){
+  const nome=prompt('Nome do perfil (ex: Corporativo, Criador/Influencer, Saúde):','');
+  if(!nome||!nome.trim())return;
+  S.perfis.push({id:uid('pf'),nome:nome.trim(),textos:{...S.propWiz.textos}});
+  save();render();toast('Perfil "'+nome.trim()+'" salvo.');
+}
+function delPerfil(id){S.perfis=S.perfis.filter(x=>x.id!==id);save();render();}
 function propWizTotal(w){
   const serv=w.itens.reduce((a,i)=>a+Number(i.qtd||0)*Number(i.valor||0),0);
   return serv-Number(w.desconto||0)+Number(w.deslocamento||0);
@@ -3161,6 +3181,24 @@ function renderPropWizard(c){
     </div>
     <div class="field"><label>Observações</label><textarea rows="3" oninput="S.propWiz.condicoes.obs=this.value">${esc(w.condicoes.obs)}</textarea></div>`;
   else if(w.step===4)body=`
+    <div class="f2" style="margin-bottom:6px;">
+      <div class="field"><label>Aplicar perfil salvo</label><select onchange="applyPerfil(this.value)">
+        <option value="">— nenhum, usar texto padrão —</option>
+        ${S.perfis.map(pf=>`<option value="${pf.id}" ${w.perfilId===pf.id?'selected':''}>${esc(pf.nome)}</option>`).join('')}
+      </select></div>
+      <div class="field" style="display:flex;align-items:flex-end;"><button class="btn-sm" onclick="savePerfilFromWiz()">💾 Salvar como novo perfil</button></div>
+    </div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Título e descrição de cada seção da proposta. Vêm com o texto padrão — edite só onde fizer sentido pro perfil desse cliente. Aplicar um perfil sobrescreve os campos abaixo (ainda editáveis depois).</div>
+    ${[['partida','O ponto de partida'],['escopo','Escopo e investimento'],['mensal','O que você recebe todo mês (só aparece se "recorrente" estiver marcado)'],['crono','Cronograma'],['cond','Condições de pagamento'],['notas','Notas importantes']].map(([k,label])=>`
+      <div style="border:1px solid var(--b2);border-radius:10px;padding:10px;margin-bottom:8px;">
+        <div style="font-size:10.5px;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">${label}</div>
+        <input class="task-input" style="margin-bottom:6px;" value="${esc(w.textos[k+'_titulo'])}" placeholder="Título da seção" oninput="S.propWiz.textos['${k}_titulo']=this.value">
+        <textarea rows="2" placeholder="Descrição da seção" oninput="S.propWiz.textos['${k}_desc']=this.value">${esc(w.textos[k+'_desc'])}</textarea>
+      </div>`).join('')}
+    <button class="btn-ghost" onclick="S.propWiz.textos={...PROP_TEXTOS_PADRAO};S.propWiz.perfilId=null;render()">↺ Restaurar textos padrão</button>
+    ${S.perfis.length?`<div style="margin-top:20px;"><div class="widget-hd"><span class="widget-ttl">Perfis salvos</span></div>
+    ${S.perfis.map(pf=>`<div class="row-item"><div class="ri-name" style="flex:1">${esc(pf.nome)}</div><button class="ibtn del" onclick="delPerfil('${pf.id}')">✕</button></div>`).join('')}</div>`:''}`;
+  else if(w.step===5)body=`
     <div class="widget-hd" style="margin-top:0"><span class="widget-ttl">Notas importantes</span></div>
     <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">Aparecem como cards no fim da proposta — pontos que evitam ruído na aprovação.</div>
     ${w.notas.map((n,i)=>`<div style="border:1px solid var(--b2);border-radius:10px;padding:10px;margin-bottom:8px;">
@@ -3195,7 +3233,7 @@ function savePropWiz(dl){
   const p={id:uid('pp'),versao:2,numero:w.numero,orcId:w.orcId,cliente:w.cliente.trim(),empresa:w.empresa.trim(),
     titulo:w.titulo||'Proposta Lozy',subtitulo:w.subtitulo,contexto:w.contexto,recorrente:w.recorrente,
     itens:w.itens,desconto:w.desconto,deslocamento:w.deslocamento,total:propWizTotal(w),
-    cronograma:w.cronograma,condicoes:w.condicoes,notas:w.notas,accent:w.accent,
+    cronograma:w.cronograma,condicoes:w.condicoes,notas:w.notas,accent:w.accent,textos:w.textos||PROP_TEXTOS_PADRAO,
     validade:(()=>{const d=new Date();d.setDate(d.getDate()+Number(w.condicoes.validadeDias||30));return dstr(d);})(),
     status:'Rascunho',criada:todayStr()};
   S.propostas.push(p);save();
@@ -3220,6 +3258,7 @@ function propSecHd(num,icon,titulo,desc){
   return '<div class="sec-hd"><div class="sec-badge"><span class="sec-icon">'+propIcon(icon)+'</span><span class="sec-num">'+num+'</span></div><div class="sec-title-group"><h2>'+esc(titulo)+'</h2><p class="sec-desc">'+esc(desc)+'</p></div></div>';
 }
 function propostaHTML2(p){
+  const tx={...PROP_TEXTOS_PADRAO,...(p.textos||{})};
   const accentHex=p.accent==='terracotta'?'#8C4530':'#4E1A1D';
   const tWords=(p.titulo||'').trim().split(/\s+/);
   const tLast=tWords.pop()||'';
@@ -3228,7 +3267,7 @@ function propostaHTML2(p){
   const cronoRows=p.cronograma.map((e,i)=>'<div class="crono-item" style="transition-delay:'+(i*45)+'ms"><div class="crono-dot"></div><div class="crono-body"><div class="crono-etapa">'+esc(e.etapa)+'</div><div class="crono-prazo">'+esc(e.prazo)+'</div></div></div>').join('');
   const notasCards=p.notas.map((n,i)=>'<div class="nota-card" style="transition-delay:'+(i*45)+'ms"><div class="nota-titulo">'+esc(n.titulo)+'</div><div class="nota-texto">'+esc(n.texto)+'</div></div>').join('');
   const serv=p.itens.reduce((a,i)=>a+Number(i.qtd)*Number(i.valor),0);
-  const mensalSection=p.recorrente?('<section class="sec reveal">'+propSecHd('03','mensal','O que você recebe todo mês','Volume de entregas incluído em cada ciclo mensal.')+'<div class="mensal-list">'+p.itens.map(it=>'<div class="mensal-li">'+it.qtd+'× '+esc(it.descricao)+'</div>').join('')+'</div></section>'):'';
+  const mensalSection=p.recorrente?('<section class="sec reveal">'+propSecHd('03','mensal',tx.mensal_titulo,tx.mensal_desc)+'<div class="mensal-list">'+p.itens.map(it=>'<div class="mensal-li">'+it.qtd+'× '+esc(it.descricao)+'</div>').join('')+'</div></section>'):'';
   const nCrono=p.recorrente?'04':'03',nCond=p.recorrente?'05':'04',nNotas=p.recorrente?'06':'05';
   return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
   '<title>Proposta — '+esc(p.titulo)+'</title>'+
@@ -3292,22 +3331,22 @@ function propostaHTML2(p){
   '<h1>'+tituloHtml+'</h1>'+
   (p.subtitulo?'<p class="subt">'+esc(p.subtitulo)+'</p>':'')+
   '</div></div>'+
-  (p.contexto?'<section class="sec reveal">'+propSecHd('01','partida','O ponto de partida','Contexto da oportunidade e raciocínio por trás da proposta.')+'<p class="lead">'+esc(p.contexto)+'</p></section>':'')+
-  '<section class="sec reveal">'+propSecHd('02','escopo','Escopo e investimento','Itens contratados e composição do valor final.')+
+  (p.contexto?'<section class="sec reveal">'+propSecHd('01','partida',tx.partida_titulo,tx.partida_desc)+'<p class="lead">'+esc(p.contexto)+'</p></section>':'')+
+  '<section class="sec reveal">'+propSecHd('02','escopo',tx.escopo_titulo,tx.escopo_desc)+
   '<div class="itens-list">'+itensRows+'</div>'+
   '<div class="inv"><div class="inv-row"><span>Serviços</span><span>'+fmtBRL2(serv)+'</span></div>'+
   (p.desconto?'<div class="inv-row"><span>Desconto</span><span>−'+fmtBRL2(p.desconto)+'</span></div>':'')+
   (p.deslocamento?'<div class="inv-row"><span>Deslocamento</span><span>'+fmtBRL2(p.deslocamento)+'</span></div>':'')+
   '<div class="inv-tot"><span>Investimento total</span><span>'+fmtBRL2(p.total)+'</span></div></div></section>'+
   mensalSection+
-  '<section class="sec reveal">'+propSecHd(nCrono,'crono','Cronograma','Sequência prevista até a rotina estar rodando.')+cronoRows+'</section>'+
-  '<section class="sec reveal">'+propSecHd(nCond,'cond','Condições de pagamento','Etapas de pagamento e critérios gerais.')+
+  '<section class="sec reveal">'+propSecHd(nCrono,'crono',tx.crono_titulo,tx.crono_desc)+cronoRows+'</section>'+
+  '<section class="sec reveal">'+propSecHd(nCond,'cond',tx.cond_titulo,tx.cond_desc)+
   '<div class="cond-grid"><div class="cond-item"><div class="cond-label">Sinal</div><div class="cond-val">'+p.condicoes.sinalPct+'% na aprovação</div></div>'+
   '<div class="cond-item"><div class="cond-label">Restante</div><div class="cond-val">'+esc(p.condicoes.quandoQuita)+'</div></div>'+
   '<div class="cond-item"><div class="cond-label">Revisões inclusas</div><div class="cond-val">'+p.condicoes.revisoesInclusas+' por vídeo</div></div>'+
   '<div class="cond-item"><div class="cond-label">Validade</div><div class="cond-val">'+p.condicoes.validadeDias+' dias (até '+new Date(p.validade+'T00:00:00').toLocaleDateString('pt-BR')+')</div></div></div>'+
   (p.condicoes.obs?'<p class="cond-obs">'+esc(p.condicoes.obs)+'</p>':'')+'</section>'+
-  (p.notas.length?'<section class="sec reveal">'+propSecHd(nNotas,'notas','Notas importantes','Pontos que evitam ruído na aprovação e execução.')+'<div class="notas-grid">'+notasCards+'</div></section>':'')+
+  (p.notas.length?'<section class="sec reveal">'+propSecHd(nNotas,'notas',tx.notas_titulo,tx.notas_desc)+'<div class="notas-grid">'+notasCards+'</div></section>':'')+
   '<div class="foot"><span>Lozy Creative — lozycreative.com</span><span>São Paulo · '+new Date(p.criada+'T00:00:00').toLocaleDateString('pt-BR')+'</span></div>'+
   '</div><script>(function(){var els=document.querySelectorAll(".reveal");if(!("IntersectionObserver" in window)){els.forEach(function(e){e.classList.add("visible")});return;}var io=new IntersectionObserver(function(entries){entries.forEach(function(en){if(en.isIntersecting){en.target.classList.add("visible");io.unobserve(en.target);}});},{threshold:.1});els.forEach(function(e){io.observe(e);});})();<'+'/script>'+
   '</body></html>';

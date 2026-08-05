@@ -794,7 +794,7 @@ const PRICING_DEFAULT={
 };
 let S={
 leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],
-pricing:JSON.parse(JSON.stringify(PRICING_DEFAULT)),orcamentos:[],
+pricing:JSON.parse(JSON.stringify(PRICING_DEFAULT)),orcamentos:[],finLastUpdate:null,
 active:'dashboard',
 sort:{},
 tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana',calc:'nova'},
@@ -817,7 +817,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate'];
 async function load(){
   let got=false;
   try{
@@ -2027,11 +2027,23 @@ function exportBackup(){
 /* ═══ FINANCEIRO (regras Central Lozy) — com filtros e ordenação independentes por aba ═══ */
 function renderFin(c){
   c.innerHTML=`
-    <div class="page-hd"><div><div class="page-title">Controle Financeiro</div></div>
+    <div class="page-hd"><div><div class="page-title">Controle Financeiro</div><div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Último lançamento: ${relTime(S.finLastUpdate)}</div></div>
     <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="openLanc('receita')">+ Nova receita</button><button class="btn-ghost" onclick="openLanc('despesa')">+ Nova despesa</button></div></div>
     ${tabsHtml('financeiro',[{id:'visao',l:'Visão geral'},{id:'lanc',l:'Lançamentos'},{id:'futuros',l:'Futuros'},{id:'contas',l:'Contas'},{id:'recorrentes',l:'Recorrentes'},{id:'porcliente',l:'Por cliente'}])}
     <div id="fin-body"></div>`;
   ({visao:finVisao,lanc:finLanc,futuros:finFuturos,contas:finContas,recorrentes:finRecorrentes,porcliente:finPorCliente}[S.tab.financeiro]||finVisao)(document.getElementById('fin-body'));
+}
+function relTime(iso){
+  if(!iso)return 'nunca';
+  const d=new Date(iso);const diffMin=Math.round((Date.now()-d.getTime())/60000);
+  if(diffMin<1)return 'agora mesmo';
+  if(diffMin<60)return 'há '+diffMin+' min';
+  const diffH=Math.round(diffMin/60);
+  if(diffH<24)return 'há '+diffH+'h';
+  const diffD=Math.round(diffH/24);
+  if(diffD===1)return 'ontem';
+  if(diffD<7)return 'há '+diffD+' dias';
+  return d.toLocaleDateString('pt-BR')+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
 
 /* ── Visão geral: navegador de mês independente ── */
@@ -2291,6 +2303,7 @@ function openLanc(tipo,id){
       for(let i=1;i<=N;i++)S.fin.push({id:uid('f'),...base,data:addM(base.data,i-1),parcelaN:i,parcelasTot:N,grupoId:gid,pago:i===1?base.pago:false});
     }
     else S.fin.push({id:uid('f'),...base});
+    S.finLastUpdate=new Date().toISOString();
     save();closeModal();render();});
   setTimeout(()=>parcFields(!!l),80);
 }
@@ -2330,20 +2343,20 @@ function assinInfo(a){
 function lancarParcela(pid){
   const p=S.parc.find(x=>x.id===pid);if(!p)return;
   const i=parcInfo(p);if(i.quitado)return;
-  if(i.pendente){i.pendente.pago=true;save();render();return;}
+  if(i.pendente){i.pendente.pago=true;S.finLastUpdate=new Date().toISOString();save();render();return;}
   S.fin.push({id:uid('f'),tipo:'despesa',desc:p.nome,valor:Math.round(i.valorParcela*100)/100,data:i.proxData,
     categoria:p.categoria,natureza:p.natureza||'Fixo',mecanismo:'Parcelamento',forma:p.conta==='Conta PJ'?'PIX':'Crédito',
     conta:p.conta,cliente:'',pago:false,grupoId:p.grupoId,parcelaN:i.pagas+1,parcelasTot:p.nParcelas});
-  save();render();
+  S.finLastUpdate=new Date().toISOString();save();render();
 }
 function lancarCobranca(aid){
   const a=S.assin.find(x=>x.id===aid);if(!a)return;
   const i=assinInfo(a);
-  if(i.pendente){i.pendente.pago=true;save();render();return;}
+  if(i.pendente){i.pendente.pago=true;S.finLastUpdate=new Date().toISOString();save();render();return;}
   S.fin.push({id:uid('f'),tipo:'despesa',desc:a.nome,valor:a.valor,data:i.prox,categoria:a.categoria,
     natureza:'Fixo',mecanismo:'Assinatura',forma:a.conta==='Conta PJ'?'PIX':'Crédito',conta:a.conta,
     cliente:'',pago:false,assinId:a.id});
-  save();render();
+  S.finLastUpdate=new Date().toISOString();save();render();
 }
 function toggleAssin(aid){const a=S.assin.find(x=>x.id===aid);if(a){a.ativo=!a.ativo;save();render();}}
 function openParc(id){
@@ -2455,7 +2468,7 @@ function renderAgenda(c){
       return `<div class="ag-day ${ds===today?'today':''}"><div class="ag-dhd">${dows[i]}</div><div class="ag-dnum">${d.getDate()}</div>
       ${evs.map(e=>`<div class="ag-ev ev-${e.tipo.toLowerCase().normalize('NFD').replace(/[^a-z]/g,'')||'outro'}">
         <div class="t">${esc(e.titulo)}</div><div class="h">${e.hIni||''}${e.hFim?'–'+e.hFim:''}${e.local?' · '+esc(e.local):''}</div>
-        <div style="display:flex;gap:8px;margin-top:3px;"><a href="${gcalLink(e)}" target="_blank">+ Google Agenda</a><a href="#" onclick="delEvento('${e.id}');return false;">excluir</a></div></div>`).join('')}
+        <div style="display:flex;gap:8px;margin-top:3px;"><a href="#" onclick="openEvento('${e.id}');return false;">editar</a><a href="${gcalLink(e)}" target="_blank">+ Google Agenda</a><a href="#" onclick="delEvento('${e.id}');return false;">excluir</a></div></div>`).join('')}
       ${przs.map(p=>`<div class="ag-ev ev-prazo"><div class="t">Prazo: ${esc(p.titulo)}</div><div class="h">${esc(p.cliente||'')} · ${p.uid}</div></div>`).join('')}
       ${(!evs.length&&!przs.length)?'<div style="font-size:10.5px;color:var(--t3);padding:4px 0;">—</div>':''}
       </div>`;
@@ -2482,16 +2495,18 @@ function exportICS(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lozy-agenda.ics';a.click();
 }
 function delEvento(id){softDel('eventos',id);}
-function openEvento(){
-  openModal('Novo evento',`
-    <div class="field"><label>Título</label><input id="m1" placeholder="Ex: Reunião com cliente"></div>
-    <div class="f2"><div class="field"><label>Tipo</label><select id="m2">${ETIPOS.map(t=>`<option>${t}</option>`).join('')}</select></div>
-    <div class="field"><label>Data</label><input id="m3" type="date" value="${todayStr()}"></div></div>
-    <div class="f2"><div class="field"><label>Início</label><input id="m4" type="time" value="14:00"></div>
-    <div class="field"><label>Fim</label><input id="m5" type="time" value="15:00"></div></div>
-    <div class="field"><label>Local / link</label><input id="m6" placeholder="Sala, endereço ou link da call"></div>`,
+function openEvento(id){
+  const e=id?S.eventos.find(x=>x.id===id):null;
+  openModal(e?'Editar evento':'Novo evento',`
+    <div class="field"><label>Título</label><input id="m1" value="${esc(e?.titulo)}" placeholder="Ex: Reunião com cliente"></div>
+    <div class="f2"><div class="field"><label>Tipo</label><select id="m2">${ETIPOS.map(t=>`<option ${e?.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="field"><label>Data</label><input id="m3" type="date" value="${e?.data||todayStr()}"></div></div>
+    <div class="f2"><div class="field"><label>Início</label><input id="m4" type="time" value="${e?.hIni||'14:00'}"></div>
+    <div class="field"><label>Fim</label><input id="m5" type="time" value="${e?.hFim||'15:00'}"></div></div>
+    <div class="field"><label>Local / link</label><input id="m6" value="${esc(e?.local)}" placeholder="Sala, endereço ou link da call"></div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
-    S.eventos.push({id:uid('e'),titulo:v('m1').trim(),tipo:v('m2'),data:v('m3'),hIni:v('m4'),hFim:v('m5'),local:v('m6').trim()});
+    const data={titulo:v('m1').trim(),tipo:v('m2'),data:v('m3'),hIni:v('m4'),hFim:v('m5'),local:v('m6').trim()};
+    if(e)Object.assign(e,data);else S.eventos.push({id:uid('e'),...data});
     save();closeModal();render();});
 }
 
@@ -2634,7 +2649,7 @@ function renderPropostas(c){
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Propostas</div></div>
     <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="startWizard()">+ Nova (rápida)</button><button class="btn" onclick="startPropBlank()">+ Nova proposta guiada</button></div></div>
-    ${ps.length?`<div class="toolbar">${colBtn('propostas')}${csvBtn('propostas',ps)}</div><div class="card" style="padding:6px 20px;">${renderDataTable('propostas',applyTableSort('propostas',ps),p=>`<button class="ibtn" title="baixar HTML" onclick="downloadProp('${p.id}')">↓</button><button class="ibtn" title="visualizar" onclick="previewProp('${p.id}')">👁</button><button class="ibtn del" onclick="delProp('${p.id}')">✕</button>`)}</div>`
+    ${ps.length?`<div class="toolbar">${colBtn('propostas')}${csvBtn('propostas',ps)}</div><div class="card" style="padding:6px 20px;">${renderDataTable('propostas',applyTableSort('propostas',ps),p=>`${p.versao===2?`<button class="ibtn" title="editar" onclick="editProp('${p.id}')">✎</button>`:''}<button class="ibtn" title="baixar HTML" onclick="downloadProp('${p.id}')">↓</button><button class="ibtn" title="visualizar" onclick="previewProp('${p.id}')">👁</button><button class="ibtn del" onclick="delProp('${p.id}')">✕</button>`)}</div>`
     :`<div class="card"><div class="empty-msg">Nenhuma proposta criada ainda. A proposta guiada puxa direto de um orçamento calculado na Calculadora — ou comece do zero em "Nova proposta guiada".</div></div>`}`;
 }
 function cycleProp(id){const p=S.propostas.find(x=>x.id===id);const st=['Rascunho','Enviada','Aprovada','Recusada'];p.status=st[(st.indexOf(p.status)+1)%st.length];save();render();}
@@ -2909,15 +2924,25 @@ function calcNova(b){
       <button class="btn-ghost" onclick="S.calc=null;render()">Limpar</button>
     </div>`;
 }
+function ensureLeadFromOrc(o){
+  const chave=(o.empresa||o.cliente||'').trim().toLowerCase();
+  if(!chave)return false;
+  const existe=S.leads.some(l=>(l.empresa||'').trim().toLowerCase()===chave||(!(l.empresa||'').trim()&&(l.contato||'').trim().toLowerCase()===chave));
+  if(existe)return false;
+  S.leads.push({id:uid('l'),stage:'Novo Lead',empresa:o.empresa||o.cliente,contato:o.cliente||'',valor:o.total,origem:'Calculadora',temp:'morno',segmento:'',cidade:'',proxAcao:'Entrar em contato sobre o orçamento calculado',proxData:null});
+  return true;
+}
 function saveOrcamento(){
   const w=ensureCalc();
   const r=calcOrcamento(S.pricing,w);
   if(r.edicao&&r.edicao.manual)return toast('Um dos vídeos passa de 5min — ajuste a duração ou orce essa parte manualmente antes de salvar.');
   const o={id:uid('orc'),cliente:w.cliente.trim(),empresa:w.empresa.trim(),escopo:w.escopo,modo:w.modo,input:JSON.parse(JSON.stringify(w)),total:r.total,desconto:r.desconto,status:'Aberto',criado:todayStr()};
-  S.orcamentos.unshift(o);save();
+  S.orcamentos.unshift(o);
+  const novoLead=ensureLeadFromOrc(o);
+  save();
   S.calc=null;
   S.tab.calc='historico';render();
-  toast('Orçamento salvo'+(o.cliente?' para '+o.cliente:'')+'.');
+  toast('Orçamento salvo'+(o.cliente?' para '+o.cliente:'')+'.'+(novoLead?' Criado também em Comercial.':''));
 }
 function orcStatusCycle(id){const o=S.orcamentos.find(x=>x.id===id);if(!o)return;const st=['Aberto','Ganho','Perdido'];o.status=st[(st.indexOf(o.status)+1)%st.length];save();render();}
 function delOrc(id){
@@ -3105,7 +3130,7 @@ function startPropFromOrc(id){
       {titulo:'Revisões inclusas',texto:'Cada vídeo inclui '+S.pricing.edicao.revisoesInclusas+' rodadas de ajuste, dentro do escopo aprovado.'},
       {titulo:'Reagendamento',texto:'Reagendável sem custo até '+S.pricing.geral.reagendLimiteH+'h antes da data marcada — após esse prazo, o sinal é retido.'}
     ],
-    accent:'wine',textos:{...PROP_TEXTOS_PADRAO},perfilId:null
+    accent:'wine',textos:{...PROP_TEXTOS_PADRAO},perfilId:null,totalManual:null,editId:null
   };
   goTo('calculadora');
 }
@@ -3114,7 +3139,7 @@ function startPropBlank(){
     itens:[{descricao:'',qtd:1,valor:0}],desconto:0,deslocamento:0,
     cronograma:[{etapa:'Alinhamento e aprovação da proposta',prazo:'Semana 1'}],
     condicoes:{sinalPct:S.pricing.geral.sinalPct,quandoQuita:'Na entrega final',revisoesInclusas:S.pricing.edicao.revisoesInclusas,validadeDias:S.pricing.geral.validadeDias,obs:'Valores já consideram os impostos — o total desta proposta é final.'},
-    notas:[],accent:'wine',textos:{...PROP_TEXTOS_PADRAO},perfilId:null};
+    notas:[],accent:'wine',textos:{...PROP_TEXTOS_PADRAO},perfilId:null,totalManual:null,editId:null};
   S.active='calculadora';goTo('calculadora');
 }
 const PROPWSTEPS=['Cliente','Contexto','Investimento','Cronograma & condições','Textos das seções','Notas & estilo','Gerar'];
@@ -3131,9 +3156,13 @@ function savePerfilFromWiz(){
   save();render();toast('Perfil "'+nome.trim()+'" salvo.');
 }
 function delPerfil(id){S.perfis=S.perfis.filter(x=>x.id!==id);save();render();}
-function propWizTotal(w){
+function propWizTotalCalc(w){
   const serv=w.itens.reduce((a,i)=>a+Number(i.qtd||0)*Number(i.valor||0),0);
   return serv-Number(w.desconto||0)+Number(w.deslocamento||0);
+}
+function propWizTotal(w){
+  if(w.totalManual!=null)return Number(w.totalManual)||0;
+  return propWizTotalCalc(w);
 }
 function refreshPropTotal(){const el=document.getElementById('prop-total');if(el)el.innerHTML='<div class="inv-line total"><span>Investimento total</span><span>'+fmtBRL2(propWizTotal(S.propWiz))+'</span></div>';}
 function renderPropWizard(c){
@@ -3159,9 +3188,11 @@ function renderPropWizard(c){
       <button class="ibtn del" onclick="S.propWiz.itens.splice(${i},1);render()">✕</button></div>`).join('')}
     <button class="btn-sm" onclick="S.propWiz.itens.push({descricao:'',qtd:1,valor:0});render()">+ Entrega</button>
     <div class="f2" style="margin-top:12px;">
-      <div class="field"><label>Desconto (R$)</label><input type="number" step="0.01" value="${w.desconto}" oninput="S.propWiz.desconto=Number(this.value)||0;refreshPropTotal()"></div>
-      <div class="field"><label>Deslocamento (R$)</label><input type="number" step="0.01" value="${w.deslocamento}" oninput="S.propWiz.deslocamento=Number(this.value)||0;refreshPropTotal()"></div>
+      <div class="field"><label>Desconto (R$)</label><input type="number" step="0.01" value="${w.desconto}" ${w.totalManual!=null?'disabled style="opacity:.5"':''} oninput="S.propWiz.desconto=Number(this.value)||0;refreshPropTotal()"></div>
+      <div class="field"><label>Deslocamento (R$)</label><input type="number" step="0.01" value="${w.deslocamento}" ${w.totalManual!=null?'disabled style="opacity:.5"':''} oninput="S.propWiz.deslocamento=Number(this.value)||0;refreshPropTotal()"></div>
     </div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto" ${w.totalManual!=null?'checked':''} onchange="S.propWiz.totalManual=this.checked?propWizTotalCalc(S.propWiz):null;render()"><label style="margin:0">Definir valor final manualmente (ignora o cálculo acima)</label></div>
+    ${w.totalManual!=null?`<div class="field"><label>Valor final personalizado (R$)</label><input type="number" step="0.01" value="${w.totalManual}" oninput="S.propWiz.totalManual=Number(this.value)||0;refreshPropTotal()"></div>`:''}
     <div class="inv-box" id="prop-total" style="margin-top:8px;"><div class="inv-line total"><span>Investimento total</span><span>${fmtBRL2(propWizTotal(w))}</span></div></div>`;
   else if(w.step===3)body=`
     <div class="widget-hd" style="margin-top:0"><span class="widget-ttl">Cronograma</span></div>
@@ -3214,12 +3245,12 @@ function renderPropWizard(c){
   else body=`
     <div class="inv-box"><div class="inv-line total"><span>Investimento total</span><span>${fmtBRL2(propWizTotal(w))}</span></div></div>
     <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
-      <button class="btn" onclick="savePropWiz(true)">Salvar + baixar HTML</button>
-      <button class="btn-ghost" onclick="savePropWiz(false)">Só salvar</button>
+      <button class="btn" onclick="savePropWiz(true)">${w.editId?'Atualizar':'Salvar'} + baixar HTML</button>
+      <button class="btn-ghost" onclick="savePropWiz(false)">${w.editId?'Só atualizar':'Só salvar'}</button>
     </div>
     <div style="font-size:11.5px;color:var(--t3);margin-top:12px;">Gera uma página HTML standalone com a identidade Lozy — envie o arquivo direto pro cliente ou hospede no seu domínio.</div>`;
   c.innerHTML=`
-    <div class="page-hd"><div><div class="page-title">${esc(w.titulo)||'Gerar proposta'}</div></div>
+    <div class="page-hd"><div><div class="page-title">${w.editId?'Editar — ':''}${esc(w.titulo)||'Gerar proposta'}</div></div>
     <button class="btn-ghost" onclick="S.propWiz=null;S.tab.calc='historico';render()">← Cancelar</button></div>
     <div class="wiz-steps">${PROPWSTEPS.map((s,i)=>`<div class="wstep ${i<w.step?'done':i===w.step?'cur':''}" style="cursor:pointer" onclick="propWStep(${i})"><span class="n">${i<w.step?'✓':i+1}</span>${s}</div>`).join('')}</div>
     <div class="wiz-body card">${body}</div>
@@ -3228,20 +3259,37 @@ function renderPropWizard(c){
       ${w.step<PROPWSTEPS.length-1?`<button class="btn" onclick="propWStep(${w.step+1})">Próximo</button>`:''}
     </div>`;
 }
+function editProp(id){
+  const p=S.propostas.find(x=>x.id===id);
+  if(!p||p.versao!==2)return toast('Só é possível editar propostas geradas pelo assistente guiado (v2).');
+  S.propWiz={
+    step:0,editId:p.id,orcId:p.orcId,numero:p.numero,
+    cliente:p.cliente||'',empresa:p.empresa||'',titulo:p.titulo||'',subtitulo:p.subtitulo||'',contexto:p.contexto||'',recorrente:!!p.recorrente,
+    itens:JSON.parse(JSON.stringify(p.itens||[])),desconto:p.desconto||0,deslocamento:p.deslocamento||0,
+    totalManual:p.totalManual!=null?p.totalManual:null,
+    cronograma:JSON.parse(JSON.stringify(p.cronograma||[])),
+    condicoes:JSON.parse(JSON.stringify(p.condicoes||{sinalPct:S.pricing.geral.sinalPct,quandoQuita:'Na entrega final',revisoesInclusas:S.pricing.edicao.revisoesInclusas,validadeDias:S.pricing.geral.validadeDias,obs:''})),
+    notas:JSON.parse(JSON.stringify(p.notas||[])),
+    accent:p.accent||'wine',textos:{...PROP_TEXTOS_PADRAO,...(p.textos||{})},perfilId:null
+  };
+  S.active='calculadora';goTo('calculadora');
+}
 function savePropWiz(dl){
   const w=S.propWiz;
-  const p={id:uid('pp'),versao:2,numero:w.numero,orcId:w.orcId,cliente:w.cliente.trim(),empresa:w.empresa.trim(),
+  const base={versao:2,numero:w.numero,orcId:w.orcId,cliente:w.cliente.trim(),empresa:w.empresa.trim(),
     titulo:w.titulo||'Proposta Lozy',subtitulo:w.subtitulo,contexto:w.contexto,recorrente:w.recorrente,
-    itens:w.itens,desconto:w.desconto,deslocamento:w.deslocamento,total:propWizTotal(w),
+    itens:w.itens,desconto:w.desconto,deslocamento:w.deslocamento,totalManual:w.totalManual,total:propWizTotal(w),
     cronograma:w.cronograma,condicoes:w.condicoes,notas:w.notas,accent:w.accent,textos:w.textos||PROP_TEXTOS_PADRAO,
-    validade:(()=>{const d=new Date();d.setDate(d.getDate()+Number(w.condicoes.validadeDias||30));return dstr(d);})(),
-    status:'Rascunho',criada:todayStr()};
-  S.propostas.push(p);save();
+    validade:(()=>{const d=new Date();d.setDate(d.getDate()+Number(w.condicoes.validadeDias||30));return dstr(d);})()};
+  let p=w.editId?S.propostas.find(x=>x.id===w.editId):null;
+  if(p)Object.assign(p,base);
+  else{p={id:uid('pp'),...base,status:'Rascunho',criada:todayStr()};S.propostas.push(p);}
+  save();
   if(w.orcId){const o=S.orcamentos.find(x=>x.id===w.orcId);if(o){o.propostaId=p.id;save();}}
   S.propWiz=null;S.active='propostas';S.tab.propostas='lista';
   buildNav();render();
   if(dl)downloadProp(p.id);
-  toast('Proposta salva'+(p.cliente?' para '+p.cliente:'')+'.');
+  toast('Proposta '+(w.editId?'atualizada':'salva')+(p.cliente?' para '+p.cliente:'')+'.');
 }
 function propIcon(name){
   const M={
@@ -3456,6 +3504,7 @@ function softDel(kind,id){
     S.demandas.forEach(d=>{if(d.maeId===id)d.maeId=null;});
   }
   arr.splice(idx,1);
+  if(kind==='fin')S.finLastUpdate=new Date().toISOString();
   if(!Array.isArray(S.trash))S.trash=[];
   S.trash.unshift({id:uid('tr'),kind,idx,at:new Date().toISOString(),data:JSON.parse(JSON.stringify(rec)),rel});
   if(S.trash.length>400)S.trash.length=400;
@@ -4076,8 +4125,8 @@ async function aiSend(){
       else if(a.type==='addDemanda'){S.demandas.push({id:uid('d'),uid:nextDemUid(),titulo:a.titulo,cliente:a.cliente||'',tipo:a.tipo||'Edição',status:DSTATUS[0],prazo:a.prazo||null,maeId:null,receita:0,custo:0,horas:0});feitos.push('demanda "'+a.titulo+'"');}
       else if(a.type==='addLead'){S.leads.push({id:uid('l'),empresa:a.empresa,contato:a.contato||'',valor:Number(a.valor)||0,origem:'Lozy AI',temp:a.temp||'morno',stage:'Novo Lead',segmento:'',cidade:'',proxAcao:'',proxData:null});feitos.push('lead "'+a.empresa+'"');}
       else if(a.type==='addEvento'){S.eventos.push({id:uid('e'),titulo:a.titulo,tipo:a.tipo||'Reunião',data:a.data||todayStr(),hIni:a.hIni||'09:00',hFim:a.hFim||'',local:''});feitos.push('evento "'+a.titulo+'"');}
-      else if(a.type==='addReceita'){const _data=a.data||todayStr();S.fin.push({id:uid('f'),tipo:'receita',desc:a.desc,valor:Number(a.valor)||0,data:_data,competencia:a.competencia||monthKey(_data),tipoReceita:'Extra',aliquota:Number(a.aliquota)||6,forma:'PIX',conta:'Conta PJ',cliente:a.cliente||'',pago:false});feitos.push('receita "'+a.desc+'"');}
-      else if(a.type==='addDespesa'){S.fin.push({id:uid('f'),tipo:'despesa',desc:a.desc,valor:Number(a.valor)||0,data:a.data||todayStr(),categoria:a.categoria||'Outros',natureza:'Variável',mecanismo:'À vista',forma:'PIX',conta:'Conta PJ',cliente:'',pago:false});feitos.push('despesa "'+a.desc+'"');}
+      else if(a.type==='addReceita'){const _data=a.data||todayStr();S.fin.push({id:uid('f'),tipo:'receita',desc:a.desc,valor:Number(a.valor)||0,data:_data,competencia:a.competencia||monthKey(_data),tipoReceita:'Extra',aliquota:Number(a.aliquota)||6,forma:'PIX',conta:'Conta PJ',cliente:a.cliente||'',pago:false});S.finLastUpdate=new Date().toISOString();feitos.push('receita "'+a.desc+'"');}
+      else if(a.type==='addDespesa'){S.fin.push({id:uid('f'),tipo:'despesa',desc:a.desc,valor:Number(a.valor)||0,data:a.data||todayStr(),categoria:a.categoria||'Outros',natureza:'Variável',mecanismo:'À vista',forma:'PIX',conta:'Conta PJ',cliente:'',pago:false});S.finLastUpdate=new Date().toISOString();feitos.push('despesa "'+a.desc+'"');}
     });
     if(feitos.length){save();render();aiMsg('sys','✓ Criado: '+feitos.join(', '));}
   }catch(e){

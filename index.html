@@ -212,8 +212,9 @@ tr:hover .tacts{opacity:1;}
 .ag-day.today{border-color:var(--acc);border-width:1.5px;}
 .ag-dhd{font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:550;}
 .ag-dnum{font-size:15px;font-weight:600;margin:1px 0 8px;}
-.ag-ev{background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:6px 8px;margin-bottom:5px;font-size:11px;cursor:default;}
+.ag-ev{background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:6px 8px;margin-bottom:5px;font-size:11px;transition:border-color .15s,transform .15s;}
 .ag-ev .t{font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ag-ev:hover{border-color:var(--acc);transform:translateY(-1px);}
 .ag-ev .h{color:var(--t3);font-size:10px;margin-top:1px;}
 .ag-ev a{color:var(--t3);text-decoration:none;font-size:10px;}
 .ag-ev a:hover{color:var(--t1);}
@@ -421,8 +422,9 @@ tr:hover .tacts{opacity:1;}
 .ag-day.today{border-color:var(--acc);border-width:1.5px;}
 .ag-dhd{font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:550;}
 .ag-dnum{font-size:15px;font-weight:600;margin:1px 0 8px;}
-.ag-ev{background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:6px 8px;margin-bottom:5px;font-size:11px;cursor:default;}
+.ag-ev{background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:6px 8px;margin-bottom:5px;font-size:11px;transition:border-color .15s,transform .15s;}
 .ag-ev .t{font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ag-ev:hover{border-color:var(--acc);transform:translateY(-1px);}
 .ag-ev .h{color:var(--t3);font-size:10px;margin-top:1px;}
 .ag-ev a{color:var(--t3);text-decoration:none;font-size:10px;}
 .ag-ev a:hover{color:var(--t1);}
@@ -613,6 +615,7 @@ comercial:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 demandas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>',
 tarefas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 12h16M4 18h9"/></svg>',
 projetos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M9 4.5v15"/></svg>',
+pint:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5L12 3z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5l8 4.5 8-4.5"/></svg>',
 agenda:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
 financeiro:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V10M10 19V5M16 19v-6M21 19H3"/></svg>',
 propostas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 13h6M10 16.5h6"/></svg>',
@@ -629,6 +632,7 @@ const SECTIONS=[
 {id:'clientes',label:'Clientes',sub:'Cadastro e visão 360 de cada cliente',ready:true},
 {id:'demandas',label:'Demandas',sub:'Entregas por cliente e prazo',ready:true},
 {id:'tarefas',label:'Tarefas',sub:'Tarefas internas da agência',ready:true},
+{id:'pint',label:'Projetos Internos',sub:'Frentes de trabalho da agência',ready:true},
 {id:'projetos',label:'Projetos',sub:'Operação em andamento',ready:true},
 {id:'agenda',label:'Agenda',sub:'Reuniões, gravações e entregas',ready:true},
 {id:'financeiro',label:'Financeiro',sub:'Faturamento, lucro e fluxo',ready:true},
@@ -647,6 +651,8 @@ const TSTATUS=['A fazer','Em andamento','Em pausa','Concluída','Cancelada'];
 const TCOLORS={'A fazer':'#6e6e6e','Em andamento':'#2563eb','Em pausa':'#d97706','Concluída':'#15803d','Cancelada':'#dc2626'};
 const TAREAS=['Atendimento','Comercial','Operacional','Financeiro','Marketing Lozy','Legal','P/ Clientes'];
 const FASES=['Briefing','Pré-produção','Captação','Edição','Revisão','Entrega'];
+const PISTATUS=['Planejamento','Em andamento','Pausado','Concluído'];
+const PICOLORS={'Planejamento':'#6e6e6e','Em andamento':'#2563eb','Pausado':'#d97706','Concluído':'#15803d'};
 const FCATS=['Equipamentos','Softwares','Transporte','Alimentação','Operação','Impostos','Outros'];
 const RTIPOS=['Captação','Edição','Fotos','Deslocamento','Extra'];
 const FORMAS=['PIX','Crédito','Débito','Dinheiro','Boleto','Transferência'];
@@ -793,13 +799,13 @@ const PRICING_DEFAULT={
   geral:{sinalPct:40,reagendLimiteH:48,validadeDias:30}
 };
 let S={
-leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],
+leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],pint:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],
 pricing:JSON.parse(JSON.stringify(PRICING_DEFAULT)),orcamentos:[],finLastUpdate:null,
 active:'dashboard',
 sort:{},
 tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana',calc:'nova'},
 q:{},f:{},
-wiz:null,calc:null,propWiz:null,perfis:[]
+wiz:null,calc:null,propWiz:null,perfis:[],cardView:null
 };
 
 /* ═══ STORAGE — adaptador ═══
@@ -817,7 +823,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate'];
 async function load(){
   let got=false;
   try{
@@ -908,10 +914,34 @@ function demandaAtraso(d){
   const alvo=demPrazoAtivo(d);
   return alvo?prazoStatus(alvo):null;
 }
+function statusLog(item,novo){ /* histórico de status genérico — usado por demandas e tarefas */
+  if(!Array.isArray(item.statusHistory))item.statusHistory=[{status:item.status,em:todayStr()}];
+  item.statusHistory.push({status:novo,em:todayStr()});
+}
+function tempoPorStatus(hist){ /* devolve [{status,dias,atual}] a partir do statusHistory */
+  if(!Array.isArray(hist)||!hist.length)return[];
+  return hist.map((h,i)=>{
+    const fim=i<hist.length-1?hist[i+1].em:todayStr();
+    const dias=Math.max(0,Math.round((new Date(fim+'T00:00:00')-new Date(h.em+'T00:00:00'))/864e5));
+    return{status:h.status,dias,atual:i===hist.length-1};
+  });
+}
 function demTransicao(d,novo){ /* carimba a data da transição só na primeira vez que ela acontece */
+  if(d.status===novo)return;
+  statusLog(d,novo);
   if(novo==='Com o cliente'&&!d.entregueV1Em)d.entregueV1Em=todayStr();
   if(novo==='Entregue'&&!d.entregueEm)d.entregueEm=todayStr();
   d.status=novo;
+}
+function taskTransicao(t,novo){
+  if(t.status===novo)return;
+  statusLog(t,novo);
+  t.status=novo;
+}
+function pintTransicao(p,novo){
+  if(p.status===novo)return;
+  statusLog(p,novo);
+  p.status=novo;
 }
 function monthKey(s){return s?s.slice(0,7):null;}
 function addM(ds,n){const d=new Date(ds+'T00:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -940,7 +970,7 @@ function clientes(){ /* base derivada: todos os nomes de cliente do sistema */
 function greeting(){const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';}
 
 /* ═══ NAV ═══ */
-const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','calculadora','contratos','central','lixeira','ajustes']}];
+const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','pint','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','calculadora','contratos','central','lixeira','ajustes']}];
 function buildNav(){
   const exp=!S.prefs||S.prefs.sb!==0;
   const sb=document.getElementById('sidebar');
@@ -982,7 +1012,7 @@ function tabsHtml(mod,list){
 function render(){
   const c=document.getElementById('content');
   ({dashboard:renderDashboard,comercial:renderComercial,demandas:renderDemandas,tarefas:renderTarefas,
-    projetos:renderProjetos,agenda:renderAgenda,financeiro:renderFin,propostas:renderPropostas,calculadora:renderCalculadora,
+    projetos:renderProjetos,pint:renderPint,agenda:renderAgenda,financeiro:renderFin,propostas:renderPropostas,calculadora:renderCalculadora,
     central:renderCentral,ajustes:renderAjustes,clientes:renderClientes,lixeira:renderLixeira}[S.active]||renderPlaceholder)(c);
   if(typeof renderSyncPill==='function')renderSyncPill();
 }
@@ -995,7 +1025,7 @@ function renderPlaceholder(c){
 /* ═══ MOTOR DE TABELAS — colunas configuráveis, ordenação e export ═══ */
 const COLDEFS={
   fin_lanc:{nome:'Lançamentos',cols:[
-    {k:'desc',l:'Descrição',def:1,get:r=>r.desc||'',cell:r=>`<span style="font-weight:500">${esc(r.desc)}</span>${r.parcelasTot?` <span class="bdg" title="Esta é a parcela ${r.parcelaN} de ${r.parcelasTot}">parcela ${r.parcelaN}/${r.parcelasTot}</span>`:''}${r.mecanismo==='Assinatura'?' <span class="bdg">↻</span>':''}`},
+    {k:'desc',l:'Descrição',def:1,get:r=>r.desc||'',cell:r=>`<span style="font-weight:500">${esc(r.desc)}</span>${r.parcelasTot?` <span class="bdg" title="Esta é a parcela ${r.parcelaN} de ${r.parcelasTot}">parcela ${r.parcelaN}/${r.parcelasTot}</span>`:''}${r.mecanismo==='Assinatura'?' <span class="bdg">↻</span>':''}${r.demandaId?(()=>{const d=S.demandas.find(x=>x.id===r.demandaId);return d?` <span class="bdg" title="Vinculado a ${esc(d.titulo)}">${d.uid}</span>`:'';})():''}`},
     {k:'tipo',l:'Tipo',def:0,get:r=>r.tipo,cell:r=>`<span class="bdg">${r.tipo==='receita'?'Receita':'Despesa'}</span>`},
     {k:'categoria',l:'Categoria',def:1,get:r=>r.tipo==='receita'?(r.tipoReceita||''):(r.categoria||''),cell:r=>`<span class="bdg">${r.tipo==='receita'?(r.tipoReceita||'Receita'):(r.categoria||'—')}</span>`},
     {k:'natureza',l:'Natureza',def:0,get:r=>r.natureza||'',cell:r=>`<span style="color:var(--t2)">${r.natureza||'—'}</span>`},
@@ -1362,7 +1392,7 @@ function addQuickTask(){
   S.tasks.unshift({id:uid('t'),titulo:v,prioridade:'Média',status:'A fazer',prazo:todayStr()});
   save();render();
 }
-function toggleTask(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;pushUndo((t.status==='Concluída'?'reabrir':'concluir')+' tarefa "'+t.titulo+'"',['tasks']);t.status=t.status==='Concluída'?'A fazer':'Concluída';save();render();}
+function toggleTask(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;pushUndo((t.status==='Concluída'?'reabrir':'concluir')+' tarefa "'+t.titulo+'"',['tasks']);taskTransicao(t,t.status==='Concluída'?'A fazer':'Concluída');save();render();}
 function delTask(id){softDel('tasks',id);}
 </script>
 <script>
@@ -1589,12 +1619,12 @@ function renderDemandas(c){
       return `<div class="kcard kc-tint" style="border-left-color:${DCOLORS[d.status]||'#6e6e6e'}" onpointerdown="dgDown(event,'demandas','${d.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(d.titulo)}</div></div><span class="bdg">${d.uid}</span></div>
       <div class="kc-sub">${esc(d.cliente||'Sem cliente')} · ${d.tipo}${fs.length?' · '+fs.length+' entregas':''}${d.maeId?' · filha':''}</div>
       <div class="kc-ft"><div class="kc-val" style="color:${ps&&ps.cls==='atrasada'?'var(--red)':ps&&ps.cls==='hoje'?'var(--amber)':'var(--t2)'};font-size:11.5px">${dataExib?fmtD(dataExib)+(ps?' · '+ps.label:'')+(d.prazoAjuste&&d.status!=='Entregue'?' · ajuste':''):'Sem prazo'}</div>
-      <div class="kc-acts"><button class="ibtn" onclick="openDem('${d.id}')">✎</button><button class="ibtn" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
+      <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('demandas','${d.id}')">⤢</button><button class="ibtn" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
     }).join('')+'</div>';
   }
 }
 function demActs(d){
-  return `<button class="ibtn" onclick="openDem('${d.id}')">✎</button><button class="ibtn" title="avançar status" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button>`;
+  return `<button class="ibtn" title="abrir" onclick="openCard('demandas','${d.id}')">⤢</button><button class="ibtn" title="avançar status" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button>`;
 }
 function demRow(d){
   const ps=demandaAtraso(d);const dataExib=d.status==='Entregue'?(d.entregueEm||d.prazo):demPrazoAtivo(d);const m=demMargem(d);const fs=filhas(d.id);
@@ -1605,7 +1635,7 @@ function demRow(d){
   <td style="color:${ps?(ps.cls==='atrasada'?'var(--red)':ps.cls==='hoje'?'var(--amber)':'var(--t2)'):'var(--t3)'};font-size:12px">${fmtD(dataExib)}${ps?' · '+ps.label:''}</td>
   <td><span class="sdot ${scls}"></span><span style="font-size:12px;color:var(--t2)">${d.status}</span></td>
   <td>${fmtBRL(d.receita)}</td><td style="color:${m<0?'var(--red)':m>0?'var(--green)':'var(--t3)'}">${fmtBRL(m)}</td>
-  <td><div class="tacts"><button class="ibtn" onclick="openDem('${d.id}')">✎</button><button class="ibtn" title="avançar status" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></td></tr>`;
+  <td><div class="tacts"><button class="ibtn" title="abrir" onclick="openCard('demandas','${d.id}')">⤢</button><button class="ibtn" title="avançar status" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></td></tr>`;
 }
 function advDem(id){const d=S.demandas.find(x=>x.id===id);if(!d)return;const novo=DSTATUS[(DSTATUS.indexOf(d.status)+1)%DSTATUS.length];pushUndo('avançar '+d.uid+' para "'+novo+'"',['demandas']);demTransicao(d,novo);save();render();toast(d.uid+' → '+novo,'Desfazer','doUndo()',5000);}
 function delDem(id){softDel('demandas',id);}
@@ -1628,8 +1658,10 @@ function openDem(id){
     <div class="field"><label>Horas trabalhadas</label><input id="m9" type="number" step="0.5" value="${d?.horas??''}"></div>
     <div style="font-size:11px;color:var(--t3);margin-top:-4px;">Regra Lozy: custos de captação e horas na <b>mãe</b>; receita de edição em cada <b>filha</b> — evita duplicidade nos totais.</div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
-    const data={titulo:v('m1').trim(),cliente:v('m2').trim(),tipo:v('m3'),prazo:v('m4')||null,status:v('m5'),prazoAjuste:v('m10')||null,entregueV1Em:v('m11')||null,entregueEm:v('m12')||null,maeId:v('m6')||null,receita:Number(v('m7'))||0,custo:Number(v('m8'))||0,horas:Number(v('m9'))||0};
-    if(d)Object.assign(d,data);else S.demandas.push({id:uid('d'),uid:nextDemUid(),...data});
+    const novoStatus=v('m5');
+    const data={titulo:v('m1').trim(),cliente:v('m2').trim(),tipo:v('m3'),prazo:v('m4')||null,prazoAjuste:v('m10')||null,entregueV1Em:v('m11')||null,entregueEm:v('m12')||null,maeId:v('m6')||null,receita:Number(v('m7'))||0,custo:Number(v('m8'))||0,horas:Number(v('m9'))||0};
+    if(d){Object.assign(d,data);demTransicao(d,novoStatus);}
+    else S.demandas.push({id:uid('d'),uid:nextDemUid(),status:novoStatus,statusHistory:[{status:novoStatus,em:todayStr()}],...data});
     save();closeModal();render();});
 }
 
@@ -1653,25 +1685,26 @@ function renderTarefas(c){
   const row=tk=>{
     const ps=tk.prazo?prazoStatus(tk.prazo):null;
     const dem=tk.demandaId?S.demandas.find(d=>d.id===tk.demandaId):null;
+    const pj=tk.projIntId?S.pint.find(p=>p.id===tk.projIntId):null;
     return `<div class="row-item"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
     <button class="tk-check ${tk.status==='Concluída'?'done':''}" style="border-color:var(--b3)" onclick="toggleTask('${tk.id}')"></button>
     <div style="min-width:0"><div class="ri-name" style="${tk.status==='Concluída'?'color:var(--t3);text-decoration:line-through':''}">${esc(tk.titulo)}</div>
-    <div class="ri-sub">${tk.area?tk.area+' · ':''}${tk.status}${tk.prazo?' · '+fmtD(tk.prazo):''}${ps&&ps.cls==='atrasada'&&tk.status!=='Concluída'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}${dem?' · '+dem.uid:''}</div></div></div>
+    <div class="ri-sub">${tk.area?tk.area+' · ':''}${tk.status}${tk.prazo?' · '+fmtD(tk.prazo):''}${ps&&ps.cls==='atrasada'&&tk.status!=='Concluída'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}${dem?' · '+dem.uid:''}${pj?' · '+esc(pj.nome):''}</div></div></div>
     <span class="bdg ${tk.prioridade==='Alta'?'alta':tk.prioridade==='Média'?'media':'baixa'}">${tk.prioridade}</span>
-    <div style="display:flex;gap:4px;margin-left:8px;"><button class="ibtn" onclick="openTask('${tk.id}')">✎</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div>`;
+    <div style="display:flex;gap:4px;margin-left:8px;"><button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div>`;
   };
   if(t==='kanban'){
     b.innerHTML=toolbar+'<div class="board">'+TSTATUS.map(st=>{
       const arr=ts.filter(x=>x.status===st);const cor=TCOLORS[st]||'#6e6e6e';
       return `<div class="col" data-dg="tasks" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
-      ${arr.length?arr.map(tk=>{const ps=tk.prazo?prazoStatus(tk.prazo):null;const dem=tk.demandaId?S.demandas.find(d=>d.id===tk.demandaId):null;
+      ${arr.length?arr.map(tk=>{const ps=tk.prazo?prazoStatus(tk.prazo):null;const dem=tk.demandaId?S.demandas.find(d=>d.id===tk.demandaId):null;const pj=tk.projIntId?S.pint.find(p=>p.id===tk.projIntId):null;
       return `<div class="kcard kc-tint" style="border-left-color:${cor}" onpointerdown="dgDown(event,'tasks','${tk.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(tk.titulo)}</div></div><span class="bdg ${tk.prioridade==='Alta'?'alta':tk.prioridade==='Média'?'media':'baixa'}">${tk.prioridade}</span></div>
-      <div class="kc-sub">${tk.area?tk.area+' · ':''}${tk.prazo?fmtD(tk.prazo):'Sem prazo'}${ps&&ps.cls==='atrasada'&&!['Concluída','Cancelada'].includes(tk.status)?' · <span style="color:var(--red)">'+ps.label+'</span>':''}${dem?' · '+dem.uid:''}</div>
+      <div class="kc-sub">${tk.area?tk.area+' · ':''}${tk.prazo?fmtD(tk.prazo):'Sem prazo'}${ps&&ps.cls==='atrasada'&&!['Concluída','Cancelada'].includes(tk.status)?' · <span style="color:var(--red)">'+ps.label+'</span>':''}${dem?' · '+dem.uid:''}${pj?' · '+esc(pj.nome):''}</div>
       <div class="kc-ft"><select class="fsel" style="font-size:10.5px;padding:4px 6px;" onchange="setTaskStatus('${tk.id}',this.value)">${TSTATUS.map(s2=>`<option ${tk.status===s2?'selected':''}>${s2}</option>`).join('')}</select>
-      <div class="kc-acts"><button class="ibtn" onclick="openTask('${tk.id}')">✎</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
+      <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
     }).join('')+'</div>';
   }else if(t==='lista'){
-    b.innerHTML=toolbar+(ts.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('tarefas',applyTableSort('tarefas',ts),tk=>`<button class="ibtn" onclick="openTask('${tk.id}')">✎</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhuma tarefa.</div></div>');
+    b.innerHTML=toolbar+(ts.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('tarefas',applyTableSort('tarefas',ts),tk=>`<button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhuma tarefa.</div></div>');
   }else if(t==='porprazo'){
     const buckets=prazoBuckets(ts,x=>x.prazo,x=>['Concluída','Cancelada'].includes(x.status));
     b.innerHTML=toolbar+buckets.map(([nome,arr,cor])=>{
@@ -1698,10 +1731,13 @@ function openTask(id){
     <div class="f2"><div class="field"><label>Prazo</label><input id="m4" type="date" value="${t?.prazo||''}"></div>
     <div class="field"><label>Área</label><select id="m6"><option value="">—</option>${TAREAS.map(a=>`<option ${t?.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Cliente (opcional)</label><input id="m7" list="cl-tk" value="${esc(t?.cliente)}"><datalist id="cl-tk">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
-    <div class="field"><label>Demanda vinculada</label><select id="m5"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${t?.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div></div>`,
+    <div class="field"><label>Demanda vinculada</label><select id="m5"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${t?.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Projeto interno vinculado</label><select id="m8"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${t?.projIntId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
-    const data={titulo:v('m1').trim(),prioridade:v('m2'),status:v('m3'),prazo:v('m4')||null,demandaId:v('m5')||null,area:v('m6')||'',cliente:v('m7').trim()};
-    if(t)Object.assign(t,data);else S.tasks.unshift({id:uid('t'),...data});
+    const novoStatus=v('m3');
+    const data={titulo:v('m1').trim(),prioridade:v('m2'),prazo:v('m4')||null,demandaId:v('m5')||null,area:v('m6')||'',cliente:v('m7').trim(),projIntId:v('m8')||null};
+    if(t){Object.assign(t,data);taskTransicao(t,novoStatus);}
+    else S.tasks.unshift({id:uid('t'),status:novoStatus,statusHistory:[{status:novoStatus,em:todayStr()}],...data});
     save();closeModal();render();});
 }
 
@@ -1755,7 +1791,45 @@ function openProj(id){
     save();closeModal();render();});
 }
 
-function setTaskStatus(id,st){const t=S.tasks.find(x=>x.id===id);if(!t||t.status===st)return;pushUndo('mover tarefa "'+t.titulo+'" para "'+st+'"',['tasks']);t.status=st;save();render();}
+function setTaskStatus(id,st){const t=S.tasks.find(x=>x.id===id);if(!t||t.status===st)return;pushUndo('mover tarefa "'+t.titulo+'" para "'+st+'"',['tasks']);taskTransicao(t,st);save();render();}
+
+/* ═══ PROJETOS INTERNOS ═══
+   Frentes de trabalho da agência (sem cliente, sem fase de produção) —
+   agrupam Tarefas por iniciativa. Separado de S.projetos (produção de
+   cliente, fases Briefing→Entrega) de propósito: são conceitos diferentes.
+   Abrir um projeto usa o mesmo Card Drawer de Demandas/Tarefas/Financeiro
+   (Observações, Checklist e Histórico já vêm de graça), com uma aba
+   extra própria — "Tarefas" — pra listar o que está vinculado. */
+function renderPint(c){
+  const ativos=S.pint.filter(p=>p.status!=='Concluído');
+  c.innerHTML=`
+    <div class="page-hd"><div><div class="page-title">Projetos Internos</div><div class="page-sub">Frentes de trabalho da agência — cada uma agrupa suas próprias tarefas, notas e checklist</div></div>
+    <button class="btn-ghost" onclick="openPint()">+ Novo projeto interno</button></div>
+    <div class="kpis"><div class="card"><div class="clabel">Ativos</div><div class="metric">${ativos.length}</div></div></div>
+    <div class="board">${PISTATUS.map(st=>{
+      const arr=S.pint.filter(p=>p.status===st);const cor=PICOLORS[st]||'#6e6e6e';
+      return `<div class="col" data-dg="pint" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
+      ${arr.length?arr.map(p=>{
+        const tks=S.tasks.filter(t=>t.projIntId===p.id);const doneT=tks.filter(t=>t.status==='Concluída').length;
+        const ps=p.prazo?prazoStatus(p.prazo):null;
+        return `<div class="kcard kc-tint" style="border-left-color:${cor}" onpointerdown="dgDown(event,'pint','${p.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(p.nome)}</div></div></div>
+        <div class="kc-sub">${p.area||'Sem área'}${tks.length?' · '+doneT+'/'+tks.length+' tarefas':''}</div>
+        <div class="kc-ft"><div class="kc-val" style="font-size:11.5px;color:${ps&&ps.cls==='atrasada'?'var(--red)':'var(--t2)'}">${p.prazo?fmtD(p.prazo):'Sem prazo'}</div>
+        <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('pint','${p.id}')">⤢</button></div></div></div>`;
+      }).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
+    }).join('')}</div>`;
+}
+function openPint(){
+  openModal('Novo projeto interno',`
+    <div class="field"><label>Nome</label><input id="m1"></div>
+    <div class="f2"><div class="field"><label>Área</label><select id="m2"><option value="">—</option>${TAREAS.map(a=>`<option>${a}</option>`).join('')}</select></div>
+    <div class="field"><label>Status</label><select id="m3">${PISTATUS.map(s=>`<option>${s}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Prazo (opcional)</label><input id="m4" type="date"></div>`,
+  ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
+    const st=v('m3');
+    S.pint.push({id:uid('pi'),nome:v('m1').trim(),area:v('m2')||'',status:st,statusHistory:[{status:st,em:todayStr()}],prazo:v('m4')||null,notas:'',checklist:[],observacoes:[]});
+    save();closeModal();render();});
+}
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════
@@ -2145,7 +2219,7 @@ function finLanc(b){
       ${colBtn('fin_lanc')}${csvBtn('fin_lanc',ls)}
     </div>
     <div style="font-size:11.5px;color:var(--lx3);margin-bottom:10px;">${ls.length} lançamentos realizados · Receita líq. <span style="color:var(--green)">${fmtBRL(rec)}</span> · Despesa <span style="color:var(--red)">${fmtBRL(desp)}</span> · Saldo <b style="color:${rec-desp<0?'var(--red)':'var(--green)'}">${fmtBRL(rec-desp)}</b>${nFut?` · <a style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="S.tab.financeiro='futuros';render()">${nFut} lançamento(s) futuro(s)</a>`:''}</div>
-    ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('fin_lanc',applyTableSort('fin_lanc',ls),r=>`<button class="ibtn" onclick="openLanc('${r.tipo}','${r.id}')">✎</button><button class="ibtn del" onclick="delLanc('${r.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lançamento encontrado com esses filtros.</div></div>'}`;
+    ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('fin_lanc',applyTableSort('fin_lanc',ls),r=>`<button class="ibtn" title="abrir" onclick="openCard('fin','${r.id}')">⤢</button><button class="ibtn del" onclick="delLanc('${r.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lançamento encontrado com esses filtros.</div></div>'}`;
 }
 
 /* ── Contas: filtro + ordenação, independente dos Lançamentos ── */
@@ -2186,7 +2260,7 @@ function finFuturos(b){
       ${csvBtn('fin_lanc',ls)}
     </div>
     <div style="font-size:11.5px;color:var(--lx3);margin-bottom:10px;">${ls.length} a vencer · Receita prevista <span style="color:var(--green)">${fmtBRL(rec)}</span> · Despesa prevista <span style="color:var(--red)">${fmtBRL(desp)}</span> · Saldo previsto <b style="color:${rec-desp<0?'var(--red)':'var(--green)'}">${fmtBRL(rec-desp)}</b></div>
-    ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('fin_lanc',ls,r=>`<button class="ibtn" onclick="openLanc('${r.tipo}','${r.id}')">✎</button><button class="ibtn del" onclick="delLanc('${r.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lançamento futuro.</div></div>'}`;
+    ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('fin_lanc',ls,r=>`<button class="ibtn" title="abrir" onclick="openCard('fin','${r.id}')">⤢</button><button class="ibtn del" onclick="delLanc('${r.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lançamento futuro.</div></div>'}`;
 }
 
 function finContas(b){
@@ -2290,11 +2364,12 @@ function openLanc(tipo,id){
     <div class="f2"><div class="field"><label>Forma de pagamento</label><select id="m6">${FORMAS.map(t=>`<option ${l?.forma===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div class="field"><label>Conta</label><select id="m7">${CONTAS.map(c=>`<option ${l?.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select></div></div>
     <div class="field"><label>Cliente / Projeto (opcional)</label><input id="m9" list="cl-list3" value="${esc(l?.cliente)}"><datalist id="cl-list3">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="field"><label>Demanda vinculada (opcional)</label><select id="m14"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${l?.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div>
     <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="m10" style="width:auto" ${l?.pago?'checked':''}><label style="margin:0">${isRec?'Já foi recebido':'Já foi pago'}</label></div>
     ${!isRec?'<div style="font-size:11px;color:var(--t3)">Crédito: mês de referência segue o fechamento da fatura (Nubank 9 · BTG 27).</div>':''}`,
   ()=>{const v=k=>document.getElementById(k)?.value;
     if(!v('m1').trim())return;
-    const base={tipo,desc:v('m1').trim(),valor:Number(v('m2'))||0,data:v('m3'),forma:v('m6'),conta:v('m7'),cliente:v('m9').trim(),pago:document.getElementById('m10').checked};
+    const base={tipo,desc:v('m1').trim(),valor:Number(v('m2'))||0,data:v('m3'),forma:v('m6'),conta:v('m7'),cliente:v('m9').trim(),demandaId:v('m14')||null,pago:document.getElementById('m10').checked};
     if(isRec){base.tipoReceita=v('m4');base.aliquota=Number(v('m5'))||0;base.competencia=v('m13')||monthKey(base.data);}
     else{base.categoria=v('m4');base.natureza=v('m5');base.mecanismo=v('m8');}
     if(l){Object.assign(l,base);}
@@ -2466,9 +2541,9 @@ function renderAgenda(c){
       const evs=S.eventos.filter(e=>e.data===ds).sort((a,b)=>(a.hIni||'').localeCompare(b.hIni||''));
       const przs=S.demandas.filter(x=>x.status!=='Entregue'&&x.prazo===ds);
       return `<div class="ag-day ${ds===today?'today':''}"><div class="ag-dhd">${dows[i]}</div><div class="ag-dnum">${d.getDate()}</div>
-      ${evs.map(e=>`<div class="ag-ev ev-${e.tipo.toLowerCase().normalize('NFD').replace(/[^a-z]/g,'')||'outro'}">
+      ${evs.map(e=>`<div class="ag-ev ev-${e.tipo.toLowerCase().normalize('NFD').replace(/[^a-z]/g,'')||'outro'}" onclick="openEvento('${e.id}')" style="cursor:pointer">
         <div class="t">${esc(e.titulo)}</div><div class="h">${e.hIni||''}${e.hFim?'–'+e.hFim:''}${e.local?' · '+esc(e.local):''}</div>
-        <div style="display:flex;gap:8px;margin-top:3px;"><a href="#" onclick="openEvento('${e.id}');return false;">editar</a><a href="${gcalLink(e)}" target="_blank">+ Google Agenda</a><a href="#" onclick="delEvento('${e.id}');return false;">excluir</a></div></div>`).join('')}
+        <div style="display:flex;gap:8px;margin-top:3px;"><a href="${gcalLink(e)}" target="_blank" onclick="event.stopPropagation()">+ Google Agenda</a><a href="#" onclick="event.stopPropagation();delEvento('${e.id}');return false;">excluir</a></div></div>`).join('')}
       ${przs.map(p=>`<div class="ag-ev ev-prazo"><div class="t">Prazo: ${esc(p.titulo)}</div><div class="h">${esc(p.cliente||'')} · ${p.uid}</div></div>`).join('')}
       ${(!evs.length&&!przs.length)?'<div style="font-size:10.5px;color:var(--t3);padding:4px 0;">—</div>':''}
       </div>`;
@@ -3402,10 +3477,10 @@ function propostaHTML2(p){
 
 /* ═══ QUICK CREATE + MODAL INFRA ═══ */
 function quickCreate(){
-  const map={comercial:()=>openLead(),demandas:()=>openDem(),tarefas:()=>openTask(),projetos:()=>openProj(),agenda:()=>openEvento(),propostas:()=>startWizard(),financeiro:()=>openLanc('despesa')};
+  const map={comercial:()=>openLead(),demandas:()=>openDem(),tarefas:()=>openTask(),projetos:()=>openProj(),pint:()=>openPint(),agenda:()=>openEvento(),propostas:()=>startWizard(),financeiro:()=>openLanc('despesa')};
   if(map[S.active])return map[S.active]();
   openModal('Criar novo',`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-    ${[['Lead','openLead()'],['Demanda','openDem()'],['Tarefa','openTask()'],['Projeto','openProj()'],['Receita',"openLanc('receita')"],['Despesa',"openLanc('despesa')"],['Evento','openEvento()'],['Proposta','startWizard();closeModal()']].map(([l,fn])=>`<button class="btn-sm" style="justify-content:center;padding:12px" onclick="closeModal();${fn}">${l}</button>`).join('')}
+    ${[['Lead','openLead()'],['Demanda','openDem()'],['Tarefa','openTask()'],['Projeto','openProj()'],['Projeto Interno','openPint()'],['Receita',"openLanc('receita')"],['Despesa',"openLanc('despesa')"],['Evento','openEvento()'],['Proposta','startWizard();closeModal()']].map(([l,fn])=>`<button class="btn-sm" style="justify-content:center;padding:12px" onclick="closeModal();${fn}">${l}</button>`).join('')}
   </div>`,null,true);
 }
 function openModal(title,body,onSubmit,hideSubmit){
@@ -3421,6 +3496,219 @@ function openModal(title,body,onSubmit,hideSubmit){
 }
 function closeModal(){document.getElementById('overlay').classList.remove('show');}
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
+
+/* ═══ CARD DRAWER — abrir qualquer item numa visão isolada (Notion-like) ═══
+   Funciona para demandas, tarefas e lançamentos financeiros. Cada um ganha
+   observações, checklist e (demandas/tarefas) histórico de tempo por status.
+   Não substitui os modais de edição rápida (✎) — é uma visão adicional. */
+function cardEntity(){
+  const cv=S.cardView;if(!cv)return null;
+  return (S[cv.kind]||[]).find(x=>x.id===cv.id)||null;
+}
+function openCard(kind,id){
+  S.cardView={kind,id,tab:'det'};
+  document.getElementById('modal').classList.add('wide');
+  document.getElementById('overlay').classList.add('show');
+  renderCard();
+}
+function closeCard(){S.cardView=null;closeModal();}
+function cardTab(t){S.cardView.tab=t;renderCard();}
+function renderCard(){
+  const cv=S.cardView;const it=cardEntity();
+  if(!cv||!it){closeCard();return;}
+  const titulo=it.titulo||it.desc||'Item';
+  const sub=cv.kind==='demandas'?((it.cliente||'Sem cliente')+' · '+it.uid+' · '+it.status)
+    :cv.kind==='tasks'?((it.area||'Tarefa')+' · '+it.status)
+    :cv.kind==='pint'?((it.area||'Sem área')+' · '+it.status)
+    :((it.tipo==='receita'?'Receita':'Despesa')+' · '+fmtBRL2(it.valor)+(it.cliente?' · '+esc(it.cliente):''));
+  const tabs=[['det','Detalhes']];
+  if(cv.kind==='pint')tabs.push(['tarefas','Tarefas']);
+  tabs.push(['obs','Observações'],['chk','Checklist']);
+  if(cv.kind==='demandas'||cv.kind==='tasks'||cv.kind==='pint')tabs.push(['hist','Tempo por status']);
+  document.getElementById('modal-title').textContent=titulo;
+  document.getElementById('modal-body').innerHTML=`
+    <div style="font-size:12px;color:var(--t3);margin-bottom:16px;">${esc(sub)}</div>
+    <div class="tabs" style="margin-bottom:16px;">${tabs.map(([id,l])=>`<button class="tab ${cv.tab===id?'active':''}" onclick="cardTab('${id}')">${l}</button>`).join('')}</div>
+    <div id="card-tab-body">${cardTabBody()}</div>`;
+  document.getElementById('modal-actions').innerHTML=`<button class="btn-ghost" onclick="closeCard()">Fechar</button><button class="btn-ghost" style="color:var(--red)" onclick="cardDelete()">✕ Excluir</button>`;
+}
+function cardSet(field,val){const it=cardEntity();if(!it)return;it[field]=val;save();}
+function cardSetRefresh(field,val){cardSet(field,val);renderCard();}
+function cardSetStatus(novo){
+  const it=cardEntity();const cv=S.cardView;if(!it||!cv)return;
+  if(cv.kind==='demandas')demTransicao(it,novo);
+  else if(cv.kind==='tasks')taskTransicao(it,novo);
+  else if(cv.kind==='pint')pintTransicao(it,novo);
+  save();renderCard();
+}
+function cardDelete(){
+  const cv=S.cardView;if(!cv)return;
+  if(!confirm('Excluir este item? Ele vai para a lixeira por 30 dias.'))return;
+  if(cv.kind==='fin')delLanc(cv.id);else softDel(cv.kind,cv.id);
+  closeCard();render();
+}
+function cardDetalhesHtml(kind,it){
+  if(kind==='demandas'){
+    const maes=S.demandas.filter(x=>!x.maeId&&x.id!==it.id);
+    return `
+    <div class="field"><label>Título</label><input value="${esc(it.titulo)}" oninput="cardSet('titulo',this.value)" onchange="renderCard()"></div>
+    <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" oninput="cardSet('cliente',this.value)" onchange="renderCard()"></div>
+    <div class="field"><label>Tipo</label><select onchange="cardSetRefresh('tipo',this.value)">${DTIPOS.map(t=>`<option ${it.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+    <div class="f2"><div class="field"><label>Prazo (V1)</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>
+    <div class="field"><label>Status</label><select onchange="cardSetStatus(this.value)">${DSTATUS.map(t=>`<option ${it.status===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+    <div class="f2"><div class="field"><label>Prazo de ajuste</label><input type="date" value="${it.prazoAjuste||''}" onchange="cardSetRefresh('prazoAjuste',this.value||null)"></div>
+    <div class="field"><label>V1 entregue em</label><input type="date" value="${it.entregueV1Em||''}" onchange="cardSetRefresh('entregueV1Em',this.value||null)"></div></div>
+    <div class="field"><label>Entrega final em</label><input type="date" value="${it.entregueEm||''}" onchange="cardSetRefresh('entregueEm',this.value||null)"></div>
+    <div class="field"><label>Demanda mãe</label><select onchange="cardSetRefresh('maeId',this.value||null)"><option value="">Nenhuma</option>${maes.map(m=>`<option value="${m.id}" ${it.maeId===m.id?'selected':''}>${m.uid} · ${esc(m.titulo)}</option>`).join('')}</select></div>
+    <div class="f2"><div class="field"><label>Receita (R$)</label><input type="number" step="0.01" value="${it.receita??''}" oninput="cardSet('receita',Number(this.value)||0)"></div>
+    <div class="field"><label>Custo direto (R$)</label><input type="number" step="0.01" value="${it.custo??''}" oninput="cardSet('custo',Number(this.value)||0)"></div></div>
+    <div class="field"><label>Horas trabalhadas</label><input type="number" step="0.5" value="${it.horas??''}" oninput="cardSet('horas',Number(this.value)||0)"></div>`;
+  }
+  if(kind==='tasks'){
+    return `
+    <div class="field"><label>Título</label><input value="${esc(it.titulo)}" oninput="cardSet('titulo',this.value)" onchange="renderCard()"></div>
+    <div class="f2"><div class="field"><label>Prioridade</label><select onchange="cardSetRefresh('prioridade',this.value)">${TPRIOR.map(p=>`<option ${it.prioridade===p?'selected':''}>${p}</option>`).join('')}</select></div>
+    <div class="field"><label>Status</label><select onchange="cardSetStatus(this.value)">${TSTATUS.map(p=>`<option ${it.status===p?'selected':''}>${p}</option>`).join('')}</select></div></div>
+    <div class="f2"><div class="field"><label>Prazo</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>
+    <div class="field"><label>Área</label><select onchange="cardSetRefresh('area',this.value)"><option value="">—</option>${TAREAS.map(a=>`<option ${it.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
+    <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" oninput="cardSet('cliente',this.value)"></div>
+    <div class="field"><label>Demanda vinculada</label><select onchange="cardSetRefresh('demandaId',this.value||null)"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${it.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Projeto interno vinculado</label><select onchange="cardSetRefresh('projIntId',this.value||null)"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${it.projIntId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`;
+  }
+  if(kind==='pint'){
+    return `
+    <div class="field"><label>Nome</label><input value="${esc(it.nome)}" oninput="cardSet('nome',this.value)" onchange="renderCard()"></div>
+    <div class="f2"><div class="field"><label>Área</label><select onchange="cardSetRefresh('area',this.value)"><option value="">—</option>${TAREAS.map(a=>`<option ${it.area===a?'selected':''}>${a}</option>`).join('')}</select></div>
+    <div class="field"><label>Status</label><select onchange="cardSetStatus(this.value)">${PISTATUS.map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Prazo (opcional)</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>`;
+  }
+  const isRec=it.tipo==='receita';
+  return `
+  <div class="field"><label>Descrição</label><input value="${esc(it.desc)}" oninput="cardSet('desc',this.value)" onchange="renderCard()"></div>
+  <div class="f2"><div class="field"><label>Valor (R$)</label><input type="number" step="0.01" value="${it.valor}" oninput="cardSet('valor',Number(this.value)||0)" onchange="renderCard()"></div>
+  <div class="field"><label>Data</label><input type="date" value="${it.data||''}" onchange="cardSetRefresh('data',this.value)"></div></div>
+  ${isRec?`
+  <div class="f2"><div class="field"><label>Tipo de receita</label><select onchange="cardSet('tipoReceita',this.value)">${RTIPOS.map(t=>`<option ${it.tipoReceita===t?'selected':''}>${t}</option>`).join('')}</select></div>
+  <div class="field"><label>Competência</label><input type="month" value="${it.competencia||''}" onchange="cardSet('competencia',this.value)"></div></div>`
+  :`
+  <div class="f2"><div class="field"><label>Categoria</label><select onchange="cardSet('categoria',this.value)">${FCATS.map(t=>`<option ${it.categoria===t?'selected':''}>${t}</option>`).join('')}</select></div>
+  <div class="field"><label>Natureza</label><select onchange="cardSet('natureza',this.value)">${NATUREZAS.map(t=>`<option ${it.natureza===t?'selected':''}>${t}</option>`).join('')}</select></div></div>`}
+  <div class="f2"><div class="field"><label>Forma</label><select onchange="cardSet('forma',this.value)">${FORMAS.map(t=>`<option ${it.forma===t?'selected':''}>${t}</option>`).join('')}</select></div>
+  <div class="field"><label>Conta</label><select onchange="cardSet('conta',this.value)">${CONTAS.map(c=>`<option ${it.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select></div></div>
+  <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" oninput="cardSet('cliente',this.value)"></div>
+  <div class="field"><label>Demanda vinculada</label><select onchange="cardSetRefresh('demandaId',this.value||null)"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${it.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div>
+  <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto" ${it.pago?'checked':''} onchange="cardSetRefresh('pago',this.checked)"><label style="margin:0">${isRec?'Já foi recebido':'Já foi pago'}</label></div>`;
+}
+function cardTabBody(){
+  const cv=S.cardView;const it=cardEntity();if(!it)return'';
+  if(cv.tab==='det')return cardDetalhesHtml(cv.kind,it);
+  if(cv.tab==='tarefas'&&cv.kind==='pint'){
+    const tks=S.tasks.filter(t=>t.projIntId===it.id);
+    const doneT=tks.filter(t=>t.status==='Concluída').length;
+    return `<div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input id="pint-task-novo" class="task-input" style="flex:1" placeholder="Nova tarefa..." onkeydown="if(event.key==='Enter'){event.preventDefault();pintAddTask('${it.id}');}">
+      <button class="btn-sm" onclick="pintAddTask('${it.id}')">+ Adicionar</button></div>
+    ${tks.length?`<div style="font-size:11px;color:var(--t3);margin-bottom:10px;">${doneT}/${tks.length} concluídas</div>`:''}
+    ${tks.length?tks.map(tk=>{
+      const ps=tk.prazo?prazoStatus(tk.prazo):null;
+      return `<div class="row-item"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+      <button class="tk-check ${tk.status==='Concluída'?'done':''}" style="border-color:var(--b3)" onclick="pintToggleTask('${tk.id}')"></button>
+      <div style="min-width:0"><div class="ri-name" style="${tk.status==='Concluída'?'color:var(--t3);text-decoration:line-through':''}">${esc(tk.titulo)}</div>
+      <div class="ri-sub">${tk.status}${tk.prazo?' · '+fmtD(tk.prazo):''}${ps&&ps.cls==='atrasada'&&tk.status!=='Concluída'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div></div>
+      <button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button></div>`;
+    }).join(''):'<div class="empty-msg">Nenhuma tarefa vinculada ainda.</div>'}`;
+  }
+  if(cv.tab==='obs'){
+    const obs=[...(it.observacoes||[])].reverse();
+    return `${obs.length?obs.map(o=>`<div style="border:1px solid var(--b2);border-radius:10px;padding:11px;margin-bottom:8px;">
+      <div style="font-size:10.5px;color:var(--t3);margin-bottom:5px;">${fmtD(o.em)}</div>
+      ${o.texto?`<div style="font-size:13px;white-space:pre-wrap;line-height:1.5;">${esc(o.texto)}</div>`:''}
+      ${o.img?`<img src="${o.img}" style="max-width:100%;border-radius:8px;margin-top:8px;display:block;">`:''}
+      <button class="ibtn del" style="margin-top:6px;" onclick="delObs('${o.id}')">✕ remover</button></div>`).join(''):'<div class="empty-msg">Nenhuma observação ainda.</div>'}
+    <textarea id="obs-novo" rows="3" placeholder="Escrever uma observação..." style="margin-top:6px;"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+      <button class="btn-sm" onclick="addObs()">+ Adicionar observação</button>
+      <label class="btn-sm" style="cursor:pointer;">📎 Anexar imagem<input type="file" accept="image/*" style="display:none" onchange="addObsImg(this)"></label>
+    </div>
+    <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">Imagens ficam salvas no navegador — evite anexar muitas fotos em alta resolução (o espaço do Hub é limitado a alguns MB no total).</div>`;
+  }
+  if(cv.tab==='chk'){
+    const chk=it.checklist||[];
+    const feitos=chk.filter(c=>c.feito).length;
+    return `${chk.length?`<div style="font-size:11px;color:var(--t3);margin-bottom:10px;">${feitos}/${chk.length} concluídos</div>`:''}
+    ${chk.map(c=>`<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--b2);">
+      <input type="checkbox" style="width:auto" ${c.feito?'checked':''} onchange="toggleChk('${c.id}')">
+      <span style="flex:1;font-size:13px;${c.feito?'text-decoration:line-through;color:var(--t3)':''}">${esc(c.texto)}</span>
+      <button class="ibtn del" onclick="delChk('${c.id}')">✕</button></div>`).join('')}
+    ${!chk.length?'<div class="empty-msg">Nenhum item ainda.</div>':''}
+    <div style="display:flex;gap:8px;margin-top:12px;"><input id="chk-novo" class="task-input" placeholder="Novo item..." onkeydown="if(event.key==='Enter'){event.preventDefault();addChk();}"><button class="btn-sm" onclick="addChk()">+</button></div>`;
+  }
+  if(cv.tab==='hist'){
+    const hist=tempoPorStatus(it.statusHistory);
+    if(!hist.length)return '<div class="empty-msg">Sem histórico registrado ainda — passa a contar a partir da próxima mudança de status.</div>';
+    return hist.map(h=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--b2);font-size:13px;">
+      <span>${esc(h.status)}${h.atual?' <span class="bdg">atual</span>':''}</span><span style="color:var(--t3);font-size:12px">${h.dias} dia${h.dias!==1?'s':''}</span></div>`).join('');
+  }
+  return '';
+}
+function addObsImg(input){
+  const file=input.files&&input.files[0];if(!file)return;
+  const it=cardEntity();if(!it)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAXW=900;const scale=Math.min(1,MAXW/img.width);
+      const canvas=document.createElement('canvas');
+      canvas.width=img.width*scale;canvas.height=img.height*scale;
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      const dataUrl=canvas.toDataURL('image/jpeg',0.82);
+      if(!Array.isArray(it.observacoes))it.observacoes=[];
+      it.observacoes.push({id:uid('ob'),texto:'',img:dataUrl,em:todayStr()});
+      save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function addObs(){
+  const el=document.getElementById('obs-novo');const txt=el.value.trim();if(!txt)return;
+  const it=cardEntity();if(!it)return;
+  if(!Array.isArray(it.observacoes))it.observacoes=[];
+  it.observacoes.push({id:uid('ob'),texto:txt,em:todayStr()});
+  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function delObs(id){
+  const it=cardEntity();if(!it||!it.observacoes)return;
+  it.observacoes=it.observacoes.filter(o=>o.id!==id);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function addChk(){
+  const el=document.getElementById('chk-novo');const txt=el.value.trim();if(!txt)return;
+  const it=cardEntity();if(!it)return;
+  if(!Array.isArray(it.checklist))it.checklist=[];
+  it.checklist.push({id:uid('ck'),texto:txt,feito:false});
+  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function toggleChk(id){
+  const it=cardEntity();if(!it||!it.checklist)return;
+  const c=it.checklist.find(x=>x.id===id);if(c)c.feito=!c.feito;
+  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function delChk(id){
+  const it=cardEntity();if(!it||!it.checklist)return;
+  it.checklist=it.checklist.filter(x=>x.id!==id);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function pintAddTask(pid){
+  const el=document.getElementById('pint-task-novo');const v=el.value.trim();if(!v)return;
+  S.tasks.unshift({id:uid('t'),titulo:v,prioridade:'Média',status:'A fazer',statusHistory:[{status:'A fazer',em:todayStr()}],prazo:null,demandaId:null,area:'',cliente:'',projIntId:pid});
+  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function pintToggleTask(id){
+  const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  taskTransicao(t,t.status==='Concluída'?'A fazer':'Concluída');
+  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
 
 </script>
 <script>
@@ -3440,6 +3728,7 @@ const TRASH_META={
   demandas:{l:'Demanda',n:r=>(r.uid?r.uid+' · ':'')+(r.titulo||''),ir:'demandas'},
   tasks:{l:'Tarefa',n:r=>r.titulo,ir:'tarefas'},
   projetos:{l:'Projeto',n:r=>r.nome,ir:'projetos'},
+  pint:{l:'Projeto Interno',n:r=>r.nome,ir:'pint'},
   fin:{l:'Lançamento',n:r=>r.desc,ir:'financeiro'},
   eventos:{l:'Evento',n:r=>r.titulo,ir:'agenda'},
   propostas:{l:'Proposta',n:r=>r.titulo||r.cliente,ir:'propostas'},
@@ -3676,7 +3965,7 @@ function dgDrop(kind,id,alvo){
     const t=S.tasks.find(x=>x.id===id);
     if(!t||t.status===alvo)return;
     pushUndo('mover tarefa "'+t.titulo+'" para "'+alvo+'"',['tasks']);
-    t.status=alvo;save();render();
+    taskTransicao(t,alvo);save();render();
     toast('"'+t.titulo+'" → '+alvo,'Desfazer','doUndo()',5000);
   }else if(kind==='leads'){
     const l=S.leads.find(x=>x.id===id);
@@ -3687,6 +3976,12 @@ function dgDrop(kind,id,alvo){
       S.projetos.push({id:uid('p'),nome:l.empresa,cliente:l.empresa,fase:'Briefing',entrega:null,leadId:id});
     save();render();
     toast(l.empresa+' → '+alvo,'Desfazer','doUndo()',5000);
+  }else if(kind==='pint'){
+    const p=S.pint.find(x=>x.id===id);
+    if(!p||p.status===alvo)return;
+    pushUndo('mover projeto interno "'+p.nome+'" para "'+alvo+'"',['pint']);
+    pintTransicao(p,alvo);save();render();
+    toast('"'+p.nome+'" → '+alvo,'Desfazer','doUndo()',5000);
   }
 }
 document.addEventListener('pointermove',dgMove,{passive:false});
@@ -3711,7 +4006,7 @@ document.addEventListener('keydown',e=>{
    mesmo registro resolve por updated_at (o mais recente vence).
    Sem backend configurado, o Hub segue funcionando local.
    ═══════════════════════════════════════════════════════════════ */
-const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','fin','eventos','propostas','cbase','parc','assin','trash'];
+const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','cbase','parc','assin','trash'];
 const SETTING_KEYS=['theme','prefs','dash','cols','sort'];
 let SY={busy:false,last:null,err:null,snap:{}};
 

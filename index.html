@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
 :root{
   /* fundo: escuro suave, sem preto */
@@ -505,6 +506,8 @@ tr:hover .tacts{opacity:1;}
 .card,.wl,.kcard,.ag-day{transition:border-color .15s,box-shadow .18s,transform .18s;}
 .card:hover,.wl:hover,.kcard:hover,.ag-day:hover{border-color:#8f8f8f;box-shadow:0 6px 20px rgba(0,0,0,.13);transform:translateY(-1px);}
 .wl-go{cursor:pointer;}
+.card-go{cursor:pointer;transition:border-color .15s;}
+.card-go:hover{border-color:var(--dk1);}
 .wgo{color:var(--dk1);cursor:pointer;text-decoration:none;font-weight:550;}
 .wgo:hover{text-decoration:underline;}
 #modal .btn-ghost{color:var(--t2);border-color:#9a9a9a;}
@@ -799,7 +802,7 @@ const PRICING_DEFAULT={
   geral:{sinalPct:40,reagendLimiteH:48,validadeDias:30}
 };
 let S={
-leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],pint:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],
+leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],pint:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],finPresets:[],
 pricing:JSON.parse(JSON.stringify(PRICING_DEFAULT)),orcamentos:[],finLastUpdate:null,
 active:'dashboard',
 sort:{},
@@ -823,7 +826,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets'];
 async function load(){
   let got=false;
   try{
@@ -2103,9 +2106,9 @@ function renderFin(c){
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Controle Financeiro</div><div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Último lançamento: ${relTime(S.finLastUpdate)}</div></div>
     <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="openLanc('receita')">+ Nova receita</button><button class="btn-ghost" onclick="openLanc('despesa')">+ Nova despesa</button></div></div>
-    ${tabsHtml('financeiro',[{id:'visao',l:'Visão geral'},{id:'lanc',l:'Lançamentos'},{id:'futuros',l:'Futuros'},{id:'contas',l:'Contas'},{id:'recorrentes',l:'Recorrentes'},{id:'porcliente',l:'Por cliente'}])}
+    ${tabsHtml('financeiro',[{id:'visao',l:'Visão geral'},{id:'lanc',l:'Lançamentos'},{id:'futuros',l:'Futuros'},{id:'contas',l:'Contas'},{id:'recorrentes',l:'Recorrentes'},{id:'porcliente',l:'Por cliente'},{id:'analises',l:'Análises'}])}
     <div id="fin-body"></div>`;
-  ({visao:finVisao,lanc:finLanc,futuros:finFuturos,contas:finContas,recorrentes:finRecorrentes,porcliente:finPorCliente}[S.tab.financeiro]||finVisao)(document.getElementById('fin-body'));
+  ({visao:finVisao,lanc:finLanc,futuros:finFuturos,contas:finContas,recorrentes:finRecorrentes,porcliente:finPorCliente,analises:finAnalises}[S.tab.financeiro]||finVisao)(document.getElementById('fin-body'));
 }
 function relTime(iso){
   if(!iso)return 'nunca';
@@ -2151,8 +2154,8 @@ function finVisao(b){
       ${!isCur?'<button class="btn-sm" onclick="finVisaoMesReset()">Mês atual</button>':''}
     </div>
     <div class="g4">
-      <div class="card"><div class="clabel">Recebido</div><div class="metric" style="color:var(--green)">${fmtBRL(recebido)}</div><div class="metric-s">${fmtBRL(aReceber)} a receber</div></div>
-      <div class="card"><div class="clabel">Pago</div><div class="metric" style="color:var(--red)">${fmtBRL(pago)}</div><div class="metric-s">${fmtBRL(aPagar)} a pagar</div></div>
+      <div class="card card-go" title="Ver lançamentos considerados" onclick="finDrill('receita',true,'${mk}')"><div class="clabel">Recebido</div><div class="metric" style="color:var(--green)">${fmtBRL(recebido)}</div><div class="metric-s">${fmtBRL(aReceber)} a receber</div></div>
+      <div class="card card-go" title="Ver lançamentos considerados" onclick="finDrill('despesa',true,'${mk}')"><div class="clabel">Pago</div><div class="metric" style="color:var(--red)">${fmtBRL(pago)}</div><div class="metric-s">${fmtBRL(aPagar)} a pagar</div></div>
       <div class="card"><div class="clabel">Saldo realizado</div><div class="metric" style="color:${saldo<0?'var(--red)':'var(--t1)'}">${fmtBRL(saldo)}</div><div class="metric-s">previsto ${fmtBRL(recebido+aReceber-pago-aPagar)}</div></div>
       <div class="card"><div class="clabel">Margem realizada</div><div class="metric">${margem.toFixed(1)}%</div><div class="metric-s" style="text-transform:capitalize">${mesLabel}</div></div>
     </div>
@@ -2176,6 +2179,13 @@ function finVisao(b){
 }
 
 /* ── Lançamentos: filtros completos + ordenação ── */
+/* Drill-down: sai de um card da Visão Geral e cai em Lançamentos já filtrado
+   pelos mesmos critérios que compuseram aquele número (tipo + pago + mesRef). */
+function finDrill(tipo,pago,mk){
+  S.tab.financeiro='lanc';
+  S.f.finLanc={tipo,status:pago?'pago':'pend',mesRef:mk};
+  save();render();
+}
 function finLanc(b){
   const q=(S.q.fin||'').toLowerCase();const f=S.f.finLanc||{};
   const srt=S.sort.finLanc||{campo:'data',dir:'desc'};
@@ -2191,6 +2201,7 @@ function finLanc(b){
     (!f.mec||l.mecanismo===f.mec)&&
     (!f.conta||l.conta===f.conta)&&
     (!f.cliente||l.cliente===f.cliente)&&
+    (!f.mesRef||mesRef(l)===f.mesRef)&&
     (!f.de||(l.data||'')>=f.de)&&
     (!f.ate||(l.data||'')<=f.ate));
   ls=[...ls].sort((a,b)=>{
@@ -2213,9 +2224,10 @@ function finLanc(b){
       <select class="fsel" onchange="S.f.finLanc={...S.f.finLanc,mec:this.value};render()"><option value="">Mecanismo: Todos</option>${MECANISMOS.map(m=>`<option ${f.mec===m?'selected':''}>${m}</option>`).join('')}</select>
       <select class="fsel" onchange="S.f.finLanc={...S.f.finLanc,conta:this.value};render()"><option value="">Conta: Todas</option>${CONTAS.map(c=>`<option ${f.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select>
       <select class="fsel" onchange="S.f.finLanc={...S.f.finLanc,cliente:this.value};render()"><option value="">Cliente: Todos</option>${clientes().map(c=>`<option ${f.cliente===c?'selected':''}>${c}</option>`).join('')}</select>
+      <input class="fsel" type="month" title="Mês de referência (considera fechamento de fatura)" value="${f.mesRef||''}" onchange="S.f.finLanc={...S.f.finLanc,mesRef:this.value};render()">
       <input class="fsel" type="date" title="De" value="${f.de||''}" onchange="S.f.finLanc={...S.f.finLanc,de:this.value};render()">
       <input class="fsel" type="date" title="Até" value="${f.ate||''}" onchange="S.f.finLanc={...S.f.finLanc,ate:this.value};render()">
-      ${(f.tipo||f.status||f.cat||f.nat||f.mec||f.conta||f.cliente||f.de||f.ate)?'<button class="btn-sm" onclick="S.f.finLanc={};render()">Limpar filtros</button>':''}
+      ${(f.tipo||f.status||f.cat||f.nat||f.mec||f.conta||f.cliente||f.mesRef||f.de||f.ate)?'<button class="btn-sm" onclick="S.f.finLanc={};render()">Limpar filtros</button>':''}
       ${colBtn('fin_lanc')}${csvBtn('fin_lanc',ls)}
     </div>
     <div style="font-size:11.5px;color:var(--lx3);margin-bottom:10px;">${ls.length} lançamentos realizados · Receita líq. <span style="color:var(--green)">${fmtBRL(rec)}</span> · Despesa <span style="color:var(--red)">${fmtBRL(desp)}</span> · Saldo <b style="color:${rec-desp<0?'var(--red)':'var(--green)'}">${fmtBRL(rec-desp)}</b>${nFut?` · <a style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="S.tab.financeiro='futuros';render()">${nFut} lançamento(s) futuro(s)</a>`:''}</div>
@@ -2340,6 +2352,163 @@ function finPorCliente(b){
     ${colBtn('fin_cliente')}${csvBtn('fin_cliente',es)}
   </div>`+
   (es.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('fin_cliente',applyTableSort('fin_cliente',es))}</div>`:'<div class="card"><div class="empty-msg">Nenhum projeto com lançamentos ainda. Vincule receitas e despesas a clientes para ver rentabilidade.</div></div>');
+}
+
+/* ═══ ANÁLISES — motor de pivô + gráfico livre sobre S.fin ═══
+   Dimensões e medidas centralizadas (mesmo espírito do COLDEFS), um
+   pivô simples (agrupar + agregar) e um wrapper fino sobre Chart.js.
+   Filtros e config de visualização ficam em S.f.finAn (mesmo padrão de
+   S.f.finLanc); presets salvos persistem em S.finPresets. */
+const finLiqOrValor=r=>r.tipo==='receita'?liq(r):Number(r.valor||0);
+const FIN_DIMS={
+  mes:{label:'Mês (referência — competência/fatura)',get:l=>mesRef(l),chrono:true},
+  mesData:{label:'Mês (data — vencimento/pagamento)',get:l=>monthKey(l.data),chrono:true},
+  cliente:{label:'Cliente',get:l=>l.cliente||'Sem cliente'},
+  categoria:{label:'Categoria / Tipo',get:l=>l.tipo==='receita'?(l.tipoReceita||'Outros'):(l.categoria||'Outros')},
+  natureza:{label:'Natureza',get:l=>l.natureza||'—'},
+  mecanismo:{label:'Mecanismo',get:l=>l.mecanismo||'—'},
+  conta:{label:'Conta',get:l=>l.conta||'—'},
+  forma:{label:'Forma de pagamento',get:l=>l.forma||'—'},
+  status:{label:'Status',get:l=>l.pago?'Pago/Recebido':'Pendente'},
+  tipo:{label:'Receita/Despesa',get:l=>l.tipo==='receita'?'Receita':'Despesa'}
+};
+const FIN_MEDS={
+  valorLiq:{label:'Valor (líq. receita / bruto despesa)',calc:rows=>sum(rows,finLiqOrValor)},
+  valorBruto:{label:'Valor bruto',calc:rows=>sum(rows,r=>Number(r.valor||0))},
+  contagem:{label:'Nº de lançamentos',calc:rows=>rows.length},
+  ticketMedio:{label:'Ticket médio',calc:rows=>rows.length?sum(rows,finLiqOrValor)/rows.length:0}
+};
+const FIN_PRESETS_DEFAULT=[
+  {nome:'Receita líquida por mês',dim:'mes',med:'valorLiq',chart:'line',filtros:{tipo:'receita'}},
+  {nome:'Despesa por categoria',dim:'categoria',med:'valorLiq',chart:'doughnut',filtros:{tipo:'despesa'}},
+  {nome:'Resultado por cliente',dim:'cliente',med:'valorLiq',chart:'bar',filtros:{}}
+];
+function finAnFiltered(){
+  const flt=(S.f.finAn&&S.f.finAn.filtros)||{};
+  return S.fin.filter(l=>
+    (!flt.tipo||l.tipo===flt.tipo)&&
+    (!flt.status||(flt.status==='pago'?l.pago:!l.pago))&&
+    (!flt.cat||l.tipoReceita===flt.cat||l.categoria===flt.cat)&&
+    (!flt.nat||l.natureza===flt.nat)&&
+    (!flt.mec||l.mecanismo===flt.mec)&&
+    (!flt.conta||l.conta===flt.conta)&&
+    (!flt.cliente||l.cliente===flt.cliente)&&
+    (!flt.de||mesRef(l)>=flt.de)&&
+    (!flt.ate||mesRef(l)<=flt.ate));
+}
+function finPivot(rows,dimKey){
+  const dim=FIN_DIMS[dimKey]||FIN_DIMS.mes;
+  const groups={};
+  rows.forEach(r=>{const k=dim.get(r);(groups[k]=groups[k]||[]).push(r);});
+  const entries=Object.entries(groups);
+  if(dim.chrono)entries.sort((a,b)=>a[0].localeCompare(b[0]));
+  return entries;
+}
+function finAnData(dimKey,medKey,rows){
+  const med=FIN_MEDS[medKey]||FIN_MEDS.valorLiq;
+  let out=finPivot(rows,dimKey).map(([label,rs])=>({label,value:med.calc(rs)}));
+  if(!(FIN_DIMS[dimKey]||FIN_DIMS.mes).chrono)out=out.sort((a,b)=>b.value-a.value);
+  return out;
+}
+let finChartObj=null;
+function finRenderChart(){
+  const el=document.getElementById('fin-an-canvas');
+  if(!el||typeof Chart==='undefined')return;
+  const a=S.f.finAn||{};
+  const dimKey=a.dim||'mes',medKey=a.med||'valorLiq',chartType=a.chart||'line';
+  const data=finAnData(dimKey,medKey,finAnFiltered());
+  if(finChartObj){finChartObj.destroy();finChartObj=null;}
+  const cores=['#4E1A1D','#8C4A3A','#B98A5E','#6E6E6E','#2563EB','#15803D','#D97706','#DC2626','#7C3AED','#0891B2'];
+  const isPie=chartType==='pie'||chartType==='doughnut';
+  finChartObj=new Chart(el,{
+    type:chartType,
+    data:{labels:data.map(d=>d.label),datasets:[{
+      label:FIN_MEDS[medKey].label,
+      data:data.map(d=>d.value),
+      backgroundColor:isPie?data.map((_,i)=>cores[i%cores.length]):hexA('#4E1A1D',0.75),
+      borderColor:isPie?'#fff':'#4E1A1D',
+      borderWidth:isPie?2:1,
+      tension:.3,
+      fill:chartType==='line'?false:true
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:isPie,position:'bottom',labels:{boxWidth:11,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>medKey==='contagem'?ctx.formattedValue:fmtBRL(ctx.raw)}}},
+      scales:isPie?{}:{y:{ticks:{callback:v=>medKey==='contagem'?v:fmtBRL(v)}}}
+    }
+  });
+}
+function finAnTableHtml(data,medKey){
+  const max=Math.max(1,...data.map(d=>Math.abs(d.value)));
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Grupo</th><th>${FIN_MEDS[medKey].label}</th><th></th></tr></thead><tbody>
+  ${data.map(d=>`<tr><td>${esc(d.label)}</td><td>${medKey==='contagem'?d.value:fmtBRL(d.value)}</td>
+  <td style="width:40%"><div style="height:6px;background:rgba(0,0,0,.09);border-radius:99px;"><div style="height:100%;background:var(--dk1);border-radius:99px;width:${Math.round(Math.abs(d.value)/max*100)}%"></div></div></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function finAnalises(b){
+  if(!S.finPresets||!S.finPresets.length)S.finPresets=FIN_PRESETS_DEFAULT.map(p=>({...p,id:uid('fp')}));
+  const a=S.f.finAn||{};
+  const dimKey=a.dim||'mes',medKey=a.med||'valorLiq',chartType=a.chart||'line';
+  const flt=a.filtros||{};
+  const rows=finAnFiltered();
+  const data=finAnData(dimKey,medKey,rows);
+  const CATU=[...new Set([...RTIPOS,...FCATS])];
+  b.innerHTML=`
+    <div class="toolbar">
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,dim:this.value};render()">${Object.entries(FIN_DIMS).map(([k,d])=>`<option value="${k}" ${dimKey===k?'selected':''}>${d.label}</option>`).join('')}</select>
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,med:this.value};render()">${Object.entries(FIN_MEDS).map(([k,m])=>`<option value="${k}" ${medKey===k?'selected':''}>${m.label}</option>`).join('')}</select>
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,chart:this.value};render()">
+        <option value="line" ${chartType==='line'?'selected':''}>Linha</option>
+        <option value="bar" ${chartType==='bar'?'selected':''}>Barra</option>
+        <option value="pie" ${chartType==='pie'?'selected':''}>Pizza</option>
+        <option value="doughnut" ${chartType==='doughnut'?'selected':''}>Rosca</option>
+        <option value="tabela" ${chartType==='tabela'?'selected':''}>Tabela</option>
+      </select>
+      <button class="btn-sm" onclick="finPresetSaveOpen()">☆ Salvar como preset</button>
+    </div>
+    <div class="toolbar" style="margin-top:-6px;">
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),tipo:this.value}};render()"><option value="">Tipo: Todos</option><option value="receita" ${flt.tipo==='receita'?'selected':''}>Receitas</option><option value="despesa" ${flt.tipo==='despesa'?'selected':''}>Despesas</option></select>
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),status:this.value}};render()"><option value="">Status: Todos</option><option value="pago" ${flt.status==='pago'?'selected':''}>Pago/Recebido</option><option value="pend" ${flt.status==='pend'?'selected':''}>Pendente</option></select>
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),cat:this.value}};render()"><option value="">Categoria: Todas</option>${CATU.map(c=>`<option ${flt.cat===c?'selected':''}>${c}</option>`).join('')}</select>
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),nat:this.value}};render()"><option value="">Natureza: Todas</option>${NATUREZAS.map(n=>`<option ${flt.nat===n?'selected':''}>${n}</option>`).join('')}</select>
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),mec:this.value}};render()"><option value="">Mecanismo: Todos</option>${MECANISMOS.map(m=>`<option ${flt.mec===m?'selected':''}>${m}</option>`).join('')}</select>
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),conta:this.value}};render()"><option value="">Conta: Todas</option>${CONTAS.map(c=>`<option ${flt.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select>
+      <select class="fsel" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),cliente:this.value}};render()"><option value="">Cliente: Todos</option>${clientes().map(c=>`<option ${flt.cliente===c?'selected':''}>${c}</option>`).join('')}</select>
+      <input class="fsel" type="month" title="Mês de referência — de" value="${flt.de||''}" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),de:this.value}};render()">
+      <input class="fsel" type="month" title="Mês de referência — até" value="${flt.ate||''}" onchange="S.f.finAn={...S.f.finAn,filtros:{...(S.f.finAn&&S.f.finAn.filtros),ate:this.value}};render()">
+      ${Object.values(flt).some(Boolean)?'<button class="btn-sm" onclick="S.f.finAn={...S.f.finAn,filtros:{}};render()">Limpar filtros</button>':''}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">${S.finPresets.map(p=>`
+      <span class="bdg" style="display:inline-flex;align-items:center;gap:6px;">
+        <span style="cursor:pointer" onclick="finPresetApply('${p.id}')" title="Aplicar preset">${esc(p.nome)}</span>
+        <span style="cursor:pointer;opacity:.6" onclick="finPresetDelete('${p.id}')" title="Excluir preset">✕</span>
+      </span>`).join('')}</div>
+    <div class="card" style="padding:20px;">
+      ${!rows.length?'<div class="empty-msg">Nenhum lançamento encontrado com esses filtros.</div>'
+        :chartType==='tabela'?finAnTableHtml(data,medKey)
+        :`<div style="position:relative;height:360px;"><canvas id="fin-an-canvas"></canvas></div>`}
+    </div>`;
+  if(rows.length&&chartType!=='tabela')setTimeout(finRenderChart,0);
+}
+function finPresetSaveOpen(){
+  const a=S.f.finAn||{};
+  openModal('Salvar preset de análise',`<div class="field"><label>Nome</label><input id="m1" placeholder="Ex: Receita por mês"></div>`,()=>{
+    const nome=document.getElementById('m1').value.trim();if(!nome)return;
+    S.finPresets=S.finPresets||[];
+    S.finPresets.push({id:uid('fp'),nome,dim:a.dim||'mes',med:a.med||'valorLiq',chart:a.chart||'line',filtros:{...(a.filtros||{})}});
+    save();closeModal();render();
+  });
+}
+function finPresetApply(id){
+  const p=(S.finPresets||[]).find(x=>x.id===id);if(!p)return;
+  S.f.finAn={dim:p.dim,med:p.med,chart:p.chart,filtros:{...p.filtros}};
+  render();
+}
+function finPresetDelete(id){
+  if(!confirm('Excluir este preset?'))return;
+  S.finPresets=(S.finPresets||[]).filter(x=>x.id!==id);
+  save();render();
 }
 
 function togglePago(id){const f=S.fin.find(x=>x.id===id);if(f){f.pago=!f.pago;save();render();}}
@@ -4007,7 +4176,7 @@ document.addEventListener('keydown',e=>{
    Sem backend configurado, o Hub segue funcionando local.
    ═══════════════════════════════════════════════════════════════ */
 const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','cbase','parc','assin','trash'];
-const SETTING_KEYS=['theme','prefs','dash','cols','sort'];
+const SETTING_KEYS=['theme','prefs','dash','cols','sort','finPresets'];
 let SY={busy:false,last:null,err:null,snap:{}};
 
 function syncCfg(){return (S.prefs&&S.prefs.sb_url)?{url:S.prefs.sb_url,key:S.prefs.sb_key,token:S.prefs.sb_token,refresh:S.prefs.sb_refresh,email:S.prefs.sb_email}:null;}

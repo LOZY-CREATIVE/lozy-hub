@@ -35,6 +35,28 @@ python3 -m http.server 8080
 - **`contratos` ainda não tem render function** — é só placeholder. Para implementar: adicionar `contratos:renderContratos` no dispatch de `render()` e virar `ready:true` em `SECTIONS`.
 - **Propostas tem dois sistemas paralelos coexistindo** no mesmo array: wizard V1 antigo (`startWizard`/`renderWizard`/`propHTML`) e V2 novo (`startPropBlank`/`renderPropWizard`/`propostaHTML2`), distinguidos só por `p.versao===2`. Trate como dois sistemas até consolidar, não como um só.
 
+### Proposta V2 — seções liga/desliga
+
+- `p.secoes` (normalizado por `propSecoes()`) decide o que aparece na proposta do cliente: `cliente, partida, escopo, mensal, crono, cond, notas` + `valoresItens` (mostrar preço por item ou só o total). `PROP_PRESETS` traz dois pontos de partida — `essencial` (só valor) e `completa`.
+- **Propostas salvas antes disso não têm `secoes`** — `propostaHTML2` cai no padrão "tudo ligado" (`mensal` seguindo o antigo `p.recorrente`), então nada muda retroativamente. Não remova esse fallback.
+- **A numeração das seções é derivada**, não fixa: `propostaHTML2` monta um array `blocos` com o que sobrou ligado e numera na ordem. Ao adicionar uma seção nova, entre nesse array — números hardcoded voltariam a sair furados ("01, 04, 06").
+- `PROP_TEXTOS_PADRAO` cobre título/descrição de cada seção **e** os rótulos internos (`inv_*`, `rot_*`, `rodape_*`). Texto novo visível ao cliente deve entrar aí, não hardcoded no template.
+- Perfis salvos (`S.perfis`) guardam `textos` **e** `secoes`.
+
+### Animação de entrada da proposta (armadilha séria)
+
+- O `.reveal` da proposta gerada é **progressive enhancement**: o conteúdo nasce visível no CSS, e o script só adiciona `js-anim` no `<html>` — que aí sim esconde tudo pra revelar via `IntersectionObserver` — **quando `document.visibilityState==='visible'`**.
+- Motivo: por muito tempo `.reveal` nascia com `opacity:0` e dependia do observer pra voltar. Em qualquer contexto onde o observer não roda (aba em segundo plano, iframe de preview, painel de render, conversor de PDF) o cliente recebia **a proposta em branco, só com o rodapé** — o rodapé era o único elemento fora do `.reveal`. Em aba oculta os timers também são estrangulados, então `setTimeout` como rede de segurança não resolve.
+- Nunca inverta isso de volta. Qualquer bloco novo da proposta deve ser legível sem JS.
+- Relacionado: **não use `overflow-x` no `body`** do template. Em `body`, `overflow-x:hidden` força `overflow-y:auto`, o body vira contêiner de rolagem e o observer para de disparar mesmo em aba visível.
+
+### Marca embutida na proposta
+
+- `PROP_LOGO_URL` e `PROP_SIGIL_URL` são o logo e o símbolo Lozy em WebP base64 (~39 KB somados), usados **como máscara CSS** (`.mark` e `.sigil`) — a cor vem de `var(--accent)`, então um único desenho serve wine e terracotta. Não troque por `<img>` colorido: dobraria o payload e quebraria o vínculo com a cor de destaque.
+- Ficam embutidos porque a proposta gerada é um **arquivo único** que vai por e-mail/WhatsApp — referenciar arquivo externo quebraria na mão do cliente.
+- Os dois são `display:none` por padrão e só aparecem dentro de um `@supports` de máscara: sem suporte, some — melhor que um retângulo sólido no lugar do logo.
+- Fonte dos assets: `~/Desktop/lozy_creative/business/BRAND/LOZY_NEW/{LOGO,SYMBOL}/*.png` (2000px e 8334px). Para regerar: recortar pelo bbox do alpha, redimensionar, `cwebp -lossless`, base64.
+
 ## Padrões de UI compartilhados
 
 - **Modal único** (`#overlay`/`#modal`): `openModal(title, bodyHtml, onSubmit, hideSubmit)` / `closeModal()`.

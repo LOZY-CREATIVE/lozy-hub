@@ -2187,14 +2187,14 @@ function finVisao(b){
       <div class="card"><div class="clabel">Margem realizada</div><div class="metric">${margem.toFixed(1)}%</div><div class="metric-s" style="text-transform:capitalize">${mesLabel}</div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="widget-hd"><span class="widget-ttl">Onde sai o dinheiro</span><span class="widget-more">despesa por categoria · mês ref.</span></div>
+      <div class="card"><div class="widget-hd"><span class="widget-ttl">Onde sai o dinheiro</span><span class="widget-more">despesa por categoria · mês ref. · clique pra ver os lançamentos</span></div>
       ${Object.keys(cats).length?Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,v])=>`
-        <div style="display:flex;align-items:center;gap:12px;padding:7px 0;">
+        <div class="row-go" style="display:flex;align-items:center;gap:12px;padding:7px 0;" onclick="finDrill('despesa',null,'${mk}','${esc(cat)}')">
         <div style="width:110px;font-size:12px;color:var(--t2);flex-shrink:0;">${cat}</div>
         <div style="flex:1;height:5px;background:rgba(0,0,0,.09);border-radius:99px;overflow:hidden;"><div style="height:100%;background:var(--t2);border-radius:99px;width:${Math.round(v/catMax*100)}%"></div></div>
         <div style="min-width:80px;text-align:right;font-size:11.5px;color:var(--t3);">${fmtBRL(v)}</div></div>`).join('')
       :'<div class="empty-msg">Sem despesas no mês de referência selecionado.</div>'}</div>
-      <div class="card"><div class="widget-hd"><span class="widget-ttl">Vencimentos pendentes</span><span class="widget-more">próximos dias · todos os meses</span></div>
+      <div class="card"><div class="widget-hd" style="cursor:pointer" onclick="openVencimentosPendentes()"><span class="widget-ttl">Vencimentos pendentes</span><span class="widget-more">próximos dias · clique pra ver todos</span></div>
       ${pend.length?pend.map(f=>{const ps=f.data?prazoStatus(dataVencimento(f)):null;
       return `<div class="row-item row-go" onclick="openCard('fin','${f.id}')"><div><div class="ri-name">${esc(f.desc)}</div><div class="ri-sub">${f.tipo==='receita'?'A receber':'A pagar'} · ${fmtD(f.data)}${ps&&ps.cls==='atrasada'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div>
       <div class="ri-val" style="color:${f.tipo==='receita'?'var(--green)':'var(--red)'}">${f.tipo==='receita'?'+':'−'}${fmtBRL(f.tipo==='receita'?liq(f):f.valor)}</div></div>`;}).join('')
@@ -2208,10 +2208,20 @@ function finVisao(b){
 /* ── Lançamentos: filtros completos + ordenação ── */
 /* Drill-down: sai de um card da Visão Geral e cai em Lançamentos já filtrado
    pelos mesmos critérios que compuseram aquele número (tipo + pago + mesRef). */
-function finDrill(tipo,pago,mk){
+function finDrill(tipo,pago,mk,cat){
   S.tab.financeiro='lanc';
-  S.f.finLanc={tipo,status:pago?'pago':'pend',mesRef:mk};
+  S.f.finLanc={tipo,mesRef:mk,...(pago!=null?{status:pago?'pago':'pend'}:{}),...(cat?{cat}:{})};
   save();render();
+}
+/* ═══ Ver todos os vencimentos pendentes (não só os 6 do widget) ═══ */
+function openVencimentosPendentes(){
+  const pend=[...S.fin.filter(f=>!f.pago)].sort((a,b)=>String(a.data).localeCompare(b.data));
+  openModal('Vencimentos pendentes',
+    pend.length?`<div style="max-height:60vh;overflow-y:auto;">${pend.map(f=>{const ps=f.data?prazoStatus(dataVencimento(f)):null;
+    return `<div class="row-item row-go" onclick="closeModal();openCard('fin','${f.id}')"><div><div class="ri-name">${esc(f.desc)}</div><div class="ri-sub">${f.tipo==='receita'?'A receber':'A pagar'} · ${fmtD(f.data)}${ps&&ps.cls==='atrasada'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div>
+    <div class="ri-val" style="color:${f.tipo==='receita'?'var(--green)':'var(--red)'}">${f.tipo==='receita'?'+':'−'}${fmtBRL(f.tipo==='receita'?liq(f):f.valor)}</div></div>`;}).join('')}</div>`
+    :'<div class="empty-msg">Nada pendente.</div>',
+  null,true);
 }
 function finLanc(b){
   const q=(S.q.fin||'').toLowerCase();const f=S.f.finLanc||{};
@@ -2287,7 +2297,7 @@ function projecaoFixos(janelaIni,janelaFim){
       const mesD=d.slice(0,7);
       if(mesD>janelaFim)break;
       if(mesD>=janelaIni)out.push({tipo:'despesa',desc:p.nome,valor:Math.round(p.valorTotal/p.nParcelas*100)/100,data:d,
-        forma:p.conta==='Conta PJ'?'PIX':'Crédito',conta:p.conta,
+        forma:p.conta==='Conta PJ'?'PIX':'Crédito',conta:p.conta,categoria:p.categoria,
         parcelaN:idx+1,parcelasTot:p.nParcelas,projetado:true,origem:'parc',origemId:p.id,primeiraDoGrupo:idx===lancadas});
     }
   });
@@ -2300,7 +2310,7 @@ function projecaoFixos(janelaIni,janelaFim){
       const mesD=d.slice(0,7);
       if(mesD>=janelaIni){
         const item={tipo:'despesa',desc:a.nome,valor:a.valor,data:d,
-          forma:a.conta==='Conta PJ'?'PIX':'Crédito',conta:a.conta,projetado:true,origem:'assin',origemId:a.id};
+          forma:a.conta==='Conta PJ'?'PIX':'Crédito',conta:a.conta,categoria:a.categoria,projetado:true,origem:'assin',origemId:a.id};
         if(!mesesCobertos.has(mesRef(item)))out.push({...item,primeiraDoGrupo:primeira});
       }
       primeira=false;d=addM(d,passo);
@@ -2339,7 +2349,7 @@ function finFuturos(b){
     </div>
     <div class="board" style="margin-bottom:14px;">${mk.map(k=>{
       const m=meses[k];const [y,mm]=k.split('-');
-      return `<div class="col" style="min-width:150px;max-width:150px;"><div class="col-hd"><span class="col-name" style="text-transform:capitalize">${new Date(+y,+mm-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})}</span></div>
+      return `<div class="col" style="min-width:150px;max-width:150px;cursor:pointer;" onclick="abrirMesFuturo('${k}')" title="Ver detalhes do mês"><div class="col-hd"><span class="col-name" style="text-transform:capitalize">${new Date(+y,+mm-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})}</span></div>
         <div style="padding:4px 0 8px;">
           ${m.rec?`<div style="font-size:12px;color:var(--green)">+${fmtBRL(m.rec)}</div>`:''}
           ${m.desp?`<div style="font-size:12px;color:var(--red)">−${fmtBRL(m.desp)}</div>`:''}
@@ -2362,6 +2372,43 @@ function finFuturos(b){
     </div>
     <div style="font-size:11.5px;color:var(--lx3);margin-bottom:10px;">${ls.length} a vencer · Receita prevista <span style="color:var(--green)">${fmtBRL(rec)}</span> · Despesa prevista <span style="color:var(--red)">${fmtBRL(desp)}</span> · Saldo previsto <b style="color:${rec-desp<0?'var(--red)':'var(--green)'}">${fmtBRL(rec-desp)}</b></div>
     ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('fin_lanc',ls,r=>`<button class="ibtn" title="abrir" onclick="openCard('fin','${r.id}')">⤢</button><button class="ibtn del" onclick="delLanc('${r.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lançamento futuro.</div></div>'}`;
+}
+/* ═══ Detalhe de um mês do board de Futuros: lançamentos + projetados que
+   compõem o mês, e divisão por categoria (mesmos números já somados na
+   coluna do board — nunca soma nada além do que já está ali) ═══ */
+function abrirMesFuturo(mk){
+  const hoje=todayStr();
+  const lsMes=S.fin.filter(l=>(l.data||'')>hoje&&mesRef(l)===mk);
+  /* janela com 1 mês de folga pra cada lado: projecaoFixos filtra pela data
+     bruta da parcela/cobrança, não pela competência — uma parcela comprada
+     no fim do mês anterior mas cuja competência (mesRef, por fechamento de
+     fatura) cai em mk só aparece se a janela também cobrir o mês anterior. */
+  const projMes=projecaoFixos(addM(mk+'-01',-1).slice(0,7),addM(mk+'-01',1).slice(0,7)).filter(p=>mesRef(p)===mk);
+  const despItens=[...lsMes.filter(l=>l.tipo==='despesa'),...projMes];
+  const recItens=lsMes.filter(l=>l.tipo==='receita');
+  const totalDesp=sum(despItens,x=>x.valor),totalRec=sum(recItens,x=>liq(x));
+  const cats={};despItens.forEach(x=>{const c=x.categoria||'Outros';cats[c]=(cats[c]||0)+Number(x.valor||0);});
+  const [y,mm]=mk.split('-');
+  let label=new Date(+y,+mm-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  label=label.charAt(0).toUpperCase()+label.slice(1);
+  const todos=[...despItens,...recItens].sort((a,b)=>String(a.data).localeCompare(b.data));
+  openModal(label,`
+    <div style="display:flex;gap:20px;margin-bottom:14px;">
+      ${totalRec?`<div><div class="clabel">Receita prevista</div><div class="metric" style="color:var(--green)">${fmtBRL(totalRec)}</div></div>`:''}
+      <div><div class="clabel">Despesa prevista</div><div class="metric" style="color:var(--red)">${fmtBRL(totalDesp)}</div></div>
+    </div>
+    ${Object.keys(cats).length?`<div class="widget-hd" style="margin-bottom:2px;"><span class="widget-ttl">Por categoria</span></div>
+    ${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,v])=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
+      <div style="width:110px;font-size:12px;color:var(--t2);flex-shrink:0;">${esc(cat)}</div>
+      <div style="flex:1;height:5px;background:rgba(0,0,0,.09);border-radius:99px;overflow:hidden;"><div style="height:100%;background:var(--t2);border-radius:99px;width:${totalDesp?Math.round(v/totalDesp*100):0}%"></div></div>
+      <div style="min-width:110px;text-align:right;font-size:11.5px;color:var(--t3);">${fmtBRL(v)} · ${totalDesp?Math.round(v/totalDesp*100):0}%</div></div>`).join('')}`:''}
+    <div class="widget-hd" style="margin-top:14px;margin-bottom:2px;"><span class="widget-ttl">Lançamentos</span><span class="widget-more">${todos.length}</span></div>
+    <div style="max-height:38vh;overflow-y:auto;">${todos.length?todos.map(x=>`
+      <div class="row-item${x.projetado?'':' row-go'}" ${x.projetado?'':`onclick="closeModal();openCard('fin','${x.id}')"`}><div><div class="ri-name">${esc(x.desc)}${x.parcelaN?` <span class="bdg">parcela ${x.parcelaN}/${x.parcelasTot}</span>`:''}${x.projetado?' <span class="bdg">projetado</span>':''}</div>
+      <div class="ri-sub">${fmtD(x.data)}${x.categoria?' · '+esc(x.categoria):''}</div></div>
+      <div class="ri-val" style="color:${x.tipo==='receita'?'var(--green)':'var(--red)'}">${x.tipo==='receita'?'+':'−'}${fmtBRL(x.tipo==='receita'?liq(x):x.valor)}</div></div>`).join(''):'<div class="empty-msg">Nada previsto para este mês.</div>'}</div>`,
+  null,true);
 }
 
 function finContas(b){

@@ -140,6 +140,8 @@ button,input,select,textarea{font-family:inherit;letter-spacing:inherit;font-siz
 /* ROWS / TABLES */
 .row-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--ltb);}
 .row-item:last-child{border-bottom:none;}
+.row-go{cursor:pointer;margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:8px;transition:background .12s;}
+.row-go:hover{background:rgba(0,0,0,.045);}
 .ri-name{font-size:12.5px;font-weight:500;}
 .ri-sub{font-size:11.5px;color:var(--t3);margin-top:1px;}
 .ri-val{font-size:12.5px;font-weight:550;flex-shrink:0;margin-left:12px;}
@@ -350,6 +352,8 @@ tr:hover .tacts{opacity:1;}
 /* ROWS / TABLES */
 .row-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--ltb);}
 .row-item:last-child{border-bottom:none;}
+.row-go{cursor:pointer;margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:8px;transition:background .12s;}
+.row-go:hover{background:rgba(0,0,0,.045);}
 .ri-name{font-size:12.5px;font-weight:500;}
 .ri-sub{font-size:11.5px;color:var(--t3);margin-top:1px;}
 .ri-val{font-size:12.5px;font-weight:550;flex-shrink:0;margin-left:12px;}
@@ -659,7 +663,7 @@ const PICOLORS={'Planejamento':'#6e6e6e','Em andamento':'#2563eb','Pausado':'#d9
 const FCATS=['Equipamentos','Softwares','Transporte','Alimentação','Operação','Impostos','Outros'];
 const RTIPOS=['Captação','Edição','Fotos','Deslocamento','Extra'];
 const FORMAS=['PIX','Crédito','Débito','Dinheiro','Boleto','Transferência'];
-const CONTAS=[{nome:'Nubank',fech:9},{nome:'BTG',fech:27},{nome:'Conta PJ'},{nome:'Dinheiro'}];
+const CONTAS=[{nome:'Nubank',fech:9,venc:16},{nome:'BTG',fech:27,venc:5},{nome:'Conta PJ'},{nome:'Dinheiro'}];
 const NATUREZAS=['Variável','Fixo'];
 const MECANISMOS=['À vista','Parcelamento','Assinatura'];
 const ETIPOS=['Reunião','Gravação','Edição','Entrega','Outro'];
@@ -846,6 +850,7 @@ async function load(){
   if(!S.tasks.some(t=>String(t.id).startsWith('nt'))||!S.cbase.length){S.tasks=[...SEED2.tasks.map(t=>({...t})),...S.tasks.filter(t=>!String(t.id).startsWith('nt'))];S.cbase=[...SEED2.cbase.map(c=>({...c})),...S.cbase.filter(c=>!String(c.id).startsWith('nc'))];save();}
   if(!Array.isArray(S.trash))S.trash=[];
   trashAutoPurge();
+  autoLancarPendentes();
   applyTheme();
   render();
 }
@@ -961,6 +966,28 @@ function mesRef(l){ /* lógica Central Lozy: mês em que o lançamento entra no 
   if(d.getDate()>c.fech)d.setMonth(d.getMonth()+1);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 }
+/* data em que o lançamento efetivamente vence — usada por prazoStatus() pra
+   decidir "atrasada". Diferente de mesRef(): mesRef decide o MÊS (competência),
+   esta decide o DIA exato em que a cobrança é exigível.
+   À vista/PIX/débito/receita: o próprio campo `data` já é o vencimento.
+   Crédito: só depois que a fatura fecha (mesRef) e chega o dia de vencimento
+   configurado em CONTAS (`venc`) é que a compra pode virar "atrasada" — antes
+   disso ela só está dentro de uma fatura ainda aberta. Sem `venc` configurado,
+   cai no comportamento antigo (usa a própria data da compra). */
+function dataVencimento(l){
+  if(l.tipo!=='despesa'||l.forma!=='Crédito')return l.data;
+  const c=CONTAS.find(c=>c.nome===l.conta);
+  if(!c||!c.venc)return l.data;
+  const mk=mesRef(l); /* mês em que a fatura fecha (dia `fech`) */
+  let [y,m]=mk.split('-').map(Number);
+  /* se o dia de vencimento é numericamente <= o dia de fechamento, só pode
+     cair no mês seguinte ao fechamento (ex: fecha dia 27, vence dia 5) —
+     senão o vencimento fica no mesmo mês do fechamento (ex: fecha dia 9,
+     vence dia 16). Comparação automática, não depende de qual conta é. */
+  if(c.venc<=c.fech){m++;if(m>12){m=1;y++;}}
+  const last=new Date(y,m,0).getDate();
+  return y+'-'+String(m).padStart(2,'0')+'-'+String(Math.min(c.venc,last)).padStart(2,'0');
+}
 const liq=r=>Number(r.valor||0)*(1-Number(r.aliquota||0)/100);
 function clientes(){ /* base derivada: todos os nomes de cliente do sistema */
   const s=new Set();
@@ -1028,7 +1055,7 @@ function renderPlaceholder(c){
 /* ═══ MOTOR DE TABELAS — colunas configuráveis, ordenação e export ═══ */
 const COLDEFS={
   fin_lanc:{nome:'Lançamentos',cols:[
-    {k:'desc',l:'Descrição',def:1,get:r=>r.desc||'',cell:r=>`<span style="font-weight:500">${esc(r.desc)}</span>${r.parcelasTot?` <span class="bdg" title="Esta é a parcela ${r.parcelaN} de ${r.parcelasTot}">parcela ${r.parcelaN}/${r.parcelasTot}</span>`:''}${r.mecanismo==='Assinatura'?' <span class="bdg">↻</span>':''}${r.demandaId?(()=>{const d=S.demandas.find(x=>x.id===r.demandaId);return d?` <span class="bdg" title="Vinculado a ${esc(d.titulo)}">${d.uid}</span>`:'';})():''}`},
+    {k:'desc',l:'Descrição',def:1,get:r=>r.desc||'',cell:r=>`<span style="font-weight:500">${esc(r.desc)}</span>${r.parcelasTot?` <span class="bdg" title="Esta é a parcela ${r.parcelaN} de ${r.parcelasTot}">parcela ${r.parcelaN}/${r.parcelasTot}</span>`:''}${r.mecanismo==='Assinatura'?' <span class="bdg">↻</span>':''}${r.demandaId?(()=>{const d=S.demandas.find(x=>x.id===r.demandaId);return d?` <span class="bdg" title="Vinculado a ${esc(d.titulo)}">${d.uid}</span>`:'';})():''}${r.observacoes&&r.observacoes.length?` <span class="bdg" style="color:var(--amber)" title="${esc(r.observacoes[r.observacoes.length-1].texto)}">⚠ nota</span>`:''}`},
     {k:'tipo',l:'Tipo',def:0,get:r=>r.tipo,cell:r=>`<span class="bdg">${r.tipo==='receita'?'Receita':'Despesa'}</span>`},
     {k:'categoria',l:'Categoria',def:1,get:r=>r.tipo==='receita'?(r.tipoReceita||''):(r.categoria||''),cell:r=>`<span class="bdg">${r.tipo==='receita'?(r.tipoReceita||'Receita'):(r.categoria||'—')}</span>`},
     {k:'natureza',l:'Natureza',def:0,get:r=>r.natureza||'',cell:r=>`<span style="color:var(--t2)">${r.natureza||'—'}</span>`},
@@ -2168,8 +2195,8 @@ function finVisao(b){
         <div style="min-width:80px;text-align:right;font-size:11.5px;color:var(--t3);">${fmtBRL(v)}</div></div>`).join('')
       :'<div class="empty-msg">Sem despesas no mês de referência selecionado.</div>'}</div>
       <div class="card"><div class="widget-hd"><span class="widget-ttl">Vencimentos pendentes</span><span class="widget-more">próximos dias · todos os meses</span></div>
-      ${pend.length?pend.map(f=>{const ps=f.data?prazoStatus(f.data):null;
-      return `<div class="row-item"><div><div class="ri-name">${esc(f.desc)}</div><div class="ri-sub">${f.tipo==='receita'?'A receber':'A pagar'} · ${fmtD(f.data)}${ps&&ps.cls==='atrasada'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div>
+      ${pend.length?pend.map(f=>{const ps=f.data?prazoStatus(dataVencimento(f)):null;
+      return `<div class="row-item row-go" onclick="openCard('fin','${f.id}')"><div><div class="ri-name">${esc(f.desc)}</div><div class="ri-sub">${f.tipo==='receita'?'A receber':'A pagar'} · ${fmtD(f.data)}${ps&&ps.cls==='atrasada'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div>
       <div class="ri-val" style="color:${f.tipo==='receita'?'var(--green)':'var(--red)'}">${f.tipo==='receita'?'+':'−'}${fmtBRL(f.tipo==='receita'?liq(f):f.valor)}</div></div>`;}).join('')
       :'<div class="empty-msg">Nada pendente. O caixa responde ao que está no sistema.</div>'}</div>
     </div>
@@ -2236,6 +2263,51 @@ function finLanc(b){
 
 /* ── Contas: filtro + ordenação, independente dos Lançamentos ── */
 /* ── Futuros: tudo com data à frente de hoje (parcelas e assinaturas a vencer) ── */
+/* ═══ PROJEÇÃO DE FIXOS — usada só pela aba Futuros ═══
+   Gera ocorrências futuras de parcelamentos (parcelas que faltam lançar) e
+   assinaturas (próximas cobranças) que AINDA NÃO viraram lançamento real em
+   S.fin — só pra visualização, nunca grava nada. Cada item projetado carrega
+   os mesmos campos de um lançamento de verdade (tipo/forma/conta/data) pra
+   poder passar por mesRef() normalmente, mais `projetado:true` e
+   `origem`/`origemId` pra permitir "Lançar agora" direto da projeção.
+   `primeiraDoGrupo` só é true na ocorrência cronologicamente mais próxima de
+   cada parcelamento/assinatura — evita o botão "Lançar agora" aparecer numa
+   ocorrência de um mês mais distante (lancarParcela/lancarCobranca só sabem
+   lançar a próxima pendente de verdade, nunca uma escolhida a dedo). */
+function projecaoFixos(janelaIni,janelaFim){
+  const out=[];
+  S.parc.forEach(p=>{
+    const lancadas=S.fin.filter(f=>f.grupoId===p.grupoId).length;
+    if(lancadas>=p.nParcelas)return;
+    const compra=p.dataCompra||p.primeira;
+    if(!compra)return;
+    const datas=parcDatas(compra,p.nParcelas,p.conta);
+    for(let idx=lancadas;idx<p.nParcelas;idx++){
+      const d=datas[idx];if(!d)continue;
+      const mesD=d.slice(0,7);
+      if(mesD>janelaFim)break;
+      if(mesD>=janelaIni)out.push({tipo:'despesa',desc:p.nome,valor:Math.round(p.valorTotal/p.nParcelas*100)/100,data:d,
+        forma:p.conta==='Conta PJ'?'PIX':'Crédito',conta:p.conta,
+        parcelaN:idx+1,parcelasTot:p.nParcelas,projetado:true,origem:'parc',origemId:p.id,primeiraDoGrupo:idx===lancadas});
+    }
+  });
+  S.assin.forEach(a=>{
+    if(a.ativo===false)return;
+    const mesesCobertos=new Set(S.fin.filter(f=>f.assinId===a.id).map(r=>mesRef(r)));
+    const passo=a.tipo==='Yearly'?12:1;
+    let d=assinInfo(a).prox,primeira=true;
+    for(let n=0;n<36&&d.slice(0,7)<=janelaFim;n++){
+      const mesD=d.slice(0,7);
+      if(mesD>=janelaIni){
+        const item={tipo:'despesa',desc:a.nome,valor:a.valor,data:d,
+          forma:a.conta==='Conta PJ'?'PIX':'Crédito',conta:a.conta,projetado:true,origem:'assin',origemId:a.id};
+        if(!mesesCobertos.has(mesRef(item)))out.push({...item,primeiraDoGrupo:primeira});
+      }
+      primeira=false;d=addM(d,passo);
+    }
+  });
+  return out.sort((a,b2)=>(a.data||'')>(b2.data||'')?1:-1);
+}
 function finFuturos(b){
   const hoje=todayStr();
   const q=(S.q.finFut||'').toLowerCase();const f=S.f.finFut||{};
@@ -2246,23 +2318,40 @@ function finFuturos(b){
     (!f.conta||l.conta===f.conta));
   ls=[...ls].sort((a,b2)=>(a.data||'')>(b2.data||'')?1:-1);
   const rec=sum(ls.filter(x=>x.tipo==='receita'),x=>liq(x)),desp=sum(ls.filter(x=>x.tipo==='despesa'),x=>x.valor);
-  const meses={};
-  ls.forEach(l=>{const k=mesRef(l)||monthKey(l.data);if(!meses[k])meses[k]={rec:0,desp:0,n:0};
+
+  /* janela fixa de 8 meses a partir do mês atual — o board mostra sempre uma
+     projeção adiante, mesmo sem nenhum lançamento futuro real ainda. */
+  const janela=[];for(let i=0;i<8;i++)janela.push(addM(hoje.slice(0,8)+'01',i).slice(0,7));
+  const projetados=projecaoFixos(janela[0],janela[janela.length-1]);
+
+  const meses={};janela.forEach(k=>meses[k]={rec:0,desp:0,n:0,despProj:0,nProj:0});
+  ls.forEach(l=>{const k=mesRef(l)||monthKey(l.data);if(!meses[k])meses[k]={rec:0,desp:0,n:0,despProj:0,nProj:0};
     meses[k].n++;if(l.tipo==='receita')meses[k].rec+=liq(l);else meses[k].desp+=l.valor;});
+  projetados.forEach(p=>{const k=mesRef(p);if(!meses[k])meses[k]={rec:0,desp:0,n:0,despProj:0,nProj:0};
+    meses[k].despProj+=p.valor;meses[k].nProj++;});
   const mk=Object.keys(meses).sort().slice(0,8);
+
   b.innerHTML=`
     <div class="card" style="margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7;">
-      O que ainda não aconteceu: parcelas e assinaturas com vencimento à frente de hoje.
-      A aba <b>Lançamentos</b> mostra só o realizado e o atrasado — é lá que o passado fecha.
+      O que ainda não aconteceu: lançamentos futuros já criados, mais uma <b>projeção</b> (linha "proj.")
+      do que ainda falta lançar das assinaturas ativas e dos parcelamentos em andamento — antes mesmo
+      de você clicar em "Lançar". A aba <b>Lançamentos</b> mostra só o realizado e o atrasado.
     </div>
-    ${mk.length?`<div class="board" style="margin-bottom:14px;">${mk.map(k=>{
+    <div class="board" style="margin-bottom:14px;">${mk.map(k=>{
       const m=meses[k];const [y,mm]=k.split('-');
       return `<div class="col" style="min-width:150px;max-width:150px;"><div class="col-hd"><span class="col-name" style="text-transform:capitalize">${new Date(+y,+mm-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})}</span></div>
         <div style="padding:4px 0 8px;">
           ${m.rec?`<div style="font-size:12px;color:var(--green)">+${fmtBRL(m.rec)}</div>`:''}
           ${m.desp?`<div style="font-size:12px;color:var(--red)">−${fmtBRL(m.desp)}</div>`:''}
-          <div style="font-size:10.5px;color:var(--t3);margin-top:3px;">${m.n} lanç.</div>
-        </div></div>`;}).join('')}</div>`:''}
+          ${m.despProj?`<div style="font-size:11px;color:var(--t3)" title="Projetado — ainda não lançado">−${fmtBRL(m.despProj)} proj.</div>`:''}
+          <div style="font-size:10.5px;color:var(--t3);margin-top:3px;">${m.n} lanç.${m.nProj?' · '+m.nProj+' proj.':''}</div>
+        </div></div>`;}).join('')}</div>
+    ${projetados.length?`<div class="card" style="margin-bottom:14px;">
+      <div class="widget-hd"><span class="widget-ttl">Fixos projetados</span><span class="widget-more">ainda não lançados · ${projetados.length}</span></div>
+      ${projetados.map(p=>`<div class="row-item"><div><div class="ri-name">${esc(p.desc)}${p.parcelaN?` <span class="bdg">parcela ${p.parcelaN}/${p.parcelasTot}</span>`:''}</div>
+      <div class="ri-sub">${p.origem==='parc'?'Parcelamento':'Assinatura'} · ${fmtD(p.data)} · ${mesRef(p)}</div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="ri-val" style="color:var(--red)">−${fmtBRL(p.valor)}</span>${p.primeiraDoGrupo?`<button class="btn-sm" onclick="${p.origem==='parc'?'lancarParcela':'lancarCobranca'}('${p.origemId}')">Lançar agora</button>`:'<span class="bdg">projetado</span>'}</div></div>`).join('')}
+    </div>`:''}
     <div class="toolbar">
       <input class="search" placeholder="Buscar descrição, cliente, categoria..." value="${esc(S.q.finFut||'')}" oninput="S.q.finFut=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">
       <select class="fsel" onchange="S.f.finFut={...S.f.finFut,tipo:this.value};render()"><option value="">Tipo: Todos</option><option value="receita" ${f.tipo==='receita'?'selected':''}>Receitas</option><option value="despesa" ${f.tipo==='despesa'?'selected':''}>Despesas</option></select>
@@ -2281,9 +2370,9 @@ function finContas(b){
   const aRec=S.fin.filter(f=>f.tipo==='receita'&&!f.pago);
   const aPag=S.fin.filter(f=>f.tipo==='despesa'&&!f.pago);
   const cls=arr=>{
-    const atr=arr.filter(x=>x.data&&prazoStatus(x.data)?.cls==='atrasada');
-    const hoje=arr.filter(x=>x.data&&prazoStatus(x.data)?.cls==='hoje');
-    const sete=arr.filter(x=>x.data&&prazoStatus(x.data)?.diff>0&&prazoStatus(x.data).diff<=7);
+    const atr=arr.filter(x=>x.data&&prazoStatus(dataVencimento(x))?.cls==='atrasada');
+    const hoje=arr.filter(x=>x.data&&prazoStatus(dataVencimento(x))?.cls==='hoje');
+    const sete=arr.filter(x=>x.data&&prazoStatus(dataVencimento(x))?.diff>0&&prazoStatus(dataVencimento(x)).diff<=7);
     return{atr,hoje,sete};
   };
   const r=cls(aRec),p=cls(aPag);
@@ -2303,6 +2392,8 @@ function finContas(b){
     <select class="fsel" onchange="S.sort.finContas={...srt,campo:this.value};render()"><option value="data" ${srt.campo==='data'?'selected':''}>Ordenar: Vencimento</option><option value="valor" ${srt.campo==='valor'?'selected':''}>Ordenar: Valor</option><option value="cliente" ${srt.campo==='cliente'?'selected':''}>Ordenar: Cliente</option></select>
     <button class="ibtn" title="Inverter ordem" onclick="S.sort.finContas={...srt,dir:srt.dir==='asc'?'desc':'asc'};render()">${srt.dir==='asc'?'↑':'↓'}</button>
     ${(f.cliente||f.cat)?'<button class="btn-sm" onclick="S.f.finContas={};render()">Limpar filtros</button>':''}
+    <span style="flex:1"></span>
+    <button class="btn-ghost" onclick="openRolarFatura()">↻ Rolar saldo de fatura</button>
   </div>`;
   const box=(titulo,total,c,tipo,full)=>{
     const list=full.filter(passFilter).sort(sorter).slice(0,12);
@@ -2316,12 +2407,62 @@ function finContas(b){
     <span class="widget-more"><span style="color:var(--red)">Atrasado ${c.atr.length} · ${fmtBRL(sum(c.atr,x=>tipo==='r'?liq(x):x.valor))}</span> &nbsp; <span style="color:var(--amber)">Hoje ${c.hoje.length}</span> &nbsp; <span style="color:var(--blue)">7 dias ${c.sete.length}</span></span></div>
     <div class="metric" style="margin-bottom:2px">${fmtBRL(sum(curto,x=>tipo==='r'?liq(x):x.valor))}</div>
     <div class="metric-s" style="margin-bottom:10px">até 30 dias${vf?` · <span style="color:var(--t3)">+ ${fmtBRL(vf)} em compromissos futuros (${futuro.length})</span>`:''}</div>
-    ${list.length?list.map(x=>{const ps=prazoStatus(x.data);
+    ${list.length?list.map(x=>{const ps=prazoStatus(dataVencimento(x));
     return `<div class="row-item"><div><div class="ri-name">${esc(x.desc)}</div><div class="ri-sub">${esc(x.cliente)||'—'} · ${fmtD(x.data)} · <span style="color:${ps.cls==='atrasada'?'var(--red)':ps.cls==='hoje'?'var(--amber)':'var(--t3)'}">${ps.label}</span></div></div>
     <div style="display:flex;align-items:center;gap:8px"><span class="ri-val">${fmtBRL(tipo==='r'?liq(x):x.valor)}</span><button class="btn-sm" onclick="togglePago('${x.id}')">${tipo==='r'?'Receber':'Pagar'}</button></div></div>`;}).join(''):'<div class="empty-msg">Nada encontrado com esses filtros.</div>'}
     </div>`;
   };
   b.innerHTML=toolbar+`<div class="g2">${box('A receber',sum(aRec,x=>liq(x)),r,'r',aRec)}${box('A pagar',sum(aPag,x=>x.valor),p,'p',aPag)}</div>`;
+}
+
+/* ═══ ROLAR SALDO DE FATURA — fatura paga parcialmente ═══
+   Uso: fatura do mês passado (conta X) tinha lançamentos pendentes que o
+   banco jogou pra fatura seguinte (com juros, normalmente). Em vez de deixar
+   cada lançamento antigo "atrasado" pra sempre, marca todos como pagos
+   (quitados pela rolagem) e cria UM lançamento novo, no mês seguinte, pelo
+   valor total pendente — com uma observação listando o que compunha aquele
+   saldo, pra não perder o detalhe original. */
+function openRolarFatura(){
+  const contasCred=CONTAS.filter(c=>c.fech);
+  if(!contasCred.length)return toast('Nenhuma conta de crédito configurada em CONTAS.');
+  openModal('Rolar saldo de fatura',`
+    <div class="field"><label>Conta</label><select id="m1" onchange="rolarFaturaPreview()">${contasCred.map(c=>`<option>${c.nome}</option>`).join('')}</select></div>
+    <div class="field"><label>Mês de referência (fatura antiga)</label><input id="m2" type="month" value="${addM(todayStr(),-1).slice(0,7)}" onchange="rolarFaturaPreview()"></div>
+    <div id="rolar-preview"></div>`,null,true);
+  setTimeout(rolarFaturaPreview,50);
+}
+function rolarFaturaPreview(){
+  const conta=document.getElementById('m1')?.value,mk=document.getElementById('m2')?.value;
+  const box=document.getElementById('rolar-preview');if(!conta||!mk||!box)return;
+  const itens=S.fin.filter(f=>f.tipo==='despesa'&&f.conta===conta&&!f.pago&&mesRef(f)===mk);
+  const total=sum(itens,x=>x.valor);
+  box.innerHTML=itens.length?`
+    <div style="font-size:12px;color:var(--t2);margin:12px 0 8px;">${itens.length} lançamento(s) pendente(s) desse mês/conta somam <b>${fmtBRL(total)}</b>:</div>
+    <div style="max-height:30vh;overflow-y:auto;margin-bottom:12px;">${itens.map(x=>`<div class="row-item"><div class="ri-name">${esc(x.desc)}</div><div class="ri-val">${fmtBRL2(x.valor)}</div></div>`).join('')}</div>
+    <div class="field"><label>Descrição do saldo rolado</label><input id="m3" value="Saldo fatura ${mk}"></div>
+    <div style="font-size:11px;color:var(--t3);margin:-4px 0 12px;">Os ${itens.length} lançamento(s) acima serão marcados como pagos (quitados pela rolagem) e um novo lançamento único entra no mês seguinte, com uma observação linkando de volta pra esses itens.</div>
+    <button class="btn" style="width:100%;" onclick="rolarFaturaConfirmar('${conta}','${mk}')">Marcar como pago e rolar ${fmtBRL(total)} pro próximo mês</button>`
+    :'<div class="empty-msg" style="margin-top:12px;">Nenhum lançamento pendente dessa conta nesse mês de referência.</div>';
+}
+function rolarFaturaConfirmar(conta,mk){
+  const itens=S.fin.filter(f=>f.tipo==='despesa'&&f.conta===conta&&!f.pago&&mesRef(f)===mk);
+  if(!itens.length)return;
+  const total=Math.round(sum(itens,x=>x.valor)*100)/100;
+  const desc=(document.getElementById('m3')?.value||('Saldo fatura '+mk)).trim()||('Saldo fatura '+mk);
+  const nomes=itens.map(x=>esc(x.desc)+' ('+fmtBRL2(x.valor)+')').join(', ');
+  const dataProx=addM(mk+'-01',1);
+  pushUndo('rolar saldo de fatura ('+conta+' · '+mk+')',['fin']);
+  itens.forEach(x=>{
+    x.pago=true;
+    if(!Array.isArray(x.observacoes))x.observacoes=[];
+    x.observacoes.push({id:uid('ob'),texto:'Quitado via rolagem de saldo pro mês seguinte ("'+desc+'").',em:todayStr()});
+  });
+  S.fin.push({id:uid('f'),tipo:'despesa',desc,valor:total,data:dataProx,categoria:'Outros',natureza:'Fixo',
+    mecanismo:'À vista',forma:'Crédito',conta,cliente:'',pago:false,
+    observacoes:[{id:uid('ob'),texto:'Saldo rolado da fatura de '+mk+' — composto por: '+nomes,em:todayStr()}]});
+  S.finLastUpdate=new Date().toISOString();
+  save();closeModal();render();
+  toast('Saldo de '+fmtBRL(total)+' rolado para '+dataProx.slice(0,7)+'.','Desfazer','doUndo()');
 }
 
 /* ── Por cliente: ordenação ── */
@@ -2582,7 +2723,60 @@ function assinInfo(a){
   const pagos=regs.filter(x=>x.pago);
   const pendente=regs.find(x=>!x.pago)||null;
   const ultima=pagos.length?pagos[pagos.length-1].data:null;
-  return{cobrancas:pagos.length,ultima,pendente,prox:pendente?pendente.data:(ultima?addM(ultima,1):todayStr())};
+  /* `a.proxima` é a âncora editável da próxima cobrança (ver openAssin) —
+     tem prioridade sobre o cálculo automático (ultima+1 mês), então editar
+     sempre corrige a data certa, mesmo numa assinatura já em andamento.
+     lancarCobranca() avança essa âncora sozinha a cada cobrança lançada,
+     então ela só precisa de edição manual quando a data realmente mudar
+     (ex: cartão trocou o dia de cobrança). */
+  return{cobrancas:pagos.length,ultima,pendente,prox:pendente?pendente.data:(a.proxima||(ultima?addM(ultima,1):todayStr()))};
+}
+/* ═══ LANÇAMENTO AUTOMÁTICO — parcelas e cobranças viram lançamento sozinhas
+   assim que a data chega, sempre como pendente (pago:false). O único passo
+   manual que sobra é confirmar se pagou ou não (toggle "Pago" — aqui, em
+   Contas ou no card). Roda uma vez a cada load(), igual trashAutoPurge().
+   Parcelamento: gera em sequência toda parcela cuja data (por parcDatas())
+   já chegou, mesmo que várias tenham vencido desde a última vez que o app
+   foi aberto — cada uma é um lançamento pendente separado, igual na vida real.
+   Assinatura: caminha a partir de `a.proxima` (a mesma âncora que openAssin
+   edita e lancarCobranca avança) criando qualquer data até hoje que ainda
+   não tenha lançamento — checado por data exata, não só "existe pendente",
+   pra não duplicar a cobrança de um mês que já foi criada (paga ou não). */
+function autoLancarPendentes(){
+  const hoje=todayStr();
+  let mudou=false;
+  S.parc.forEach(p=>{
+    let lancadas=S.fin.filter(f=>f.grupoId===p.grupoId).length;
+    if(lancadas>=p.nParcelas)return;
+    const compra=p.dataCompra||p.primeira;if(!compra)return;
+    const datas=parcDatas(compra,p.nParcelas,p.conta);
+    while(lancadas<p.nParcelas&&datas[lancadas]&&datas[lancadas]<=hoje){
+      S.fin.push({id:uid('f'),tipo:'despesa',desc:p.nome,valor:Math.round(p.valorTotal/p.nParcelas*100)/100,data:datas[lancadas],
+        categoria:p.categoria,natureza:p.natureza||'Fixo',mecanismo:'Parcelamento',forma:p.conta==='Conta PJ'?'PIX':'Crédito',
+        conta:p.conta,cliente:'',pago:false,grupoId:p.grupoId,parcelaN:lancadas+1,parcelasTot:p.nParcelas});
+      lancadas++;mudou=true;
+    }
+  });
+  S.assin.forEach(a=>{
+    if(a.ativo===false)return;
+    const passo=a.tipo==='Yearly'?12:1;
+    const pagos=S.fin.filter(f=>f.assinId===a.id&&f.pago).sort((x,y)=>String(x.data).localeCompare(y.data));
+    const ultima=pagos.length?pagos[pagos.length-1].data:null;
+    let d=a.proxima||(ultima?addM(ultima,passo):null);
+    if(!d)return; /* nunca teve cobrança nem data definida — primeira precisa ser criada manualmente uma vez, via "Lançar" ou editando a data */
+    let guard=0;
+    while(d<=hoje&&guard++<36){
+      if(!S.fin.some(f=>f.assinId===a.id&&f.data===d)){
+        S.fin.push({id:uid('f'),tipo:'despesa',desc:a.nome,valor:a.valor,data:d,categoria:a.categoria,
+          natureza:'Fixo',mecanismo:'Assinatura',forma:a.conta==='Conta PJ'?'PIX':'Crédito',conta:a.conta,
+          cliente:'',pago:false,assinId:a.id});
+        mudou=true;
+      }
+      d=addM(d,passo);
+    }
+    a.proxima=d;
+  });
+  if(mudou){S.finLastUpdate=new Date().toISOString();save();}
 }
 function lancarParcela(pid){
   const p=S.parc.find(x=>x.id===pid);if(!p)return;
@@ -2596,10 +2790,12 @@ function lancarParcela(pid){
 function lancarCobranca(aid){
   const a=S.assin.find(x=>x.id===aid);if(!a)return;
   const i=assinInfo(a);
-  if(i.pendente){i.pendente.pago=true;S.finLastUpdate=new Date().toISOString();save();render();return;}
+  const passo=a.tipo==='Yearly'?12:1;
+  if(i.pendente){i.pendente.pago=true;a.proxima=addM(i.pendente.data,passo);S.finLastUpdate=new Date().toISOString();save();render();return;}
   S.fin.push({id:uid('f'),tipo:'despesa',desc:a.nome,valor:a.valor,data:i.prox,categoria:a.categoria,
     natureza:'Fixo',mecanismo:'Assinatura',forma:a.conta==='Conta PJ'?'PIX':'Crédito',conta:a.conta,
     cliente:'',pago:false,assinId:a.id});
+  a.proxima=addM(i.prox,passo);
   S.finLastUpdate=new Date().toISOString();save();render();
 }
 function toggleAssin(aid){const a=S.assin.find(x=>x.id===aid);if(a){a.ativo=!a.ativo;save();render();}}
@@ -2619,19 +2815,34 @@ function openParc(id){
 }
 function openAssin(id){
   const a=id?S.assin.find(x=>x.id===id):null;
+  const proxAtual=a?assinInfo(a).prox:todayStr();
   openModal(a?'Editar assinatura':'Nova assinatura',`
     <div class="field"><label>Nome</label><input id="m1" value="${esc(a?.nome)}"></div>
     <div class="f2"><div class="field"><label>Valor (R$)</label><input id="m2" type="number" step="0.01" value="${a?.valor??''}"></div>
     <div class="field"><label>Periodicidade</label><select id="m3"><option value="Monthly" ${a?.tipo==='Monthly'?'selected':''}>Mensal</option><option value="Yearly" ${a?.tipo==='Yearly'?'selected':''}>Anual</option></select></div></div>
     <div class="f2"><div class="field"><label>Categoria</label><select id="m4">${FCATS.map(c=>`<option ${a?.categoria===c?'selected':''}>${c}</option>`).join('')}</select></div>
-    <div class="field"><label>Conta</label><select id="m5">${CONTAS.map(c=>`<option ${a?.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select></div></div>`,
+    <div class="field"><label>Conta</label><select id="m5">${CONTAS.map(c=>`<option ${a?.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Próxima cobrança</label><input id="m6" type="date" value="${proxAtual}"></div>
+    <div style="font-size:11px;color:var(--t3);margin-top:-4px;">Se já existe uma cobrança pendente lançada, editar aqui não muda ela — corrija a data direto no lançamento (aba Lançamentos).</div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
-    const d={nome:v('m1').trim(),valor:Number(v('m2'))||0,tipo:v('m3'),categoria:v('m4'),conta:v('m5')};
+    const d={nome:v('m1').trim(),valor:Number(v('m2'))||0,tipo:v('m3'),categoria:v('m4'),conta:v('m5'),proxima:v('m6')||null};
     if(a)Object.assign(a,d);else S.assin.push({id:uid('as'),ativo:true,...d});
     save();closeModal();render();});
 }
 function delParc(id){softDel('parc',id);}
 function delAssin(id){softDel('assin',id);}
+/* ═══ Ver lançamentos de um parcelamento/assinatura ═══ */
+function openLancamentosDe(kind,id){
+  const nome=kind==='parc'?(S.parc.find(x=>x.grupoId===id)||{}).nome:(S.assin.find(x=>x.id===id)||{}).nome;
+  const regs=(kind==='parc'?S.fin.filter(f=>f.grupoId===id):S.fin.filter(f=>f.assinId===id)).sort((a,b)=>String(a.data).localeCompare(b.data));
+  openModal('Lançamentos — '+nome,
+    regs.length?`<div style="max-height:50vh;overflow-y:auto;">${regs.map(r=>`
+    <div class="row-item"><div><div class="ri-name">${esc(r.desc)}${r.parcelaN?` <span class="bdg">parcela ${r.parcelaN}/${r.parcelasTot}</span>`:''}</div>
+    <div class="ri-sub">${fmtD(r.data)} · ${r.pago?'✓ Pago':'Pendente'}</div></div>
+    <div style="display:flex;align-items:center;gap:8px"><span class="ri-val">${fmtBRL2(r.valor)}</span><button class="ibtn" title="abrir" onclick="closeModal();openCard('fin','${r.id}')">⤢</button></div></div>`).join('')}</div>`
+    :'<div class="empty-msg">Nenhum lançamento ainda.</div>',
+  null,true);
+}
 
 function finRecorrentes(b){
   const f=S.f.finRec||{};
@@ -2659,6 +2870,7 @@ function finRecorrentes(b){
     </div>
     <div style="display:flex;gap:4px;align-items:center;">
     ${i.quitado?'<span class="bdg" style="color:var(--green)">✓ Quitado</span>':`<button class="btn-sm" onclick="lancarParcela('${p.id}')">${i.pendente?'Pagar':'Lançar'} parcela ${i.pagas+1}</button>`}
+    <button class="ibtn" title="Ver lançamentos" onclick="openLancamentosDe('parc','${p.grupoId}')">👁</button>
     <button class="ibtn" onclick="openParc('${p.id}')">✎</button><button class="ibtn del" onclick="delParc('${p.id}')">✕</button></div></div>`).join('');
 
   const assHtml=as.map(({a,i})=>`<div class="row-item" style="opacity:${a.ativo===false?0.5:1}"><div style="flex:1;min-width:0;">
@@ -2666,6 +2878,7 @@ function finRecorrentes(b){
       <div class="ri-sub">${a.categoria} · ${a.conta} · ${fmtBRL(a.valor)}${a.tipo==='Yearly'?'/ano':'/mês'} · ${i.cobrancas?i.cobrancas+' cobranças · última '+fmtD(i.ultima):'nenhuma cobrança lançada'}</div></div>
       <div style="display:flex;gap:4px;align-items:center;">
       <button class="btn-sm" onclick="lancarCobranca('${a.id}')">${i.pendente?'Pagar':'Lançar'} ${fmtD(i.prox)}</button>
+      <button class="ibtn" title="Ver lançamentos" onclick="openLancamentosDe('assin','${a.id}')">👁</button>
       <button class="ibtn" onclick="toggleAssin('${a.id}')" title="${a.ativo===false?'Reativar':'Pausar'}">${a.ativo===false?'▶':'❚❚'}</button>
       <button class="ibtn" onclick="openAssin('${a.id}')">✎</button><button class="ibtn del" onclick="delAssin('${a.id}')">✕</button></div></div>`).join('');
 
@@ -2829,8 +3042,8 @@ function ceFinanceiro(b){
   const aReceber=sum(rec.filter(f=>!f.pago),f=>liq(f));
   const pago=sum(desp.filter(f=>f.pago&&mesRef(f)===mk),f=>f.valor);
   const aPagar=sum(desp.filter(f=>!f.pago),f=>f.valor);
-  const atrasR=sum(rec.filter(f=>!f.pago&&f.data&&prazoStatus(f.data)?.cls==='atrasada'),f=>liq(f));
-  const atrasP=sum(desp.filter(f=>!f.pago&&f.data&&prazoStatus(f.data)?.cls==='atrasada'),f=>f.valor);
+  const atrasR=sum(rec.filter(f=>!f.pago&&f.data&&prazoStatus(dataVencimento(f))?.cls==='atrasada'),f=>liq(f));
+  const atrasP=sum(desp.filter(f=>!f.pago&&f.data&&prazoStatus(dataVencimento(f))?.cls==='atrasada'),f=>f.valor);
   const fixo=sum(desp.filter(f=>f.natureza==='Fixo'&&mesRef(f)===mk),f=>f.valor);
   const varv=sum(desp.filter(f=>f.natureza==='Variável'&&mesRef(f)===mk),f=>f.valor);
   b.innerHTML=`<div class="g3">

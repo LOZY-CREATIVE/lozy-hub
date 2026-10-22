@@ -852,7 +852,7 @@ async function load(){
   trashAutoPurge();
   autoLancarPendentes();
   applyTheme();
-  render();
+  syncFromHash();
 }
 function applySeed(reset){
   if(reset){S.demandas=[];S.fin=[];S.projetos=[];}
@@ -1046,8 +1046,28 @@ function openMaisMenu(){
   openModal('Ir para',body,null,true);
 }
 function sbToggle(){S.prefs=S.prefs||{};S.prefs.sb=(S.prefs.sb===0?1:0);save();buildNav();}
-function goTo(id){
-  S.active=id;
+/* navegar sempre passa pela URL (location.hash) — é ela que manda, nunca
+   S.active diretamente, pra voltar/avançar do navegador e link direto funcionarem. */
+function goTo(id){location.hash='#/'+id;}
+/* ═══ ROTEAMENTO POR HASH ═══
+   #/item/<kind>/<id> → abre a página de um registro (Card Drawer em tela cheia).
+   #/<secao>          → navegação normal da sidebar.
+   Único lugar que de fato muda S.active/S.cardView — goTo()/openCard()/closeCard()
+   só mudam a URL, o hashchange é quem aplica o estado e renderiza. */
+function syncFromHash(){
+  const parts=location.hash.replace(/^#\/?/,'').split('/').filter(Boolean);
+  if(parts[0]==='item'&&parts[1]&&parts[2]){
+    const kind=parts[1],id=decodeURIComponent(parts[2]);
+    const mesmoItem=S.cardView&&S.cardView.kind===kind&&S.cardView.id===id;
+    S.cardView={kind,id,tab:mesmoItem?S.cardView.tab:'det'};
+    if(!mesmoItem)OBS_EDIT=null;
+    if(TRASH_META[kind])S.active=TRASH_META[kind].ir;
+  }else{
+    const secao=parts[0];
+    S.cardView=null;
+    if(secao&&SECTIONS.some(s=>s.id===secao))S.active=secao;
+    else if(!S.active)S.active='dashboard';
+  }
   buildNav();render();
 }
 function setTab(mod,t){S.tab[mod]=t;render();}
@@ -1058,7 +1078,8 @@ function tabsHtml(mod,list){
 /* ═══ RENDER DISPATCH ═══ */
 function render(){
   const c=document.getElementById('content');
-  ({dashboard:renderDashboard,comercial:renderComercial,demandas:renderDemandas,tarefas:renderTarefas,
+  if(S.cardView)renderCard(c);
+  else({dashboard:renderDashboard,comercial:renderComercial,demandas:renderDemandas,tarefas:renderTarefas,
     projetos:renderProjetos,pint:renderPint,agenda:renderAgenda,financeiro:renderFin,propostas:renderPropostas,calculadora:renderCalculadora,
     central:renderCentral,ajustes:renderAjustes,clientes:renderClientes,lixeira:renderLixeira}[S.active]||renderPlaceholder)(c);
   if(typeof renderSyncPill==='function')renderSyncPill();
@@ -4117,16 +4138,20 @@ function cardEntity(){
   const cv=S.cardView;if(!cv)return null;
   return (S[cv.kind]||[]).find(x=>x.id===cv.id)||null;
 }
-function openCard(kind,id){
-  S.cardView={kind,id,tab:'det'};
-  OBS_EDIT=null;
-  document.getElementById('modal').classList.add('wide');
-  document.getElementById('overlay').classList.add('show');
-  renderCard();
+/* abrir um item agora é navegar pra #/item/<kind>/<id> — o hashchange (syncFromHash)
+   é quem de fato seta S.cardView e renderiza; isso dá URL própria, histórico de
+   navegador (voltar/avançar) e link direto, de graça. */
+function openCard(kind,id){location.hash='#/item/'+kind+'/'+id;}
+/* "fechar" o item = voltar pra seção do módulo dono dele (TRASH_META já mapeia
+   kind→seção, reaproveitado aqui pra não duplicar essa tabela). */
+function closeCard(){
+  const cv=S.cardView;
+  const secao=cv&&TRASH_META[cv.kind]?TRASH_META[cv.kind].ir:(S.active||'dashboard');
+  location.hash='#/'+secao;
 }
-function closeCard(){S.cardView=null;OBS_EDIT=null;closeModal();}
 function cardTab(t){S.cardView.tab=t;renderCard();}
-function renderCard(){
+function renderCard(c){
+  c=c||document.getElementById('content');
   const cv=S.cardView;const it=cardEntity();
   if(!cv||!it){closeCard();return;}
   const titulo=it.titulo||it.nome||it.desc||'Item';
@@ -4141,12 +4166,15 @@ function renderCard(){
   if(cv.kind==='pint')tabs.push(['tarefas','Tarefas']);
   tabs.push(['obs','Observações'],['chk','Checklist']);
   if(cv.kind==='demandas'||cv.kind==='tasks'||cv.kind==='pint')tabs.push(['hist','Tempo por status']);
-  document.getElementById('modal-title').textContent=titulo;
-  document.getElementById('modal-body').innerHTML=`
-    <div style="font-size:12px;color:var(--t3);margin-bottom:16px;">${esc(sub)}</div>
+  c.innerHTML=`
+    <div class="page-hd"><div>
+      <button class="btn-ghost" onclick="closeCard()">← Voltar</button>
+      <div class="page-title" style="margin-top:10px">${esc(titulo)}</div>
+      <div class="page-sub">${esc(sub)}</div>
+    </div>
+    <button class="btn-ghost" style="color:var(--red)" onclick="cardDelete()">✕ Excluir</button></div>
     <div class="tabs" style="margin-bottom:16px;">${tabs.map(([id,l])=>`<button class="tab ${cv.tab===id?'active':''}" onclick="cardTab('${id}')">${l}</button>`).join('')}</div>
     <div id="card-tab-body">${cardTabBody()}</div>`;
-  document.getElementById('modal-actions').innerHTML=`<button class="btn-ghost" onclick="closeCard()">Fechar</button><button class="btn-ghost" style="color:var(--red)" onclick="cardDelete()">✕ Excluir</button>`;
 }
 function cardSet(field,val){const it=cardEntity();if(!it)return;it[field]=val;save();}
 function cardSetRefresh(field,val){cardSet(field,val);renderCard();}
@@ -5137,6 +5165,7 @@ function mountAI(){
 buildNav();
 mountAI();
 applyTheme();
+window.addEventListener('hashchange',syncFromHash);
 (async()=>{
   await load();
   await loadSnap();

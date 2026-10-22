@@ -848,7 +848,7 @@ active:'dashboard',
 sort:{},
 tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana',calc:'nova'},
 q:{},f:{},
-wiz:null,calc:null,propWiz:null,perfis:[],cardView:null,paginas:[],paginaView:null,bases:[]
+wiz:null,calc:null,propWiz:null,perfis:[],cardView:null,paginas:[],paginaView:null,bases:[],customViews:{}
 };
 
 /* ═══ STORAGE — adaptador ═══
@@ -866,7 +866,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets','paginas','bases'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets','paginas','bases','customViews'];
 async function load(){
   let got=false;
   try{
@@ -1120,7 +1120,9 @@ function syncFromHash(){
 }
 function setTab(mod,t){S.tab[mod]=t;render();}
 function tabsHtml(mod,list){
-  return '<div class="tabs">'+list.map(t=>'<button class="tab '+(S.tab[mod]===t.id?'active':'')+'" onclick="setTab(\''+mod+'\',\''+t.id+'\')">'+t.l+'</button>').join('')+'</div>';
+  /* um item pode trazer seu próprio onclick (ex: "+ visão" abrindo um modal
+     em vez de trocar de aba) — sem isso, cai no setTab padrão. */
+  return '<div class="tabs">'+list.map(t=>'<button class="tab '+(S.tab[mod]===t.id?'active':'')+'" onclick="'+(t.onclick||("setTab('"+mod+"','"+t.id+"')"))+'">'+t.l+'</button>').join('')+'</div>';
 }
 
 /* ═══ RENDER DISPATCH ═══ */
@@ -1723,7 +1725,7 @@ function filhas(id){return S.demandas.filter(x=>x.maeId===id);}
 function renderDemandas(c){
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Demandas</div></div></div>
-    ${tabsHtml('demandas',[{id:'lista',l:'Lista'},{id:'porcliente',l:'Por cliente'},{id:'porstatus',l:'Por status'},{id:'portipo',l:'Por tipo'},{id:'porprazo',l:'Por prazo'}])}
+    ${tabsHtml('demandas',[{id:'lista',l:'Lista'},{id:'porcliente',l:'Por cliente'},{id:'porstatus',l:'Por status'},{id:'portipo',l:'Por tipo'},{id:'porprazo',l:'Por prazo'},...customViewTabs('demandas')])}
     <div id="dem-body"></div>`;
   const b=document.getElementById('dem-body');
   const q=(S.q.dem||'').toLowerCase();const f=S.f.dem||{};
@@ -1763,6 +1765,8 @@ function renderDemandas(c){
       return `<div class="grp"><div class="grp-hd"><span class="grp-name" style="color:${cor||'var(--lx1)'}">${nome}</span><span class="grp-stat">${arr.length}</span></div>
       <div class="card" style="padding:6px 20px;">${renderDataTable('demandas',applyTableSort('demandas',arr),demActs)}</div></div>`;
     }).join('')||'<div class="card"><div class="empty-msg">Nenhuma demanda encontrada.</div></div>';
+  }else if(t.startsWith('custom:')){
+    b.innerHTML=toolbar+renderCustomView('demandas',ds,t.slice(7));
   }else{
     b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+DSTATUS.map(st=>{
       const arr=ds.filter(d=>d.status===st);const cor=DCOLORS[st]||'#6e6e6e';const pg=kanbanPage('dem:'+st,arr);
@@ -1822,7 +1826,7 @@ function renderTarefas(c){
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Tarefas</div></div>
     <button class="btn-ghost" onclick="openTask()">+ Nova tarefa</button></div>
-    ${tabsHtml('tarefas',[{id:'kanban',l:'Kanban'},{id:'lista',l:'Lista'},{id:'porprior',l:'Por prioridade'},{id:'porarea',l:'Por área'},{id:'porprazo',l:'Por prazo'}])}
+    ${tabsHtml('tarefas',[{id:'kanban',l:'Kanban'},{id:'lista',l:'Lista'},{id:'porprior',l:'Por prioridade'},{id:'porarea',l:'Por área'},{id:'porprazo',l:'Por prazo'},...customViewTabs('tarefas')])}
     <div id="tk-body"></div>`;
   const b=document.getElementById('tk-body');
   const q=(S.q.tk||'').toLowerCase();const f=S.f.tk||{};
@@ -1865,6 +1869,8 @@ function renderTarefas(c){
       return `<div class="grp"><div class="grp-hd"><span class="grp-name" style="color:${cor||'var(--lx1)'}">${nome}</span><span class="grp-stat">${arr.length}</span></div>
       <div class="card" style="padding:8px 20px;">${arr.map(row).join('')}</div></div>`;
     }).join('')||'<div class="card"><div class="empty-msg">Nenhuma tarefa.</div></div>';
+  }else if(t.startsWith('custom:')){
+    b.innerHTML=toolbar+renderCustomView('tarefas',ts,t.slice(7));
   }else{
     const key=t==='porstatus'?'status':t==='porarea'?'area':'prioridade';
     const order=t==='porstatus'?TSTATUS:t==='porarea'?TAREAS:TPRIOR;
@@ -4974,9 +4980,6 @@ function bdgDrop(pid,bid,alvoId,depois){
   p.atualizadoEm=todayStr();save();
   refreshPaginaBlocks(pid);
 }
-document.addEventListener('pointermove',bdgMove,{passive:false});
-document.addEventListener('pointerup',bdgEnd);
-document.addEventListener('pointercancel',bdgClear);
 
 /* ═══════════════════════════════════════════════════════════
    BASES — coleções livres com campos definidos pelo usuário,
@@ -5146,6 +5149,84 @@ document.addEventListener('pointermove',bdgMove,{passive:false});
 document.addEventListener('pointerup',bdgEnd);
 document.addEventListener('pointercancel',bdgClear);
 
+/* ═══════════════════════════════════════════════════════════
+   VISÕES EXTRAS — Kanban extra sobre módulos que já existem
+   (Demandas, Tarefas, Clientes), agrupando por um campo à escolha
+   do usuário em vez dos agrupamentos fixos (status) que o módulo
+   já tem. S.customViews[modulo] = [{id,nome,groupBy}].
+   Diferente do Kanban das Bases (Fase 4): aqui NUNCA se arrasta um
+   card pra regravar o campo — é só leitura/navegação (abre o item
+   ao clicar). O motivo é que o Kanban fixo de cada módulo já muda
+   o campo "certo" (status) através de demTransicao/taskTransicao,
+   que carimbam histórico; uma visão extra escrevendo em qualquer
+   campo por fora dessas funções pisaria nessas regras de negócio
+   sem necessidade — ela existe pra olhar os dados de um jeito novo,
+   não pra editá-los por um caminho que as ignora.
+   ═══════════════════════════════════════════════════════════ */
+const CUSTOMVIEW_CAMPOS={
+  demandas:[
+    {k:'status',l:'Status',opcoes:()=>DSTATUS,get:r=>r.status},
+    {k:'tipo',l:'Tipo',opcoes:()=>DTIPOS,get:r=>r.tipo},
+    {k:'cliente',l:'Cliente',opcoes:()=>clientes(),get:r=>r.cliente||''}
+  ],
+  tarefas:[
+    {k:'status',l:'Status',opcoes:()=>TSTATUS,get:r=>r.status},
+    {k:'prioridade',l:'Prioridade',opcoes:()=>TPRIOR,get:r=>r.prioridade},
+    {k:'area',l:'Área',opcoes:()=>TAREAS,get:r=>r.area||''}
+  ],
+  clientes:[
+    {k:'segmento',l:'Segmento',opcoes:()=>[...new Set(S.cbase.map(c=>c.segmento).filter(Boolean))],get:r=>r.segmento||''}
+  ]
+};
+const CUSTOMVIEW_TAB_PADRAO={demandas:'porstatus',tarefas:'kanban',clientes:'cards'};
+function customViews(mod){return(S.customViews&&S.customViews[mod])||[];}
+function customViewTabs(mod){
+  return customViews(mod).map(v=>({id:'custom:'+v.id,l:v.nome}))
+    .concat([{id:'_nova',l:'+ visão',onclick:"novaVisaoExtra('"+mod+"')"}]);
+}
+function novaVisaoExtra(mod){
+  const campos=CUSTOMVIEW_CAMPOS[mod]||[];
+  if(!campos.length)return;
+  openModal('Nova visão',`
+    <div class="field"><label>Nome</label><input id="m1" placeholder="Ex: Por cliente"></div>
+    <div class="field"><label>Agrupar por</label><select id="m2">${campos.map(c=>`<option value="${c.k}">${esc(c.l)}</option>`).join('')}</select></div>
+    <div style="font-size:11px;color:var(--t3);margin-top:-4px;">Visão de leitura — arrastar um card aqui não muda o registro. Pra isso, use o Kanban padrão do módulo.</div>`,
+  ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
+    if(!S.customViews)S.customViews={};
+    if(!S.customViews[mod])S.customViews[mod]=[];
+    const view={id:uid('cv'),nome:v('m1').trim(),groupBy:v('m2')};
+    S.customViews[mod].push(view);
+    S.tab[mod]='custom:'+view.id;
+    save();closeModal();render();});
+}
+function delVisaoExtra(mod,viewId){
+  if(!confirm('Excluir esta visão?'))return;
+  S.customViews[mod]=(S.customViews[mod]||[]).filter(v=>v.id!==viewId);
+  S.tab[mod]=CUSTOMVIEW_TAB_PADRAO[mod]||'lista';
+  save();render();
+}
+function customViewCard(mod,r){
+  if(mod==='demandas')return `<div class="kcard" onclick="openCard('demandas','${r.id}')" style="cursor:pointer;"><div class="kc-name">${esc(r.titulo)}</div><div class="kc-sub">${esc(r.cliente||'Sem cliente')} · ${r.uid}</div></div>`;
+  if(mod==='tarefas')return `<div class="kcard" onclick="openCard('tasks','${r.id}')" style="cursor:pointer;"><div class="kc-name">${esc(r.titulo)}</div><div class="kc-sub">${esc(r.area||'Sem área')}</div></div>`;
+  if(mod==='clientes')return `<div class="kcard" onclick="openClienteCard('${r.id}')" style="cursor:pointer;"><div class="kc-name">${esc(r.nome)}</div></div>`;
+  return `<div class="kcard">${esc(r.titulo||r.nome||'Item')}</div>`;
+}
+function renderCustomView(mod,arr,viewId){
+  const view=customViews(mod).find(v=>v.id===viewId);
+  if(!view)return '<div class="empty-msg">Visão não encontrada.</div>';
+  const campo=(CUSTOMVIEW_CAMPOS[mod]||[]).find(c=>c.k===view.groupBy);
+  if(!campo)return '<div class="empty-msg">Campo de agrupamento inválido — exclua esta visão e crie outra.</div>';
+  const opcoes=[...campo.opcoes(),''];
+  const board=kanbanLimBar()+'<div class="board">'+opcoes.map(op=>{
+    const sub=arr.filter(r=>(campo.get(r)||'')===op);
+    const pg=kanbanPage('cv:'+mod+':'+viewId+':'+(op||'_vazio'),sub);
+    const label=op||'Sem valor';
+    return `<div class="col"><div class="col-hd"><span class="col-pill">${esc(label)}<span style="opacity:.75;font-weight:500">${sub.length}</span></span></div><div class="col-body">
+    ${pg.shown.length?pg.shown.map(r=>customViewCard(mod,r)).join(''):'<div class="col-empty">Vazio</div>'}${kanbanMoreBtn(pg)}</div></div>`;
+  }).join('')+'</div>';
+  return `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button class="btn-sm" style="color:var(--red)" onclick="delVisaoExtra('${mod}','${viewId}')">✕ Excluir esta visão</button></div>`+board;
+}
+
 /* ── Cmd/Ctrl+Z e Cmd/Ctrl+Shift+Z ── */
 document.addEventListener('keydown',e=>{
   if(!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
@@ -5165,7 +5246,7 @@ document.addEventListener('keydown',e=>{
    Sem backend configurado, o Hub segue funcionando local.
    ═══════════════════════════════════════════════════════════════ */
 const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','cbase','parc','assin','trash','paginas','bases'];
-const SETTING_KEYS=['theme','prefs','dash','cols','sort','finPresets'];
+const SETTING_KEYS=['theme','prefs','dash','cols','sort','finPresets','customViews'];
 let SY={busy:false,last:null,err:null,snap:{}};
 
 function syncCfg(){return (S.prefs&&S.prefs.sb_url)?{url:S.prefs.sb_url,key:S.prefs.sb_key,token:S.prefs.sb_token,refresh:S.prefs.sb_refresh,email:S.prefs.sb_email}:null;}
@@ -5386,7 +5467,7 @@ function renderClientes(c){
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Clientes</div></div>
     <button class="btn-ghost" onclick="openCliente()">+ Novo cliente</button></div>
-    ${tabsHtml('clientes',[{id:'cards',l:'Cards'},{id:'lista',l:'Lista'},{id:'porreceita',l:'Por receita'}])}
+    ${tabsHtml('clientes',[{id:'cards',l:'Cards'},{id:'lista',l:'Lista'},{id:'porreceita',l:'Por receita'},...customViewTabs('clientes')])}
     <div class="toolbar"><input class="search" placeholder="Buscar cliente, segmento, contato..." value="${esc(S.q.cli||'')}" oninput="S.q.cli=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">${S.tab.clientes==='lista'?colBtn('clientes')+csvBtn('clientes',cs):''}</div>
     <div id="cli-body"></div>`;
   const b=document.getElementById('cli-body');
@@ -5404,6 +5485,8 @@ function renderClientes(c){
       </div></div>`;}).join('')+'</div>';
   }else if(t==='lista'){
     b.innerHTML=cs.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('clientes',applyTableSort('clientes',cs),cl=>`<button class="ibtn" title="abrir" onclick="openClienteCard('${cl.id}')">⤢</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum cliente encontrado.</div></div>';
+  }else if(t.startsWith('custom:')){
+    b.innerHTML=renderCustomView('clientes',cs,t.slice(7));
   }else{
     const rank=cs.map(cl=>({cl,st:cliStats(cl.nome)})).filter(x=>x.st.rec>0).sort((a,b)=>b.st.rec-a.st.rec);
     const mx=Math.max(1,...rank.map(x=>x.st.rec));

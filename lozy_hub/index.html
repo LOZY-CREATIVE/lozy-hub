@@ -1001,6 +1001,23 @@ function greeting(){const h=new Date().getHours();return h<12?'Bom dia':h<18?'Bo
 
 /* ═══ NAV ═══ */
 const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','pint','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','calculadora','contratos','central','lixeira','ajustes']}];
+/* ordem do menu é customizável (Ajustes → Ordem do menu); S.prefs.navOrder guarda,
+   por grupo, a ordem escolhida pelo usuário. ids novos (feature futura) que ainda
+   não estão salvos caem no fim, na ordem padrão de NAVGROUPS — nunca somem. */
+function navOrder(g){
+  const saved=(S.prefs&&S.prefs.navOrder&&S.prefs.navOrder[g.l])||[];
+  const ordenados=saved.filter(id=>g.ids.includes(id));
+  return[...ordenados,...g.ids.filter(id=>!ordenados.includes(id))];
+}
+function moveNavItem(grpLabel,id,dir){
+  const g=NAVGROUPS.find(x=>x.l===grpLabel);if(!g)return;
+  const ids=navOrder(g);
+  const i=ids.indexOf(id),j=i+dir;
+  if(i<0||j<0||j>=ids.length)return;
+  [ids[i],ids[j]]=[ids[j],ids[i]];
+  S.prefs=S.prefs||{};S.prefs.navOrder=S.prefs.navOrder||{};S.prefs.navOrder[grpLabel]=ids;
+  save();buildNav();render();
+}
 function buildNav(){
   const exp=!S.prefs||S.prefs.sb!==0;
   const sb=document.getElementById('sidebar');
@@ -1008,7 +1025,7 @@ function buildNav(){
   const tg=document.getElementById('sb-tgl');if(tg)tg.textContent=exp?'«':'»';
   document.getElementById('snavlist').innerHTML=NAVGROUPS.map(g=>
     (exp?'<div class="nav-grp">'+g.l+'</div>':'<div class="nav-sep"></div>')+
-    g.ids.map(id=>{const s=SECTIONS.find(x=>x.id===id);
+    navOrder(g).map(id=>{const s=SECTIONS.find(x=>x.id===id);
       return '<button class="snav '+(S.active===id?'active':'')+'" onclick="goTo(\''+id+'\')">'+IC[id]+
         (exp?'<span class="nlbl">'+s.label+(!s.ready?'<i class="soon">em breve</i>':'')+'</span>'
             :'<span class="tip">'+s.label+(!s.ready?' · em breve':'')+'</span>')+'</button>';
@@ -1392,7 +1409,7 @@ function renderWeekList(){
   const days=weekDays().map(dstr);
   const evs=[
     ...S.eventos.filter(e=>days.includes(e.data)).map(e=>({d:e.data,t:e.titulo,s:e.hIni||'',tipo:e.tipo})),
-    ...S.demandas.filter(d=>d.status!=='Entregue'&&days.includes(d.prazo)).map(d=>({d:d.prazo,t:'Prazo: '+d.titulo,s:'',tipo:'Prazo'}))
+    ...S.demandas.filter(d=>d.status!=='Entregue'&&days.includes(demPrazoAtivo(d))).map(d=>({d:demPrazoAtivo(d),t:'Prazo: '+d.titulo,s:'',tipo:'Prazo'}))
   ].sort((a,b)=>a.d.localeCompare(b.d)||a.s.localeCompare(b.s)).slice(0,4);
   if(!evs.length)return '<div class="empty-msg">Semana livre. Clique em qualquer dia da agenda.</div>';
   return evs.map(e=>`<div class="row-item"><div><div class="ri-name" style="color:var(--dk1)">${esc(e.t)}</div><div class="ri-sub">${fmtD(e.d)}${e.s?' · '+e.s:''} · ${e.tipo}</div></div></div>`).join('');
@@ -1438,9 +1455,19 @@ function renderComercial(c){
 }
 
 function comJornada(b){
-  b.innerHTML='<div class="board">'+STAGES.map(st=>{
-    const ls=S.leads.filter(l=>l.stage===st);
-    return `<div class="col" data-dg="leads" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-name">${st}</span><span class="col-stat">${ls.length} · ${fmtBRL(sum(ls))}</span></div><div class="col-body">${ls.length?ls.map(leadCard).join(''):'<div class="col-empty">Sem leads</div>'}</div></div>`;
+  const q=(S.q.leads||'').toLowerCase();const f=S.f.leads||{};
+  const origens=[...new Set(S.leads.map(l=>l.origem).filter(Boolean))];
+  const base=S.leads.filter(l=>
+    (!q||[l.empresa,l.contato,l.origem,l.segmento,l.cidade].join(' ').toLowerCase().includes(q))&&
+    (!f.temp||l.temp===f.temp)&&(!f.origem||l.origem===f.origem));
+  const toolbar=`<div class="toolbar">
+    <input class="search" placeholder="Buscar empresa, contato..." value="${esc(S.q.leads||'')}" oninput="S.q.leads=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">
+    <select class="fsel" onchange="S.f.leads={...S.f.leads,temp:this.value};render()"><option value="">Temperatura: Todas</option>${['quente','morno','frio'].map(s=>`<option ${f.temp===s?'selected':''}>${s}</option>`).join('')}</select>
+    <select class="fsel" onchange="S.f.leads={...S.f.leads,origem:this.value};render()"><option value="">Origem: Todas</option>${origens.map(s=>`<option ${f.origem===s?'selected':''}>${s}</option>`).join('')}</select>
+  </div>`;
+  b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+STAGES.map(st=>{
+    const ls=base.filter(l=>l.stage===st);const pg=kanbanPage('leads:'+st,ls);
+    return `<div class="col" data-dg="leads" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-name">${st}</span><span class="col-stat">${ls.length} · ${fmtBRL(sum(ls))}</span></div><div class="col-body">${pg.shown.length?pg.shown.map(leadCard).join(''):'<div class="col-empty">Sem leads</div>'}${kanbanMoreBtn(pg)}</div></div>`;
   }).join('')+'</div>';
 }
 function leadCard(l){
@@ -1575,8 +1602,9 @@ function matchPrazo(prazo,filtro,concluida){
   if(!filtro)return true;
   if(filtro==='semprazo')return !prazo;
   if(!prazo)return false;
+  if(concluida&&filtro!=='semprazo')return false; /* item já concluído não entra em atrasadas/hoje/semana */
   const ps=prazoStatus(prazo);
-  if(filtro==='atrasadas')return ps.cls==='atrasada'&&!concluida;
+  if(filtro==='atrasadas')return ps.cls==='atrasada';
   if(filtro==='hoje')return ps.cls==='hoje';
   if(filtro==='semana')return ps.diff>=0&&ps.diff<=7;
   return true;
@@ -1593,6 +1621,30 @@ function prazoBuckets(arr,get,isDone){
     else if(ps.diff<=7)B.sem.push(x);
     else B.dep.push(x);});
   return[['Atrasadas',B.atr,'var(--red)'],['Hoje',B.hoje,'var(--amber)'],['Próximos 7 dias',B.sem,null],['Depois',B.dep,null],['Sem prazo',B.sp,null],['Concluídas',B.done,'var(--green)']];
+}
+/* ═══ LIMITE DE CARDS POR COLUNA NO KANBAN ═══
+   S.prefs.kanbanLim guarda o teto global (0 = sem limite). KEXP é transiente
+   (não persiste, não entra em KEYS) — só lembra quais colunas o usuário já
+   expandiu com "ver mais" durante a sessão atual. */
+let KEXP={};
+function kanbanLim(){const n=S.prefs&&S.prefs.kanbanLim;return n===undefined?10:Number(n);}
+function setKanbanLim(n){S.prefs=S.prefs||{};S.prefs.kanbanLim=Number(n);save();render();}
+function kanbanPage(key,arr){
+  const lim=kanbanLim();
+  if(!lim||arr.length<=lim||KEXP[key])return{shown:arr,resto:0,key};
+  return{shown:arr.slice(0,lim),resto:arr.length-lim,key};
+}
+function kanbanVerMais(key){KEXP[key]=true;render();}
+function kanbanMoreBtn(pg){return pg.resto?`<button class="btn-sm" style="width:100%;margin-top:2px;" onclick="kanbanVerMais('${pg.key}')">+ ${pg.resto} ver mais</button>`:'';}
+function kanbanLimBar(){
+  const lim=kanbanLim();
+  return `<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:11.5px;color:var(--t3);">Cards por coluna:
+    <select class="fsel" style="padding:4px 8px;font-size:11.5px;" onchange="KEXP={};setKanbanLim(this.value)">
+      <option value="6" ${lim===6?'selected':''}>6</option>
+      <option value="10" ${lim===10?'selected':''}>10</option>
+      <option value="20" ${lim===20?'selected':''}>20</option>
+      <option value="0" ${lim===0?'selected':''}>Sem limite</option>
+    </select></div>`;
 }
 function nextDemUid(){const mx=S.demandas.reduce((m,d)=>Math.max(m,parseInt((d.uid||'').replace('DEM-',''))||0),0);return 'DEM-'+String(mx+1).padStart(3,'0');}
 function demMargem(d){return Number(d.receita||0)-Number(d.custo||0);}
@@ -1642,14 +1694,14 @@ function renderDemandas(c){
       <div class="card" style="padding:6px 20px;">${renderDataTable('demandas',applyTableSort('demandas',arr),demActs)}</div></div>`;
     }).join('')||'<div class="card"><div class="empty-msg">Nenhuma demanda encontrada.</div></div>';
   }else{
-    b.innerHTML=toolbar+'<div class="board">'+DSTATUS.map(st=>{
-      const arr=ds.filter(d=>d.status===st);const cor=DCOLORS[st]||'#6e6e6e';
+    b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+DSTATUS.map(st=>{
+      const arr=ds.filter(d=>d.status===st);const cor=DCOLORS[st]||'#6e6e6e';const pg=kanbanPage('dem:'+st,arr);
       return `<div class="col" data-dg="demandas" data-dgval="${esc(st)}" style="min-width:280px;max-width:280px;"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span><span class="col-stat">${fmtBRL(sum(arr,d=>d.receita))}</span></div><div class="col-body">
-      ${arr.length?arr.map(d=>{const ps=demandaAtraso(d);const dataExib=d.status==='Entregue'?(d.entregueEm||d.prazo):demPrazoAtivo(d);const fs=filhas(d.id);
+      ${pg.shown.length?pg.shown.map(d=>{const ps=demandaAtraso(d);const dataExib=d.status==='Entregue'?(d.entregueEm||d.prazo):demPrazoAtivo(d);const fs=filhas(d.id);
       return `<div class="kcard kc-tint" style="border-left-color:${DCOLORS[d.status]||'#6e6e6e'}" onpointerdown="dgDown(event,'demandas','${d.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(d.titulo)}</div></div><span class="bdg">${d.uid}</span></div>
       <div class="kc-sub">${esc(d.cliente||'Sem cliente')} · ${d.tipo}${fs.length?' · '+fs.length+' entregas':''}${d.maeId?' · filha':''}</div>
       <div class="kc-ft"><div class="kc-val" style="color:${ps&&ps.cls==='atrasada'?'var(--red)':ps&&ps.cls==='hoje'?'var(--amber)':'var(--t2)'};font-size:11.5px">${dataExib?fmtD(dataExib)+(ps?' · '+ps.label:'')+(d.prazoAjuste&&d.status!=='Entregue'?' · ajuste':''):'Sem prazo'}</div>
-      <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('demandas','${d.id}')">⤢</button><button class="ibtn" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
+      <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('demandas','${d.id}')">⤢</button><button class="ibtn" onclick="advDem('${d.id}')">→</button><button class="ibtn del" onclick="delDem('${d.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}${kanbanMoreBtn(pg)}</div></div>`;
     }).join('')+'</div>';
   }
 }
@@ -1704,11 +1756,12 @@ function renderTarefas(c){
     <div id="tk-body"></div>`;
   const b=document.getElementById('tk-body');
   const q=(S.q.tk||'').toLowerCase();const f=S.f.tk||{};
-  let ts=S.tasks.filter(t=>(!q||t.titulo.toLowerCase().includes(q))&&(!f.pr||t.prioridade===f.pr)&&(!f.st||t.status===f.st)&&matchPrazo(t.prazo,f.prazo,['Concluída','Cancelada'].includes(t.status)));
+  let ts=S.tasks.filter(t=>(!q||t.titulo.toLowerCase().includes(q))&&(!f.pr||t.prioridade===f.pr)&&(!f.st||t.status===f.st)&&(!f.area||t.area===f.area)&&matchPrazo(t.prazo,f.prazo,['Concluída','Cancelada'].includes(t.status)));
   const toolbar=`<div class="toolbar">
     <input class="search" placeholder="Buscar tarefa..." value="${esc(S.q.tk||'')}" oninput="S.q.tk=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">
     <select class="fsel" onchange="S.f.tk={...S.f.tk,pr:this.value};render()"><option value="">Prioridade: Todas</option>${TPRIOR.map(p=>`<option ${f.pr===p?'selected':''}>${p}</option>`).join('')}</select>
     <select class="fsel" onchange="S.f.tk={...S.f.tk,st:this.value};render()"><option value="">Status: Todos</option>${TSTATUS.map(p=>`<option ${f.st===p?'selected':''}>${p}</option>`).join('')}</select>
+    <select class="fsel" onchange="S.f.tk={...S.f.tk,area:this.value};render()"><option value="">Área: Todas</option>${TAREAS.map(a=>`<option ${f.area===a?'selected':''}>${a}</option>`).join('')}</select>
     <select class="fsel" onchange="S.f.tk={...S.f.tk,prazo:this.value};render()"><option value="">Prazo: Todos</option>${PRAZO_F.map(p=>`<option value="${p[0]}" ${f.prazo===p[0]?'selected':''}>${p[1]}</option>`).join('')}</select>
     ${colBtn('tarefas')}${csvBtn('tarefas',ts)}</div>`;
   const t=S.tab.tarefas;
@@ -1724,14 +1777,14 @@ function renderTarefas(c){
     <div style="display:flex;gap:4px;margin-left:8px;"><button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div>`;
   };
   if(t==='kanban'){
-    b.innerHTML=toolbar+'<div class="board">'+TSTATUS.map(st=>{
-      const arr=ts.filter(x=>x.status===st);const cor=TCOLORS[st]||'#6e6e6e';
+    b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+TSTATUS.map(st=>{
+      const arr=ts.filter(x=>x.status===st);const cor=TCOLORS[st]||'#6e6e6e';const pg=kanbanPage('tk:'+st,arr);
       return `<div class="col" data-dg="tasks" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
-      ${arr.length?arr.map(tk=>{const ps=tk.prazo?prazoStatus(tk.prazo):null;const dem=tk.demandaId?S.demandas.find(d=>d.id===tk.demandaId):null;const pj=tk.projIntId?S.pint.find(p=>p.id===tk.projIntId):null;
+      ${pg.shown.length?pg.shown.map(tk=>{const ps=tk.prazo?prazoStatus(tk.prazo):null;const dem=tk.demandaId?S.demandas.find(d=>d.id===tk.demandaId):null;const pj=tk.projIntId?S.pint.find(p=>p.id===tk.projIntId):null;
       return `<div class="kcard kc-tint" style="border-left-color:${cor}" onpointerdown="dgDown(event,'tasks','${tk.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(tk.titulo)}</div></div><span class="bdg ${tk.prioridade==='Alta'?'alta':tk.prioridade==='Média'?'media':'baixa'}">${tk.prioridade}</span></div>
       <div class="kc-sub">${tk.area?tk.area+' · ':''}${tk.prazo?fmtD(tk.prazo):'Sem prazo'}${ps&&ps.cls==='atrasada'&&!['Concluída','Cancelada'].includes(tk.status)?' · <span style="color:var(--red)">'+ps.label+'</span>':''}${dem?' · '+dem.uid:''}${pj?' · '+esc(pj.nome):''}</div>
       <div class="kc-ft"><select class="fsel" style="font-size:10.5px;padding:4px 6px;" onchange="setTaskStatus('${tk.id}',this.value)">${TSTATUS.map(s2=>`<option ${tk.status===s2?'selected':''}>${s2}</option>`).join('')}</select>
-      <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
+      <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Vazio</div>'}${kanbanMoreBtn(pg)}</div></div>`;
     }).join('')+'</div>';
   }else if(t==='lista'){
     b.innerHTML=toolbar+(ts.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('tarefas',applyTableSort('tarefas',ts),tk=>`<button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhuma tarefa.</div></div>');
@@ -1776,7 +1829,7 @@ function renderProjetos(c){
   const ativos=S.projetos.filter(p=>p.fase!=='Entrega');
   const tkAtras=S.tasks.filter(t=>t.status!=='Concluída'&&t.prazo&&prazoStatus(t.prazo)?.cls==='atrasada').length;
   const emRev=S.projetos.filter(p=>p.fase==='Revisão').length;
-  const prox=S.projetos.filter(p=>p.entrega&&prazoStatus(p.entrega)&&prazoStatus(p.entrega).diff>=0&&prazoStatus(p.entrega).diff<=7).length;
+  const prox=S.projetos.filter(p=>p.fase!=='Entrega'&&p.entrega&&prazoStatus(p.entrega)&&prazoStatus(p.entrega).diff>=0&&prazoStatus(p.entrega).diff<=7).length;
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Projetos</div></div>
     <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="importFechados()">Importar leads fechados</button><button class="btn-ghost" onclick="openProj()">+ Novo projeto</button></div></div>
@@ -1836,17 +1889,17 @@ function renderPint(c){
     <div class="page-hd"><div><div class="page-title">Projetos Internos</div><div class="page-sub">Frentes de trabalho da agência — cada uma agrupa suas próprias tarefas, notas e checklist</div></div>
     <button class="btn-ghost" onclick="openPint()">+ Novo projeto interno</button></div>
     <div class="kpis"><div class="card"><div class="clabel">Ativos</div><div class="metric">${ativos.length}</div></div></div>
-    <div class="board">${PISTATUS.map(st=>{
-      const arr=S.pint.filter(p=>p.status===st);const cor=PICOLORS[st]||'#6e6e6e';
+    ${kanbanLimBar()}<div class="board">${PISTATUS.map(st=>{
+      const arr=S.pint.filter(p=>p.status===st);const cor=PICOLORS[st]||'#6e6e6e';const pg=kanbanPage('pint:'+st,arr);
       return `<div class="col" data-dg="pint" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
-      ${arr.length?arr.map(p=>{
+      ${pg.shown.length?pg.shown.map(p=>{
         const tks=S.tasks.filter(t=>t.projIntId===p.id);const doneT=tks.filter(t=>t.status==='Concluída').length;
         const ps=p.prazo?prazoStatus(p.prazo):null;
         return `<div class="kcard kc-tint" style="border-left-color:${cor}" onpointerdown="dgDown(event,'pint','${p.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(p.nome)}</div></div></div>
         <div class="kc-sub">${p.area||'Sem área'}${tks.length?' · '+doneT+'/'+tks.length+' tarefas':''}</div>
         <div class="kc-ft"><div class="kc-val" style="font-size:11.5px;color:${ps&&ps.cls==='atrasada'?'var(--red)':'var(--t2)'}">${p.prazo?fmtD(p.prazo):'Sem prazo'}</div>
         <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('pint','${p.id}')">⤢</button></div></div></div>`;
-      }).join(''):'<div class="col-empty">Vazio</div>'}</div></div>`;
+      }).join(''):'<div class="col-empty">Vazio</div>'}${kanbanMoreBtn(pg)}</div></div>`;
     }).join('')}</div>`;
 }
 function openPint(){
@@ -2968,7 +3021,7 @@ function renderAgenda(c){
     <div class="ag-week">${days.map((d,i)=>{
       const ds=dstr(d);
       const evs=S.eventos.filter(e=>e.data===ds).sort((a,b)=>(a.hIni||'').localeCompare(b.hIni||''));
-      const przs=S.demandas.filter(x=>x.status!=='Entregue'&&x.prazo===ds);
+      const przs=S.demandas.filter(x=>x.status!=='Entregue'&&demPrazoAtivo(x)===ds);
       return `<div class="ag-day ${ds===today?'today':''}"><div class="ag-dhd">${dows[i]}</div><div class="ag-dnum">${d.getDate()}</div>
       ${evs.map(e=>`<div class="ag-ev ev-${e.tipo.toLowerCase().normalize('NFD').replace(/[^a-z]/g,'')||'outro'}" onclick="openEvento('${e.id}')" style="cursor:pointer">
         <div class="t">${esc(e.titulo)}</div><div class="h">${e.hIni||''}${e.hFim?'–'+e.hFim:''}${e.local?' · '+esc(e.local):''}</div>
@@ -4066,11 +4119,12 @@ function cardEntity(){
 }
 function openCard(kind,id){
   S.cardView={kind,id,tab:'det'};
+  OBS_EDIT=null;
   document.getElementById('modal').classList.add('wide');
   document.getElementById('overlay').classList.add('show');
   renderCard();
 }
-function closeCard(){S.cardView=null;closeModal();}
+function closeCard(){S.cardView=null;OBS_EDIT=null;closeModal();}
 function cardTab(t){S.cardView.tab=t;renderCard();}
 function renderCard(){
   const cv=S.cardView;const it=cardEntity();
@@ -4179,11 +4233,20 @@ function cardTabBody(){
   }
   if(cv.tab==='obs'){
     const obs=[...(it.observacoes||[])].reverse();
-    return `${obs.length?obs.map(o=>`<div style="border:1px solid var(--b2);border-radius:10px;padding:11px;margin-bottom:8px;">
+    return `${obs.length?obs.map(o=>o.id===OBS_EDIT?`<div style="border:1px solid var(--acc);border-radius:10px;padding:11px;margin-bottom:8px;">
       <div style="font-size:10.5px;color:var(--t3);margin-bottom:5px;">${fmtD(o.em)}</div>
+      ${o.img?`<img src="${o.img}" style="max-width:100%;border-radius:8px;margin-bottom:8px;display:block;">`:''}
+      <textarea id="obs-edit-${o.id}" rows="3" style="width:100%;">${esc(o.texto)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="btn-sm" onclick="saveObsEdit('${o.id}')">Salvar</button>
+      <button class="btn-sm" onclick="cancelObsEdit()">Cancelar</button></div></div>`
+      :`<div style="border:1px solid var(--b2);border-radius:10px;padding:11px;margin-bottom:8px;">
+      <div style="font-size:10.5px;color:var(--t3);margin-bottom:5px;">${fmtD(o.em)}${o.editadoEm?' · <span title="Editada">editada '+fmtD(o.editadoEm)+'</span>':''}</div>
       ${o.texto?`<div style="font-size:13px;white-space:pre-wrap;line-height:1.5;">${esc(o.texto)}</div>`:''}
       ${o.img?`<img src="${o.img}" style="max-width:100%;border-radius:8px;margin-top:8px;display:block;">`:''}
-      <button class="ibtn del" style="margin-top:6px;" onclick="delObs('${o.id}')">✕ remover</button></div>`).join(''):'<div class="empty-msg">Nenhuma observação ainda.</div>'}
+      <div style="display:flex;gap:6px;margin-top:6px;">
+      <button class="btn-sm" onclick="editObs('${o.id}')">✎ editar</button>
+      <button class="btn-sm" style="color:var(--red)" onclick="delObs('${o.id}')">✕ remover</button></div></div>`).join(''):'<div class="empty-msg">Nenhuma observação ainda.</div>'}
     <textarea id="obs-novo" rows="3" placeholder="Escrever uma observação..." style="margin-top:6px;"></textarea>
     <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
       <button class="btn-sm" onclick="addObs()">+ Adicionar observação</button>
@@ -4241,6 +4304,18 @@ function addObs(){
 function delObs(id){
   const it=cardEntity();if(!it||!it.observacoes)return;
   it.observacoes=it.observacoes.filter(o=>o.id!==id);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+let OBS_EDIT=null; /* id da observação em edição nesta sessão do Card Drawer — transiente, não persiste */
+function editObs(id){OBS_EDIT=id;document.getElementById('card-tab-body').innerHTML=cardTabBody();}
+function cancelObsEdit(){OBS_EDIT=null;document.getElementById('card-tab-body').innerHTML=cardTabBody();}
+function saveObsEdit(id){
+  const it=cardEntity();if(!it||!it.observacoes)return;
+  const o=it.observacoes.find(x=>x.id===id);if(!o)return;
+  const el=document.getElementById('obs-edit-'+id);if(!el)return;
+  const txt=el.value.trim();
+  if(!txt&&!o.img)return;
+  o.texto=txt;o.editadoEm=todayStr();
+  OBS_EDIT=null;save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
 }
 function addChk(){
   const el=document.getElementById('chk-novo');const txt=el.value.trim();if(!txt)return;
@@ -4908,6 +4983,20 @@ function renderAjustes(c){
     <div class="card" style="margin-bottom:12px;">
       <div class="widget-hd"><span class="widget-ttl">Sincronização entre dispositivos</span><span class="widget-more">${syncOn()?'conectado':'somente local'}</span></div>
       ${syncPanel()}
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="widget-hd"><span class="widget-ttl">Ordem do menu</span><span class="widget-more">arraste a prioridade com as setas</span></div>
+      ${NAVGROUPS.map(g=>`
+      <div style="margin-bottom:12px;">
+        <div style="font-size:10.5px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">${g.l}</div>
+        ${navOrder(g).map((id,i,arr)=>{const s=SECTIONS.find(x=>x.id===id);
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--ltb);">
+          <span style="flex:1;font-size:12.5px;display:flex;align-items:center;gap:8px;"><span class="mais-ic">${IC[id]}</span>${s.label}</span>
+          <button class="ibtn" title="Subir" ${i===0?'disabled':''} onclick="moveNavItem('${g.l}','${id}',-1)">↑</button>
+          <button class="ibtn" title="Descer" ${i===arr.length-1?'disabled':''} onclick="moveNavItem('${g.l}','${id}',1)">↓</button>
+        </div>`;}).join('')}
+      </div>`).join('')}
+      <button class="btn-sm" onclick="if(confirm('Restaurar ordem padrão do menu?')){S.prefs=S.prefs||{};S.prefs.navOrder={};save();buildNav();render();}">Restaurar ordem padrão</button>
     </div>
     <div class="card" style="margin-bottom:12px;">
       <div class="widget-hd"><span class="widget-ttl">Dados migrados do Notion</span><span class="widget-more">Central Lozy · jul/2026</span></div>

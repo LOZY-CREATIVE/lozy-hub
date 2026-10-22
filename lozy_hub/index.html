@@ -611,6 +611,13 @@ body.dg-on *{cursor:grabbing !important;}
 .bloco.bdg-src{opacity:.3;}
 .bloco.bdg-over-cima{box-shadow:0 -2px 0 var(--acc);}
 .bloco.bdg-over-baixo{box-shadow:0 2px 0 var(--acc);}
+/* BASES (coleções livres embutidas num bloco de página) */
+.base-embed{border:1px solid var(--b2);border-radius:12px;padding:14px;}
+.base-embed-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.base-nome-input{flex:1;min-width:0;border:none;background:transparent;font-size:15px;font-weight:600;color:var(--t1);font-family:inherit;padding:2px 0;}
+.base-nome-input:focus{outline:none;}
+.base-cell-in{border:none;background:transparent;font-family:inherit;font-size:12.5px;color:var(--t1);width:100%;padding:3px 2px;}
+.base-cell-in:focus{outline:none;background:rgba(0,0,0,.035);border-radius:5px;}
 </style>
 </head>
 <body>
@@ -841,7 +848,7 @@ active:'dashboard',
 sort:{},
 tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana',calc:'nova'},
 q:{},f:{},
-wiz:null,calc:null,propWiz:null,perfis:[],cardView:null,paginas:[],paginaView:null
+wiz:null,calc:null,propWiz:null,perfis:[],cardView:null,paginas:[],paginaView:null,bases:[]
 };
 
 /* ═══ STORAGE — adaptador ═══
@@ -859,7 +866,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets','paginas'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets','paginas','bases'];
 async function load(){
   let got=false;
   try{
@@ -2158,7 +2165,7 @@ function openImportarSegundasOcorrencias(){
        reais distintos que ganharam o mesmo id por azar). Não apaga
        nada — só troca o id das cópias extras por um novo, único.
    ═══════════════════════════════════════════════════════════ */
-const AUDIT_KEYS=['fin','demandas','tasks','leads','contatos','followups','projetos','eventos','propostas','cbase','parc','assin','paginas'];
+const AUDIT_KEYS=['fin','demandas','tasks','leads','contatos','followups','projetos','eventos','propostas','cbase','parc','assin','paginas','bases'];
 function chaveConteudo(r){return JSON.stringify(['desc','titulo','nome','empresa','valor','data','tipo','conta','cliente'].map(c=>r[c]));}
 function auditIds(){
   const grupos=[];
@@ -4470,7 +4477,8 @@ const TRASH_META={
   parc:{l:'Parcelamento',n:r=>r.nome,ir:'financeiro'},
   assin:{l:'Assinatura',n:r=>r.nome,ir:'financeiro'},
   cbase:{l:'Cliente',n:r=>r.nome,ir:'clientes'},
-  paginas:{l:'Página',n:r=>r.titulo,ir:'dashboard'}
+  paginas:{l:'Página',n:r=>r.titulo,ir:'dashboard'},
+  bases:{l:'Base',n:r=>r.nome,ir:'dashboard'}
 };
 function trashLabel(kind){return TRASH_META[kind]?TRASH_META[kind].l:kind;}
 function trashName(kind,r){
@@ -4724,6 +4732,14 @@ function dgDrop(kind,id,alvo){
     pushUndo('mover projeto interno "'+p.nome+'" para "'+alvo+'"',['pint']);
     pintTransicao(p,alvo);save();render();
     toast('"'+p.nome+'" → '+alvo,'Desfazer','doUndo()',5000);
+  }else if(kind.startsWith('base:')){ /* kanban de uma base livre — "coluna" é "base:<baseId>:<campoId>" */
+    const[,baseId,campoId]=kind.split(':');
+    const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+    const r=base.registros.find(x=>x.id===id);if(!r)return;
+    if((r[campoId]||'')===alvo)return;
+    pushUndo('mover registro de base',['bases']);
+    r[campoId]=alvo||null;save();render();
+    toast('Registro atualizado','Desfazer','doUndo()',5000);
   }
 }
 document.addEventListener('pointermove',dgMove,{passive:false});
@@ -4774,6 +4790,7 @@ function renderPaginaView(c){
       <button class="btn-sm" onclick="addBloco('${p.id}','divisor')">+ Divisor</button>
       <label class="btn-sm" style="cursor:pointer;">+ Imagem<input type="file" accept="image/*" style="display:none" onchange="addBlocoImg('${p.id}',this)"></label>
       <button class="btn-sm" onclick="addBlocoVinculo('${p.id}')">+ Vínculo</button>
+      <button class="btn-sm" onclick="addBlocoBase('${p.id}')">+ Base</button>
     </div>
     ${subs.length?`<div style="margin-top:24px;">
       <div class="day-lbl">Subpáginas</div>
@@ -4813,6 +4830,8 @@ function blocoHtml(p,b){
     const ent=(S[b.kind]||[]).find(x=>x.id===b.refId);
     const label=ent?(ent.titulo||ent.nome||ent.desc||'Item'):'(registro removido)';
     body=`<div class="bloco-vinculo" onclick="openCard('${b.kind}','${b.refId}')">${IC[TRASH_META[b.kind]?TRASH_META[b.kind].ir:'']||IC.pagina} ${esc(label)}</div>`;
+  }else if(b.tipo==='database'){
+    body=`<div style="flex:1;min-width:0;">${renderBaseEmbed(b.baseId)}</div>`;
   }
   return `<div class="bloco" data-bloco-id="${b.id}"><span class="dg-grip" title="Arrastar" onpointerdown="bdgDown(event,'${p.id}','${b.id}')">⠿</span><div class="bloco-body">${body}</div><button class="ibtn del bloco-del" onclick="delBloco('${p.id}','${b.id}')">✕</button></div>`;
 }
@@ -4959,6 +4978,174 @@ document.addEventListener('pointermove',bdgMove,{passive:false});
 document.addEventListener('pointerup',bdgEnd);
 document.addEventListener('pointercancel',bdgClear);
 
+/* ═══════════════════════════════════════════════════════════
+   BASES — coleções livres com campos definidos pelo usuário,
+   embutidas num bloco 'database' de uma página (bloco guarda só
+   baseId; toda a base vive em S.bases). Cada base tem campos
+   (texto/número/data/checkbox/seleção) e views (Tabela ou Kanban,
+   agrupado por um campo de seleção) — é a peça de "converter
+   tabela em kanban" do plano. Diferente das visões do Fase 5 (que
+   serão só leitura sobre módulos existentes), aqui o Kanban aceita
+   arrastar pra regravar o campo de agrupamento: não há regra de
+   negócio (tipo demTransicao) sendo contornada, é um registro livre
+   criado pelo próprio usuário.
+   ═══════════════════════════════════════════════════════════ */
+function refreshBasesEmbeds(){if(S.paginaView)refreshPaginaBlocks(S.paginaView);}
+function addBlocoBase(pid){
+  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  const tabelaView={id:uid('vw'),nome:'Tabela',tipo:'tabela',groupBy:null};
+  const base={id:uid('bs'),nome:'Nova base',campos:[{id:uid('cp'),nome:'Nome',tipo:'texto'}],registros:[],views:[tabelaView],viewAtiva:tabelaView.id};
+  S.bases.push(base);
+  if(!Array.isArray(p.blocks))p.blocks=[];
+  p.blocks.push({id:uid('bl'),tipo:'database',baseId:base.id});
+  p.atualizadoEm=todayStr();save();
+  refreshPaginaBlocks(pid);
+}
+function delBase(baseId){
+  if(!confirm('Excluir esta base e todos os registros? Vai para a lixeira por 30 dias.'))return;
+  softDel('bases',baseId);
+}
+function baseSet(baseId,field,val){
+  const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+  base[field]=val;save();
+}
+function baseSetRefresh(baseId,field,val){baseSet(baseId,field,val);refreshBasesEmbeds();}
+function baseSetView(baseId,viewId){
+  const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+  base.viewAtiva=viewId;save();refreshBasesEmbeds();
+}
+function novaBaseView(baseId){
+  const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+  const camposSelecao=(base.campos||[]).filter(c=>c.tipo==='selecao');
+  openModal('Nova visão',`
+    <div class="field"><label>Nome</label><input id="m1" placeholder="Ex: Por status"></div>
+    <div class="field"><label>Tipo</label><select id="m2" onchange="document.getElementById('m3-wrap').style.display=this.value==='kanban'?'block':'none'">
+      <option value="tabela">Tabela</option>
+      <option value="kanban">Kanban</option>
+    </select></div>
+    <div class="field" id="m3-wrap" style="display:none">
+      <label>Agrupar por</label>
+      <select id="m3">${camposSelecao.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('')}</select>
+      ${!camposSelecao.length?'<div style="font-size:11px;color:var(--t3);margin-top:4px;">Crie um campo do tipo "Seleção" primeiro pra poder agrupar em Kanban.</div>':''}
+    </div>`,
+  ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
+    const tipo=v('m2');
+    if(tipo==='kanban'&&!camposSelecao.length)return;
+    const view={id:uid('vw'),nome:v('m1').trim(),tipo,groupBy:tipo==='kanban'?v('m3'):null};
+    base.views.push(view);base.viewAtiva=view.id;
+    save();closeModal();refreshBasesEmbeds();});
+}
+function novoBaseCampo(baseId){
+  openModal('Novo campo',`
+    <div class="field"><label>Nome</label><input id="m1" placeholder="Ex: Status, Prioridade, Responsável"></div>
+    <div class="field"><label>Tipo</label><select id="m2" onchange="document.getElementById('m3-wrap').style.display=this.value==='selecao'?'block':'none'">
+      <option value="texto">Texto</option>
+      <option value="numero">Número</option>
+      <option value="data">Data</option>
+      <option value="checkbox">Caixa de seleção</option>
+      <option value="selecao">Seleção (p/ Kanban)</option>
+    </select></div>
+    <div class="field" id="m3-wrap" style="display:none"><label>Opções (uma por linha)</label><textarea id="m3" rows="4" placeholder="Ex: A fazer
+Em andamento
+Concluído"></textarea></div>`,
+  ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
+    const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+    const tipo=v('m2');
+    const campo={id:uid('cp'),nome:v('m1').trim(),tipo};
+    if(tipo==='selecao')campo.opcoes=v('m3').split('\n').map(s=>s.trim()).filter(Boolean);
+    if(!Array.isArray(base.campos))base.campos=[];
+    base.campos.push(campo);
+    save();closeModal();refreshBasesEmbeds();});
+}
+function delBaseCampo(baseId,campoId){
+  const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+  if(!confirm('Remover este campo de todos os registros?'))return;
+  base.campos=base.campos.filter(c=>c.id!==campoId);
+  (base.registros||[]).forEach(r=>{delete r[campoId];});
+  base.views=(base.views||[]).filter(v=>v.groupBy!==campoId); /* views que agrupavam por ele deixam de fazer sentido */
+  if(base.views.length&&!base.views.some(v=>v.id===base.viewAtiva))base.viewAtiva=base.views[0].id;
+  save();refreshBasesEmbeds();
+}
+function novoBaseRegistro(baseId){
+  const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+  if(!Array.isArray(base.registros))base.registros=[];
+  base.registros.push({id:uid('rg')});
+  save();refreshBasesEmbeds();
+}
+function delBaseRegistro(baseId,regId){
+  const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+  base.registros=base.registros.filter(r=>r.id!==regId);
+  save();refreshBasesEmbeds();
+}
+function baseCellSet(baseId,regId,campoId,val,refresh){
+  const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+  const r=base.registros.find(x=>x.id===regId);if(!r)return;
+  r[campoId]=val;save();
+  if(refresh)refreshBasesEmbeds();
+}
+function renderBaseEmbed(baseId){
+  const base=(S.bases||[]).find(x=>x.id===baseId);
+  if(!base)return '<div class="empty-msg">Base removida.</div>';
+  const view=(base.views||[]).find(v=>v.id===base.viewAtiva)||(base.views||[])[0];
+  return `<div class="base-embed">
+    <div class="base-embed-hd">
+      <input class="base-nome-input" value="${esc(base.nome)}" placeholder="Nome da base" oninput="baseSet('${base.id}','nome',this.value)">
+      <button class="ibtn del" title="Excluir base" onclick="delBase('${base.id}')">✕</button>
+    </div>
+    <div class="tabs" style="margin:6px 0 10px;">
+      ${(base.views||[]).map(v=>`<button class="tab ${view&&view.id===v.id?'active':''}" onclick="baseSetView('${base.id}','${v.id}')">${esc(v.nome)}</button>`).join('')}
+      <button class="tab" onclick="novaBaseView('${base.id}')">+ visão</button>
+    </div>
+    <div>${view?(view.tipo==='kanban'?renderBaseKanban(base,view):renderBaseTabela(base)):'<div class="empty-msg">Crie uma visão.</div>'}</div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="btn-sm" onclick="novoBaseCampo('${base.id}')">+ Campo</button>
+      <button class="btn-sm" onclick="novoBaseRegistro('${base.id}')">+ Registro</button>
+    </div>
+  </div>`;
+}
+function baseCellInput(baseId,regId,campo,val){
+  if(campo.tipo==='checkbox')return `<input type="checkbox" style="width:auto" ${val?'checked':''} onchange="baseCellSet('${baseId}','${regId}','${campo.id}',this.checked,true)">`;
+  if(campo.tipo==='selecao')return `<select class="fsel base-cell-in" onchange="baseCellSet('${baseId}','${regId}','${campo.id}',this.value,true)"><option value="">—</option>${(campo.opcoes||[]).map(o=>`<option ${val===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  if(campo.tipo==='numero')return `<input class="base-cell-in" type="number" step="0.01" value="${val??''}" oninput="baseCellSet('${baseId}','${regId}','${campo.id}',Number(this.value)||0)">`;
+  if(campo.tipo==='data')return `<input class="base-cell-in" type="date" value="${val||''}" onchange="baseCellSet('${baseId}','${regId}','${campo.id}',this.value,true)">`;
+  return `<input class="base-cell-in" value="${esc(val)}" oninput="baseCellSet('${baseId}','${regId}','${campo.id}',this.value)">`;
+}
+function renderBaseTabela(base){
+  const campos=base.campos||[];
+  if(!campos.length)return '<div class="empty-msg">Crie um campo pra começar.</div>';
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr>
+    ${campos.map(cp=>`<th>${esc(cp.nome)} <button class="ibtn" style="width:16px;height:16px;font-size:9px;" title="Remover campo" onclick="delBaseCampo('${base.id}','${cp.id}')">✕</button></th>`).join('')}
+    <th></th></tr></thead><tbody>
+    ${(base.registros||[]).map(r=>`<tr>${campos.map(cp=>`<td>${baseCellInput(base.id,r.id,cp,r[cp.id])}</td>`).join('')}<td><button class="ibtn del" onclick="delBaseRegistro('${base.id}','${r.id}')">✕</button></td></tr>`).join('')}
+    </tbody></table></div>
+    ${!(base.registros||[]).length?'<div class="empty-msg">Nenhum registro ainda.</div>':''}`;
+}
+function baseKanbanCard(base,r,campo){
+  const tituloCampo=(base.campos||[])[0];
+  const titulo=tituloCampo?(r[tituloCampo.id]||'Sem título'):'Sem título';
+  const outros=(base.campos||[]).slice(1).filter(c=>c.id!==campo.id).slice(0,2);
+  return `<div class="kcard" data-dg="base:${base.id}:${campo.id}" onpointerdown="dgDown(event,'base:${base.id}:${campo.id}','${r.id}')" style="cursor:grab;">
+    <div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(String(titulo))}</div></div></div>
+    ${outros.map(c=>r[c.id]?`<div class="kc-sub">${esc(c.nome)}: ${esc(String(r[c.id]))}</div>`:'').join('')}
+    <div class="kc-acts" style="margin-top:4px;"><button class="ibtn del" onclick="delBaseRegistro('${base.id}','${r.id}')">✕</button></div>
+  </div>`;
+}
+function renderBaseKanban(base,view){
+  const campo=(base.campos||[]).find(c=>c.id===view.groupBy);
+  if(!campo||campo.tipo!=='selecao')return '<div class="empty-msg">A visão aponta pra um campo que não existe mais — crie outra visão.</div>';
+  const opcoes=[...(campo.opcoes||[]),''];
+  return kanbanLimBar()+'<div class="board">'+opcoes.map(op=>{
+    const arr=(base.registros||[]).filter(r=>(r[campo.id]||'')===op);
+    const pg=kanbanPage('base:'+base.id+':'+view.id+':'+(op||'_vazio'),arr);
+    const label=op||'Sem valor';
+    return `<div class="col" data-dg="base:${base.id}:${campo.id}" data-dgval="${esc(op)}"><div class="col-hd"><span class="col-pill">${esc(label)}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
+    ${pg.shown.length?pg.shown.map(r=>baseKanbanCard(base,r,campo)).join(''):'<div class="col-empty">Vazio</div>'}${kanbanMoreBtn(pg)}</div></div>`;
+  }).join('')+'</div>';
+}
+document.addEventListener('pointermove',bdgMove,{passive:false});
+document.addEventListener('pointerup',bdgEnd);
+document.addEventListener('pointercancel',bdgClear);
+
 /* ── Cmd/Ctrl+Z e Cmd/Ctrl+Shift+Z ── */
 document.addEventListener('keydown',e=>{
   if(!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
@@ -4977,7 +5164,7 @@ document.addEventListener('keydown',e=>{
    mesmo registro resolve por updated_at (o mais recente vence).
    Sem backend configurado, o Hub segue funcionando local.
    ═══════════════════════════════════════════════════════════════ */
-const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','cbase','parc','assin','trash','paginas'];
+const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','cbase','parc','assin','trash','paginas','bases'];
 const SETTING_KEYS=['theme','prefs','dash','cols','sort','finPresets'];
 let SY={busy:false,last:null,err:null,snap:{}};
 

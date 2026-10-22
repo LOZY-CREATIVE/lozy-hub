@@ -1847,7 +1847,7 @@ function renderProjetos(c){
       return `<div class="kcard"><div class="kc-name" style="margin-bottom:2px">${esc(p.nome)}</div>
       <div class="kc-sub">${esc(p.cliente)}${dems?' · '+dems+' demandas abertas':''}</div>
       <div class="kc-ft"><div class="kc-val" style="font-size:11.5px;color:${es&&es.cls==='atrasada'?'var(--red)':'var(--t2)'}">${p.entrega?'Entrega '+fmtD(p.entrega):'Sem prazo'}</div>
-      <div class="kc-acts"><button class="ibtn" onclick="openProj('${p.id}')">✎</button>
+      <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('projetos','${p.id}')">⤢</button>
       <button class="ibtn" ${i===0?'disabled style="opacity:.25"':''} onclick="mvProj('${p.id}',-1)">←</button>
       <button class="ibtn" ${i===FASES.length-1?'disabled style="opacity:.25"':''} onclick="mvProj('${p.id}',1)">→</button>
       <button class="ibtn del" onclick="delProj('${p.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Nenhuma produção nesta etapa</div>'}</div></div>`;
@@ -3023,7 +3023,7 @@ function renderAgenda(c){
       const evs=S.eventos.filter(e=>e.data===ds).sort((a,b)=>(a.hIni||'').localeCompare(b.hIni||''));
       const przs=S.demandas.filter(x=>x.status!=='Entregue'&&demPrazoAtivo(x)===ds);
       return `<div class="ag-day ${ds===today?'today':''}"><div class="ag-dhd">${dows[i]}</div><div class="ag-dnum">${d.getDate()}</div>
-      ${evs.map(e=>`<div class="ag-ev ev-${e.tipo.toLowerCase().normalize('NFD').replace(/[^a-z]/g,'')||'outro'}" onclick="openEvento('${e.id}')" style="cursor:pointer">
+      ${evs.map(e=>`<div class="ag-ev ev-${e.tipo.toLowerCase().normalize('NFD').replace(/[^a-z]/g,'')||'outro'}" onclick="openCard('eventos','${e.id}')" style="cursor:pointer">
         <div class="t">${esc(e.titulo)}</div><div class="h">${e.hIni||''}${e.hFim?'–'+e.hFim:''}${e.local?' · '+esc(e.local):''}</div>
         <div style="display:flex;gap:8px;margin-top:3px;"><a href="${gcalLink(e)}" target="_blank" onclick="event.stopPropagation()">+ Google Agenda</a><a href="#" onclick="event.stopPropagation();delEvento('${e.id}');return false;">excluir</a></div></div>`).join('')}
       ${przs.map(p=>`<div class="ag-ev ev-prazo"><div class="t">Prazo: ${esc(p.titulo)}</div><div class="h">${esc(p.cliente||'')} · ${p.uid}</div></div>`).join('')}
@@ -4129,10 +4129,13 @@ function cardTab(t){S.cardView.tab=t;renderCard();}
 function renderCard(){
   const cv=S.cardView;const it=cardEntity();
   if(!cv||!it){closeCard();return;}
-  const titulo=it.titulo||it.desc||'Item';
+  const titulo=it.titulo||it.nome||it.desc||'Item';
   const sub=cv.kind==='demandas'?((it.cliente||'Sem cliente')+' · '+it.uid+' · '+it.status)
     :cv.kind==='tasks'?((it.area||'Tarefa')+' · '+it.status)
     :cv.kind==='pint'?((it.area||'Sem área')+' · '+it.status)
+    :cv.kind==='cbase'?((it.segmento||'Sem segmento')+(it.cidade?' · '+it.cidade:''))
+    :cv.kind==='projetos'?((it.cliente||'Sem cliente')+' · '+it.fase)
+    :cv.kind==='eventos'?(it.tipo+' · '+fmtD(it.data)+(it.hIni?' · '+it.hIni:''))
     :((it.tipo==='receita'?'Receita':'Despesa')+' · '+fmtBRL2(it.valor)+(it.cliente?' · '+esc(it.cliente):''));
   const tabs=[['det','Detalhes']];
   if(cv.kind==='pint')tabs.push(['tarefas','Tarefas']);
@@ -4194,6 +4197,34 @@ function cardDetalhesHtml(kind,it){
     <div class="f2"><div class="field"><label>Área</label><select onchange="cardSetRefresh('area',this.value)"><option value="">—</option>${TAREAS.map(a=>`<option ${it.area===a?'selected':''}>${a}</option>`).join('')}</select></div>
     <div class="field"><label>Status</label><select onchange="cardSetStatus(this.value)">${PISTATUS.map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
     <div class="field"><label>Prazo (opcional)</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>`;
+  }
+  if(kind==='cbase'){
+    const st=cliStats(it.nome);
+    return `
+    <div class="field"><label>Nome</label><input value="${esc(it.nome)}" oninput="cardSet('nome',this.value)" onchange="renderCard()"></div>
+    <div class="f2"><div class="field"><label>Segmento</label><input value="${esc(it.segmento)}" oninput="cardSet('segmento',this.value)" placeholder="Saúde, Gastronomia, Creator..."></div>
+    <div class="field"><label>Cidade</label><input value="${esc(it.cidade)}" oninput="cardSet('cidade',this.value)"></div></div>
+    <div class="f2"><div class="field"><label>E-mail</label><input value="${esc(it.email)}" oninput="cardSet('email',this.value)"></div>
+    <div class="field"><label>Telefone</label><input value="${esc(it.tel)}" oninput="cardSet('tel',this.value)"></div></div>
+    <div class="field"><label>Instagram</label><input value="${esc(it.instagram)}" oninput="cardSet('instagram',this.value)" placeholder="@perfil"></div>
+    <div class="field"><label>Notas</label><textarea rows="3" oninput="cardSet('notas',this.value)">${esc(it.notas)}</textarea></div>
+    <div style="font-size:11px;color:var(--t3)">${st.dems} demandas · ${st.projetos} projetos · Receita líq. ${fmtBRL(st.rec)}</div>`;
+  }
+  if(kind==='projetos'){
+    return `
+    <div class="field"><label>Nome do projeto</label><input value="${esc(it.nome)}" oninput="cardSet('nome',this.value)" onchange="renderCard()"></div>
+    <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-list-proj" oninput="cardSet('cliente',this.value)"><datalist id="cl-list-proj">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Fase</label><select onchange="cardSetRefresh('fase',this.value)">${FASES.map(f=>`<option ${it.fase===f?'selected':''}>${f}</option>`).join('')}</select></div>
+    <div class="field"><label>Data de entrega</label><input type="date" value="${it.entrega||''}" onchange="cardSetRefresh('entrega',this.value||null)"></div></div>`;
+  }
+  if(kind==='eventos'){
+    return `
+    <div class="field"><label>Título</label><input value="${esc(it.titulo)}" oninput="cardSet('titulo',this.value)" onchange="renderCard()"></div>
+    <div class="f2"><div class="field"><label>Tipo</label><select onchange="cardSetRefresh('tipo',this.value)">${ETIPOS.map(t=>`<option ${it.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="field"><label>Data</label><input type="date" value="${it.data||''}" onchange="cardSetRefresh('data',this.value)"></div></div>
+    <div class="f2"><div class="field"><label>Início</label><input type="time" value="${it.hIni||''}" onchange="cardSetRefresh('hIni',this.value)"></div>
+    <div class="field"><label>Fim</label><input type="time" value="${it.hFim||''}" onchange="cardSetRefresh('hFim',this.value)"></div></div>
+    <div class="field"><label>Local / link</label><input value="${esc(it.local)}" oninput="cardSet('local',this.value)"></div>`;
   }
   const isRec=it.tipo==='receita';
   return `
@@ -4869,7 +4900,7 @@ function renderClientes(c){
   const t=S.tab.clientes;
   if(t==='cards'){
     b.innerHTML='<div class="cli-grid">'+cs.map(cl=>{const st=cliStats(cl.nome);
-      return `<div class="card cli-card" onclick="openCliente('${cl.id}')">
+      return `<div class="card cli-card" onclick="openClienteCard('${cl.id}')">
       <div class="cli-avatar">${esc(cl.nome[0].toUpperCase())}</div>
       <div class="cli-nome">${esc(cl.nome)}</div>
       <div class="cli-meta">${esc(cl.segmento)||'Sem segmento'}${cl.instagram?' · '+esc(cl.instagram):''}</div>
@@ -4879,7 +4910,7 @@ function renderClientes(c){
         <div class="cli-stat"><b style="color:${st.rec?'var(--green)':'inherit'}">${fmtBRL(st.rec)}</b><span>Receita</span></div>
       </div></div>`;}).join('')+'</div>';
   }else if(t==='lista'){
-    b.innerHTML=cs.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('clientes',applyTableSort('clientes',cs),cl=>`<button class="ibtn" onclick="openCliente('${cl.id}')">✎</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum cliente encontrado.</div></div>';
+    b.innerHTML=cs.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('clientes',applyTableSort('clientes',cs),cl=>`<button class="ibtn" title="abrir" onclick="openClienteCard('${cl.id}')">⤢</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum cliente encontrado.</div></div>';
   }else{
     const rank=cs.map(cl=>({cl,st:cliStats(cl.nome)})).filter(x=>x.st.rec>0).sort((a,b)=>b.st.rec-a.st.rec);
     const mx=Math.max(1,...rank.map(x=>x.st.rec));
@@ -4891,6 +4922,19 @@ function renderClientes(c){
       <div style="font-size:10.5px;color:var(--t3);margin-top:10px;">barra = receita líquida · valor à direita = receita · resultado (receita − despesas vinculadas)</div></div>`
     :'<div class="card"><div class="empty-msg">Nenhum cliente com receita registrada ainda.</div></div>';
   }
+}
+/* abre o Card Drawer de um cliente — promove clientes "derivados" (que só existem
+   porque aparecem numa demanda/projeto/lançamento, sem cadastro próprio em S.cbase)
+   pra um registro de verdade na primeira vez que são abertos, senão não têm onde
+   guardar Observações/Checklist. */
+function openClienteCard(id){
+  let cl=S.cbase.find(c=>c.id===id);
+  if(!cl){
+    const d=allClientes().find(x=>x.id===id);
+    cl={id:uid('c'),nome:d?d.nome:id,email:'',tel:'',instagram:'',segmento:'',cidade:'',notas:''};
+    S.cbase.push(cl);save();
+  }
+  openCard('cbase',cl.id);
 }
 function openCliente(id){
   let cl=id?allClientes().find(x=>x.id===id):null;

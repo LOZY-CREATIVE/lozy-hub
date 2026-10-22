@@ -584,6 +584,33 @@ body.dg-on *{cursor:grabbing !important;}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-thumb{background:#9a9a9a;border-radius:6px;}
 ::-webkit-scrollbar-track{background:transparent;}
+/* BLOCOS DE PÁGINA (páginas livres) */
+.pg-title-input{width:100%;border:none;background:transparent;font-size:24px;font-weight:700;color:var(--lx1);padding:4px 0;font-family:inherit;}
+.pg-title-input:focus{outline:none;}
+.bloco{display:flex;align-items:flex-start;gap:6px;padding:3px 0;border-radius:8px;}
+.bloco .dg-grip{margin-top:7px;opacity:0;}
+.bloco:hover .dg-grip{opacity:.5;}
+.bloco-body{flex:1;min-width:0;display:flex;align-items:center;}
+.bloco-texto{flex:1;min-width:0;border:none;background:transparent;resize:none;font-family:inherit;color:var(--t1);line-height:1.6;padding:4px 0;}
+.bloco-texto:focus{outline:none;background:rgba(0,0,0,.025);border-radius:6px;}
+.bloco-texto.bloco-h1{font-size:22px;font-weight:700;}
+.bloco-texto.bloco-h2{font-size:18px;font-weight:650;}
+.bloco-texto.bloco-h3{font-size:15px;font-weight:600;}
+.bloco-texto.bloco-quote{font-style:italic;color:var(--t2);border-left:3px solid var(--acc);padding-left:10px;}
+.bloco-estilo-sel{font-size:10px;padding:3px 5px;margin-left:6px;opacity:.35;flex-shrink:0;}
+.bloco-estilo-sel:hover{opacity:1;}
+.bloco-check-txt{border:none;background:transparent;font-family:inherit;font-size:13px;color:var(--t1);flex:1;padding:4px 0;}
+.bloco-check-txt:focus{outline:none;}
+.bloco-divisor{border:none;border-top:1px solid var(--b2);margin:10px 0;width:100%;}
+.bloco-img{max-width:100%;border-radius:8px;display:block;}
+.bloco-vinculo{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid var(--b2);border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--t2);}
+.bloco-vinculo:hover{background:rgba(0,0,0,.04);}
+.bloco-vinculo svg{width:14px;height:14px;}
+.bloco .bloco-del{opacity:0;flex-shrink:0;margin-top:3px;}
+.bloco:hover .bloco-del{opacity:1;}
+.bloco.bdg-src{opacity:.3;}
+.bloco.bdg-over-cima{box-shadow:0 -2px 0 var(--acc);}
+.bloco.bdg-over-baixo{box-shadow:0 2px 0 var(--acc);}
 </style>
 </head>
 <body>
@@ -630,7 +657,9 @@ calculadora:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-w
 contratos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10" width="15" height="10.5" rx="2.5"/><path d="M8 10V7.5a4 4 0 018 0V10"/></svg>',
 ajustes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h.01a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
 central:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 3"/></svg>',
-lixeira:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg>'};
+lixeira:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg>',
+pagina:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h8L19 7.5v13H7z"/><path d="M15 3.5V7.5h4"/><path d="M10 12h6M10 15.5h6"/></svg>',
+addpage:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>'};
 
 /* ═══ SECTIONS / CONSTANTS ═══ */
 const SECTIONS=[
@@ -812,7 +841,7 @@ active:'dashboard',
 sort:{},
 tab:{comercial:'jornada',clientes:'cards',demandas:'porstatus',tarefas:'kanban',financeiro:'visao',central:'visao',propostas:'lista',projetos:'pipeline',agenda:'semana',calc:'nova'},
 q:{},f:{},
-wiz:null,calc:null,propWiz:null,perfis:[],cardView:null
+wiz:null,calc:null,propWiz:null,perfis:[],cardView:null,paginas:[],paginaView:null
 };
 
 /* ═══ STORAGE — adaptador ═══
@@ -830,7 +859,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets','paginas'];
 async function load(){
   let got=false;
   try{
@@ -1023,13 +1052,20 @@ function buildNav(){
   const sb=document.getElementById('sidebar');
   sb.classList.toggle('exp',exp);
   const tg=document.getElementById('sb-tgl');if(tg)tg.textContent=exp?'«':'»';
+  const paginasTopo=(S.paginas||[]).filter(p=>!p.pai);
   document.getElementById('snavlist').innerHTML=NAVGROUPS.map(g=>
     (exp?'<div class="nav-grp">'+g.l+'</div>':'<div class="nav-sep"></div>')+
     navOrder(g).map(id=>{const s=SECTIONS.find(x=>x.id===id);
       return '<button class="snav '+(S.active===id?'active':'')+'" onclick="goTo(\''+id+'\')">'+IC[id]+
         (exp?'<span class="nlbl">'+s.label+(!s.ready?'<i class="soon">em breve</i>':'')+'</span>'
             :'<span class="tip">'+s.label+(!s.ready?' · em breve':'')+'</span>')+'</button>';
-    }).join('')).join('');
+    }).join('')).join('')
+    +(exp?'<div class="nav-grp">Páginas</div>':'<div class="nav-sep"></div>')
+    +paginasTopo.map(p=>{const lbl=esc(p.titulo||'Sem título');
+      return '<button class="snav '+(S.active==='pagina'&&S.paginaView===p.id?'active':'')+'" onclick="abrirPagina(\''+p.id+'\')">'+IC.pagina+
+        (exp?'<span class="nlbl">'+lbl+'</span>':'<span class="tip">'+lbl+'</span>')+'</button>';}).join('')
+    +'<button class="snav" onclick="novaPagina()">'+IC.addpage+
+      (exp?'<span class="nlbl">Nova página</span>':'<span class="tip">Nova página</span>')+'</button>';
   const mob=['dashboard','demandas','financeiro','agenda'];
   const outras=SECTIONS.filter(x=>!mob.includes(x.id));
   const ativoFora=outras.some(x=>x.id===S.active);
@@ -1060,11 +1096,16 @@ function syncFromHash(){
     const kind=parts[1],id=decodeURIComponent(parts[2]);
     const mesmoItem=S.cardView&&S.cardView.kind===kind&&S.cardView.id===id;
     S.cardView={kind,id,tab:mesmoItem?S.cardView.tab:'det'};
+    S.paginaView=null;
     if(!mesmoItem)OBS_EDIT=null;
     if(TRASH_META[kind])S.active=TRASH_META[kind].ir;
+  }else if(parts[0]==='pagina'&&parts[1]){
+    S.cardView=null;
+    S.paginaView=decodeURIComponent(parts[1]);
+    S.active='pagina';
   }else{
     const secao=parts[0];
-    S.cardView=null;
+    S.cardView=null;S.paginaView=null;
     if(secao&&SECTIONS.some(s=>s.id===secao))S.active=secao;
     else if(!S.active)S.active='dashboard';
   }
@@ -1079,6 +1120,7 @@ function tabsHtml(mod,list){
 function render(){
   const c=document.getElementById('content');
   if(S.cardView)renderCard(c);
+  else if(S.active==='pagina')renderPaginaView(c);
   else({dashboard:renderDashboard,comercial:renderComercial,demandas:renderDemandas,tarefas:renderTarefas,
     projetos:renderProjetos,pint:renderPint,agenda:renderAgenda,financeiro:renderFin,propostas:renderPropostas,calculadora:renderCalculadora,
     central:renderCentral,ajustes:renderAjustes,clientes:renderClientes,lixeira:renderLixeira}[S.active]||renderPlaceholder)(c);
@@ -2116,7 +2158,7 @@ function openImportarSegundasOcorrencias(){
        reais distintos que ganharam o mesmo id por azar). Não apaga
        nada — só troca o id das cópias extras por um novo, único.
    ═══════════════════════════════════════════════════════════ */
-const AUDIT_KEYS=['fin','demandas','tasks','leads','contatos','followups','projetos','eventos','propostas','cbase','parc','assin'];
+const AUDIT_KEYS=['fin','demandas','tasks','leads','contatos','followups','projetos','eventos','propostas','cbase','parc','assin','paginas'];
 function chaveConteudo(r){return JSON.stringify(['desc','titulo','nome','empresa','valor','data','tipo','conta','cliente'].map(c=>r[c]));}
 function auditIds(){
   const grupos=[];
@@ -4427,7 +4469,8 @@ const TRASH_META={
   propostas:{l:'Proposta',n:r=>r.titulo||r.cliente,ir:'propostas'},
   parc:{l:'Parcelamento',n:r=>r.nome,ir:'financeiro'},
   assin:{l:'Assinatura',n:r=>r.nome,ir:'financeiro'},
-  cbase:{l:'Cliente',n:r=>r.nome,ir:'clientes'}
+  cbase:{l:'Cliente',n:r=>r.nome,ir:'clientes'},
+  paginas:{l:'Página',n:r=>r.titulo,ir:'dashboard'}
 };
 function trashLabel(kind){return TRASH_META[kind]?TRASH_META[kind].l:kind;}
 function trashName(kind,r){
@@ -4485,6 +4528,10 @@ function softDel(kind,id){
     rel.filhas=S.demandas.filter(d=>d.maeId===id).map(d=>d.id);
     S.demandas.forEach(d=>{if(d.maeId===id)d.maeId=null;});
   }
+  if(kind==='paginas'){ /* mesmo princípio, pra subpáginas não ficarem apontando pra um pai que sumiu */
+    rel.filhas=S.paginas.filter(p=>p.pai===id).map(p=>p.id);
+    S.paginas.forEach(p=>{if(p.pai===id)p.pai=null;});
+  }
   arr.splice(idx,1);
   if(kind==='fin')S.finLastUpdate=new Date().toISOString();
   if(!Array.isArray(S.trash))S.trash=[];
@@ -4505,6 +4552,8 @@ function trashRestore(trId){
   }
   if(t.kind==='demandas'&&t.rel&&t.rel.filhas)
     t.rel.filhas.forEach(fid=>{const f=S.demandas.find(d=>d.id===fid);if(f&&!f.maeId)f.maeId=t.data.id;});
+  if(t.kind==='paginas'&&t.rel&&t.rel.filhas)
+    t.rel.filhas.forEach(fid=>{const f=S.paginas.find(p=>p.id===fid);if(f&&!f.pai)f.pai=t.data.id;});
   S.trash=S.trash.filter(x=>x.id!==trId);
   save();render();
   toast('Restaurado: '+trashName(t.kind,t.data),'Ir para '+(TRASH_META[t.kind]?TRASH_META[t.kind].l:''),"goTo('"+((TRASH_META[t.kind]||{}).ir||'dashboard')+"')");
@@ -4681,6 +4730,235 @@ document.addEventListener('pointermove',dgMove,{passive:false});
 document.addEventListener('pointerup',dgEnd);
 document.addEventListener('pointercancel',dgClear);
 
+/* ═══════════════════════════════════════════════════════════
+   PÁGINAS LIVRES — documentos com blocos arrastáveis (tipo Notion)
+   S.paginas: {id,titulo,icone,pai,blocks,criadoEm,atualizadoEm}.
+   Cada linha do documento é um bloco independente — mais simples de
+   arrastar que blocos aninhados. Tipos v1: texto (com estilo de título/
+   citação), check (item de checklist), divisor, imagem (reusa a mesma
+   compressão base64 de addObsImg) e vinculo (aponta pra um registro
+   existente — demanda/tarefa/cliente/etc — abrindo a página dele).
+   ═══════════════════════════════════════════════════════════ */
+function abrirPagina(id){goTo('pagina/'+id);}
+function novaPagina(paiId){
+  const p={id:uid('pg'),titulo:'',icone:'',pai:paiId||null,blocks:[],criadoEm:todayStr(),atualizadoEm:todayStr()};
+  S.paginas.push(p);save();
+  abrirPagina(p.id);
+}
+function paginaSet(pid,field,val){
+  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  p[field]=val;p.atualizadoEm=todayStr();save();
+}
+function delPagina(id){
+  if(!confirm('Excluir esta página? Vai para a lixeira por 30 dias — subpáginas viram páginas de topo.'))return;
+  const p=S.paginas.find(x=>x.id===id);if(!p)return;
+  const pai=p.pai;
+  softDel('paginas',id);
+  goTo(pai?('pagina/'+pai):'dashboard');
+}
+function renderPaginaView(c){
+  const p=(S.paginas||[]).find(x=>x.id===S.paginaView);
+  if(!p){location.hash='#/dashboard';return;}
+  const paiPg=p.pai?S.paginas.find(x=>x.id===p.pai):null;
+  const subs=S.paginas.filter(x=>x.pai===p.id);
+  c.innerHTML=`
+    <div class="page-hd"><div>
+      ${paiPg?`<button class="btn-ghost" onclick="abrirPagina('${paiPg.id}')">← ${esc(paiPg.titulo||'Sem título')}</button>`:''}
+      <input class="pg-title-input" value="${esc(p.titulo)}" placeholder="Sem título" oninput="paginaSet('${p.id}','titulo',this.value)" onchange="buildNav()">
+    </div>
+    <button class="btn-ghost" style="color:var(--red)" onclick="delPagina('${p.id}')">✕ Excluir página</button></div>
+    <div id="pg-blocks">${renderPaginaBlocks(p)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      <button class="btn-sm" onclick="addBloco('${p.id}','texto')">+ Texto</button>
+      <button class="btn-sm" onclick="addBloco('${p.id}','check')">+ Checklist</button>
+      <button class="btn-sm" onclick="addBloco('${p.id}','divisor')">+ Divisor</button>
+      <label class="btn-sm" style="cursor:pointer;">+ Imagem<input type="file" accept="image/*" style="display:none" onchange="addBlocoImg('${p.id}',this)"></label>
+      <button class="btn-sm" onclick="addBlocoVinculo('${p.id}')">+ Vínculo</button>
+    </div>
+    ${subs.length?`<div style="margin-top:24px;">
+      <div class="day-lbl">Subpáginas</div>
+      ${subs.map(sp=>`<div class="row-item row-go" onclick="abrirPagina('${sp.id}')"><div class="ri-name"><span style="display:inline-flex;width:14px;height:14px;vertical-align:-2px;margin-right:4px;">${IC.pagina}</span>${esc(sp.titulo||'Sem título')}</div></div>`).join('')}
+    </div>`:''}
+    <button class="btn-ghost" style="margin-top:12px;" onclick="novaPagina('${p.id}')">+ Nova subpágina</button>`;
+}
+function renderPaginaBlocks(p){
+  if(!p.blocks||!p.blocks.length)return '<div class="empty-msg">Página vazia — adicione um bloco abaixo.</div>';
+  return p.blocks.map(b=>blocoHtml(p,b)).join('');
+}
+function refreshPaginaBlocks(pid){
+  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  const el=document.getElementById('pg-blocks');if(el)el.innerHTML=renderPaginaBlocks(p);
+}
+function blocoHtml(p,b){
+  let body='';
+  if(b.tipo==='texto'){
+    body=`<textarea class="bloco-texto bloco-${b.estilo||'p'}" rows="${Math.max(1,(b.texto||'').split('\n').length)}" oninput="blocoSet('${p.id}','${b.id}','texto',this.value)" placeholder="Escreva algo...">${esc(b.texto)}</textarea>
+    <select class="fsel bloco-estilo-sel" onchange="blocoSetRefresh('${p.id}','${b.id}','estilo',this.value)">
+      <option value="p" ${(!b.estilo||b.estilo==='p')?'selected':''}>Texto</option>
+      <option value="h1" ${b.estilo==='h1'?'selected':''}>Título 1</option>
+      <option value="h2" ${b.estilo==='h2'?'selected':''}>Título 2</option>
+      <option value="h3" ${b.estilo==='h3'?'selected':''}>Título 3</option>
+      <option value="quote" ${b.estilo==='quote'?'selected':''}>Citação</option>
+    </select>`;
+  }else if(b.tipo==='check'){
+    body=`<div style="display:flex;align-items:center;gap:8px;flex:1;">
+      <input type="checkbox" style="width:auto" ${b.feito?'checked':''} onchange="blocoSetRefresh('${p.id}','${b.id}','feito',this.checked)">
+      <input class="bloco-check-txt" style="${b.feito?'text-decoration:line-through;color:var(--t3)':''}" value="${esc(b.texto)}" oninput="blocoSet('${p.id}','${b.id}','texto',this.value)" placeholder="Item da lista...">
+    </div>`;
+  }else if(b.tipo==='divisor'){
+    body=`<hr class="bloco-divisor">`;
+  }else if(b.tipo==='imagem'){
+    body=`<img src="${b.img}" class="bloco-img">`;
+  }else if(b.tipo==='vinculo'){
+    const ent=(S[b.kind]||[]).find(x=>x.id===b.refId);
+    const label=ent?(ent.titulo||ent.nome||ent.desc||'Item'):'(registro removido)';
+    body=`<div class="bloco-vinculo" onclick="openCard('${b.kind}','${b.refId}')">${IC[TRASH_META[b.kind]?TRASH_META[b.kind].ir:'']||IC.pagina} ${esc(label)}</div>`;
+  }
+  return `<div class="bloco" data-bloco-id="${b.id}"><span class="dg-grip" title="Arrastar" onpointerdown="bdgDown(event,'${p.id}','${b.id}')">⠿</span><div class="bloco-body">${body}</div><button class="ibtn del bloco-del" onclick="delBloco('${p.id}','${b.id}')">✕</button></div>`;
+}
+function blocoSet(pid,bid,field,val){
+  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  const b=p.blocks.find(x=>x.id===bid);if(!b)return;
+  b[field]=val;p.atualizadoEm=todayStr();save();
+}
+function blocoSetRefresh(pid,bid,field,val){blocoSet(pid,bid,field,val);refreshPaginaBlocks(pid);}
+function addBloco(pid,tipo){
+  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  if(!Array.isArray(p.blocks))p.blocks=[];
+  const base={id:uid('bl'),tipo};
+  if(tipo==='texto'){base.texto='';base.estilo='p';}
+  if(tipo==='check'){base.texto='';base.feito=false;}
+  p.blocks.push(base);
+  p.atualizadoEm=todayStr();save();
+  refreshPaginaBlocks(pid);
+}
+function delBloco(pid,bid){
+  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  p.blocks=p.blocks.filter(b=>b.id!==bid);
+  p.atualizadoEm=todayStr();save();
+  refreshPaginaBlocks(pid);
+}
+function addBlocoImg(pid,input){
+  const file=input.files&&input.files[0];if(!file)return;
+  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAXW=900;const scale=Math.min(1,MAXW/img.width);
+      const canvas=document.createElement('canvas');
+      canvas.width=img.width*scale;canvas.height=img.height*scale;
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      const dataUrl=canvas.toDataURL('image/jpeg',0.82);
+      if(!Array.isArray(p.blocks))p.blocks=[];
+      p.blocks.push({id:uid('bl'),tipo:'imagem',img:dataUrl});
+      p.atualizadoEm=todayStr();save();
+      refreshPaginaBlocks(pid);
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+/* vincular um registro existente — picker simples por busca, reusando o modal genérico */
+function addBlocoVinculo(pid){
+  window._vincPid=pid;
+  window._vincOpts=[
+    ...S.demandas.map(d=>({kind:'demandas',id:d.id,label:(d.uid?d.uid+' · ':'')+d.titulo})),
+    ...S.tasks.map(t=>({kind:'tasks',id:t.id,label:t.titulo})),
+    ...S.pint.map(p=>({kind:'pint',id:p.id,label:p.nome})),
+    ...S.cbase.map(c=>({kind:'cbase',id:c.id,label:c.nome})),
+    ...S.projetos.map(p=>({kind:'projetos',id:p.id,label:p.nome})),
+    ...S.eventos.map(e=>({kind:'eventos',id:e.id,label:e.titulo}))
+  ];
+  openModal('Vincular um registro',`
+    <input class="search" id="vinc-q" placeholder="Buscar por título, nome..." oninput="vincFiltra()">
+    <div id="vinc-list" style="max-height:50vh;overflow-y:auto;margin-top:10px;"></div>`,null,true);
+  vincFiltra();
+}
+function vincFiltra(){
+  const q=(document.getElementById('vinc-q')?.value||'').toLowerCase();
+  const list=(window._vincOpts||[]).filter(o=>!q||o.label.toLowerCase().includes(q)).slice(0,40);
+  const el=document.getElementById('vinc-list');if(!el)return;
+  el.innerHTML=list.length?list.map(o=>`<div class="row-item row-go" onclick="confirmaVinculo('${o.kind}','${o.id}')">${esc(o.label)}</div>`).join(''):'<div class="empty-msg">Nada encontrado.</div>';
+}
+function confirmaVinculo(kind,id){
+  const pid=window._vincPid;const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  if(!Array.isArray(p.blocks))p.blocks=[];
+  p.blocks.push({id:uid('bl'),tipo:'vinculo',kind,refId:id});
+  p.atualizadoEm=todayStr();save();closeModal();refreshPaginaBlocks(pid);
+}
+/* ── arrastar blocos por posição (não por coluna, ao contrário do DG) ──
+   calcula o índice de inserção pela metade vertical do bloco sob o mouse. */
+let BDG=null;
+function bdgDown(ev,pid,bid){
+  if(ev.pointerType==='mouse'&&ev.button!==0)return;
+  const el=ev.currentTarget.closest('.bloco');if(!el)return;
+  BDG={pid,bid,el,list:el.parentElement,x0:ev.clientX,y0:ev.clientY,live:false,ghost:null};
+  try{el.setPointerCapture(ev.pointerId);}catch(e){}
+}
+function bdgActivate(x,y){
+  const r=BDG.el.getBoundingClientRect();
+  BDG.ox=r.left-BDG.x0;BDG.oy=r.top-BDG.y0;
+  const g=BDG.el.cloneNode(true);g.classList.add('drag-ghost');g.style.width=r.width+'px';
+  document.body.appendChild(g);BDG.ghost=g;BDG.live=true;
+  BDG.el.classList.add('bdg-src');
+  document.body.classList.add('dg-on');
+  bdgGhostTo(x,y);
+}
+function bdgGhostTo(x,y){if(BDG&&BDG.ghost){BDG.ghost.style.left=(x+BDG.ox)+'px';BDG.ghost.style.top=(y+BDG.oy)+'px';}}
+function bdgAlvoEm(y){
+  if(!BDG)return null;
+  const blocos=[...BDG.list.querySelectorAll('.bloco')].filter(b=>b!==BDG.el);
+  for(const b of blocos){
+    const r=b.getBoundingClientRect();
+    if(y<r.top+r.height/2)return{el:b,depois:false};
+  }
+  return blocos.length?{el:blocos[blocos.length-1],depois:true}:null;
+}
+function bdgMove(ev){
+  if(!BDG)return;
+  if(!BDG.live){
+    if(Math.abs(ev.clientX-BDG.x0)<5&&Math.abs(ev.clientY-BDG.y0)<5)return;
+    bdgActivate(ev.clientX,ev.clientY);
+  }
+  ev.preventDefault();
+  bdgGhostTo(ev.clientX,ev.clientY);
+  document.querySelectorAll('.bloco.bdg-over-cima,.bloco.bdg-over-baixo').forEach(b=>b.classList.remove('bdg-over-cima','bdg-over-baixo'));
+  const alvo=bdgAlvoEm(ev.clientY);
+  if(alvo)alvo.el.classList.add(alvo.depois?'bdg-over-baixo':'bdg-over-cima');
+}
+function bdgEnd(ev){
+  if(!BDG)return;
+  const live=BDG.live,pid=BDG.pid,bid=BDG.bid;
+  const alvo=live?bdgAlvoEm(ev.clientY):null;
+  const alvoId=alvo?alvo.el.dataset.blocoId:null,depois=alvo?alvo.depois:false;
+  bdgClear();
+  if(live&&alvoId)bdgDrop(pid,bid,alvoId,depois);
+}
+function bdgClear(){
+  if(!BDG)return;
+  if(BDG.ghost)BDG.ghost.remove();
+  if(BDG.el)BDG.el.classList.remove('bdg-src');
+  document.body.classList.remove('dg-on');
+  document.querySelectorAll('.bloco.bdg-over-cima,.bloco.bdg-over-baixo').forEach(b=>b.classList.remove('bdg-over-cima','bdg-over-baixo'));
+  BDG=null;
+}
+function bdgDrop(pid,bid,alvoId,depois){
+  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  const from=p.blocks.findIndex(b=>b.id===bid);
+  if(from<0)return;
+  const [mv]=p.blocks.splice(from,1);
+  let to=p.blocks.findIndex(b=>b.id===alvoId);
+  if(to<0){p.blocks.splice(from,0,mv);return;}
+  p.blocks.splice(depois?to+1:to,0,mv);
+  p.atualizadoEm=todayStr();save();
+  refreshPaginaBlocks(pid);
+}
+document.addEventListener('pointermove',bdgMove,{passive:false});
+document.addEventListener('pointerup',bdgEnd);
+document.addEventListener('pointercancel',bdgClear);
+
 /* ── Cmd/Ctrl+Z e Cmd/Ctrl+Shift+Z ── */
 document.addEventListener('keydown',e=>{
   if(!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
@@ -4699,7 +4977,7 @@ document.addEventListener('keydown',e=>{
    mesmo registro resolve por updated_at (o mais recente vence).
    Sem backend configurado, o Hub segue funcionando local.
    ═══════════════════════════════════════════════════════════════ */
-const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','cbase','parc','assin','trash'];
+const SYNC_KINDS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','cbase','parc','assin','trash','paginas'];
 const SETTING_KEYS=['theme','prefs','dash','cols','sort','finPresets'];
 let SY={busy:false,last:null,err:null,snap:{}};
 

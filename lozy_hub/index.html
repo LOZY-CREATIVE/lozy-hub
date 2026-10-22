@@ -1059,7 +1059,7 @@ function buildNav(){
   const sb=document.getElementById('sidebar');
   sb.classList.toggle('exp',exp);
   const tg=document.getElementById('sb-tgl');if(tg)tg.textContent=exp?'«':'»';
-  const paginasTopo=(S.paginas||[]).filter(p=>!p.pai);
+  const paginasTopo=(S.paginas||[]).filter(p=>!p.pai&&!p.vinculoKind);
   document.getElementById('snavlist').innerHTML=NAVGROUPS.map(g=>
     (exp?'<div class="nav-grp">'+g.l+'</div>':'<div class="nav-sep"></div>')+
     navOrder(g).map(id=>{const s=SECTIONS.find(x=>x.id===id);
@@ -1411,11 +1411,10 @@ function dashCustomizerBody(){
   const rows=S.dash.map((it,i)=>{
     const label=it.type==='custom'?(it.label||METRIC_DEFS[it.metric]?.label||'Widget'):(BUILTIN_DEFS[it.id]?.label||it.id);
     const hidden=it.visible===false;
-    return `<div style="display:flex;align-items:center;gap:6px;padding:8px 2px;border-bottom:1px solid var(--ltb);opacity:${hidden?0.45:1}">
+    return `<div class="dash-row" data-dash-id="${esc(it.id)}" style="display:flex;align-items:center;gap:6px;padding:8px 2px;border-bottom:1px solid var(--ltb);opacity:${hidden?0.45:1}">
+      <span class="dg-grip" title="Arrastar" onpointerdown="wdgDown(event,'${esc(it.id)}')">⠿</span>
       <span style="flex:1;font-size:12.5px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</span>
       ${it.type==='custom'?'<span class="bdg">personalizado</span>':''}
-      <button class="ibtn" onclick="dashMove(${i},-1)" title="Mover para cima">↑</button>
-      <button class="ibtn" onclick="dashMove(${i},1)" title="Mover para baixo">↓</button>
       <button class="ibtn" onclick="dashToggle(${i})" title="${hidden?'Mostrar':'Ocultar'}">${hidden?'○':'●'}</button>
       ${it.type==='custom'?`<button class="ibtn del" onclick="dashDelete(${i})" title="Remover">✕</button>`:''}
     </div>`;
@@ -1430,11 +1429,6 @@ function dashCustomizerBody(){
     </div>
     <button class="btn-sm" onclick="dashAddCustom()">+ Adicionar ao dashboard</button>
   </div>`;
-}
-function dashMove(i,dir){
-  const j=i+dir;if(j<0||j>=S.dash.length)return;
-  [S.dash[i],S.dash[j]]=[S.dash[j],S.dash[i]];
-  save();openDashCustomizer();render();
 }
 function dashToggle(i){S.dash[i].visible=S.dash[i].visible===false?true:false;save();openDashCustomizer();render();}
 function dashDelete(i){if(S.dash[i].type!=='custom')return;S.dash.splice(i,1);save();openDashCustomizer();render();}
@@ -4219,7 +4213,7 @@ function renderCard(c){
     :((it.tipo==='receita'?'Receita':'Despesa')+' · '+fmtBRL2(it.valor)+(it.cliente?' · '+esc(it.cliente):''));
   const tabs=[['det','Detalhes']];
   if(cv.kind==='pint')tabs.push(['tarefas','Tarefas']);
-  tabs.push(['obs','Observações'],['chk','Checklist']);
+  tabs.push(['obs','Observações'],['chk','Checklist'],['paginas','Páginas']);
   if(cv.kind==='demandas'||cv.kind==='tasks'||cv.kind==='pint')tabs.push(['hist','Tempo por status']);
   c.innerHTML=`
     <div class="page-hd"><div>
@@ -4374,10 +4368,15 @@ function cardTabBody(){
     return `${chk.length?`<div style="font-size:11px;color:var(--t3);margin-bottom:10px;">${feitos}/${chk.length} concluídos</div>`:''}
     ${chk.map(c=>`<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--b2);">
       <input type="checkbox" style="width:auto" ${c.feito?'checked':''} onchange="toggleChk('${c.id}')">
-      <span style="flex:1;font-size:13px;${c.feito?'text-decoration:line-through;color:var(--t3)':''}">${esc(c.texto)}</span>
+      <input class="bloco-check-txt" style="${c.feito?'text-decoration:line-through;color:var(--t3)':''}" value="${esc(c.texto)}" oninput="editChk('${c.id}',this.value)">
       <button class="ibtn del" onclick="delChk('${c.id}')">✕</button></div>`).join('')}
     ${!chk.length?'<div class="empty-msg">Nenhum item ainda.</div>':''}
     <div style="display:flex;gap:8px;margin-top:12px;"><input id="chk-novo" class="task-input" placeholder="Novo item..." onkeydown="if(event.key==='Enter'){event.preventDefault();addChk();}"><button class="btn-sm" onclick="addChk()">+</button></div>`;
+  }
+  if(cv.tab==='paginas'){
+    const vinculadas=(S.paginas||[]).filter(p=>p.vinculoKind===cv.kind&&p.vinculoId===cv.id);
+    return `${vinculadas.length?vinculadas.map(p=>`<div class="row-item row-go" onclick="abrirPagina('${p.id}')"><div class="ri-name"><span style="display:inline-flex;width:14px;height:14px;vertical-align:-2px;margin-right:4px;">${IC.pagina}</span>${esc(p.titulo||'Sem título')}</div></div>`).join(''):'<div class="empty-msg">Nenhuma página vinculada ainda.</div>'}
+    <button class="btn-sm" style="margin-top:10px;" onclick="novaPaginaVinculada('${cv.kind}','${cv.id}')">+ Nova página</button>`;
   }
   if(cv.tab==='hist'){
     const hist=tempoPorStatus(it.statusHistory);
@@ -4446,6 +4445,11 @@ function toggleChk(id){
 function delChk(id){
   const it=cardEntity();if(!it||!it.checklist)return;
   it.checklist=it.checklist.filter(x=>x.id!==id);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function editChk(id,val){
+  const it=cardEntity();if(!it||!it.checklist)return;
+  const c=it.checklist.find(x=>x.id===id);if(c)c.texto=val;
+  save();
 }
 function pintAddTask(pid){
   const el=document.getElementById('pint-task-novo');const v=el.value.trim();if(!v)return;
@@ -4767,6 +4771,15 @@ function novaPagina(paiId){
   S.paginas.push(p);save();
   abrirPagina(p.id);
 }
+/* página criada de dentro do Card Drawer de um registro (demanda/tarefa/
+   cliente/etc) — fica "vinculada" a ele (vinculoKind/vinculoId) em vez de
+   aninhada sob outra página (pai). Por isso nunca tem os dois ao mesmo
+   tempo: ou é livre/aninhada, ou pertence a um registro. */
+function novaPaginaVinculada(kind,id){
+  const p={id:uid('pg'),titulo:'',icone:'',pai:null,vinculoKind:kind,vinculoId:id,blocks:[],criadoEm:todayStr(),atualizadoEm:todayStr()};
+  S.paginas.push(p);save();
+  abrirPagina(p.id);
+}
 function paginaSet(pid,field,val){
   const p=S.paginas.find(x=>x.id===pid);if(!p)return;
   p[field]=val;p.atualizadoEm=todayStr();save();
@@ -4774,18 +4787,21 @@ function paginaSet(pid,field,val){
 function delPagina(id){
   if(!confirm('Excluir esta página? Vai para a lixeira por 30 dias — subpáginas viram páginas de topo.'))return;
   const p=S.paginas.find(x=>x.id===id);if(!p)return;
-  const pai=p.pai;
+  const pai=p.pai,vk=p.vinculoKind,vi=p.vinculoId;
   softDel('paginas',id);
-  goTo(pai?('pagina/'+pai):'dashboard');
+  if(vk)openCard(vk,vi);
+  else goTo(pai?('pagina/'+pai):'dashboard');
 }
 function renderPaginaView(c){
   const p=(S.paginas||[]).find(x=>x.id===S.paginaView);
   if(!p){location.hash='#/dashboard';return;}
   const paiPg=p.pai?S.paginas.find(x=>x.id===p.pai):null;
+  const origem=p.vinculoKind?(S[p.vinculoKind]||[]).find(x=>x.id===p.vinculoId):null;
   const subs=S.paginas.filter(x=>x.pai===p.id);
   c.innerHTML=`
     <div class="page-hd"><div>
       ${paiPg?`<button class="btn-ghost" onclick="abrirPagina('${paiPg.id}')">← ${esc(paiPg.titulo||'Sem título')}</button>`:''}
+      ${origem?`<button class="btn-ghost" onclick="openCard('${p.vinculoKind}','${p.vinculoId}')">← ${esc(origem.titulo||origem.nome||origem.desc||'Item')}</button>`:''}
       <input class="pg-title-input" value="${esc(p.titulo)}" placeholder="Sem título" oninput="paginaSet('${p.id}','titulo',this.value)" onchange="buildNav()">
     </div>
     <button class="btn-ghost" style="color:var(--red)" onclick="delPagina('${p.id}')">✕ Excluir página</button></div>
@@ -4859,6 +4875,7 @@ function addBloco(pid,tipo){
 }
 function delBloco(pid,bid){
   const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  pushUndo('excluir bloco da página',['paginas']);
   p.blocks=p.blocks.filter(b=>b.id!==bid);
   p.atualizadoEm=todayStr();save();
   refreshPaginaBlocks(pid);
@@ -4972,10 +4989,11 @@ function bdgClear(){
 function bdgDrop(pid,bid,alvoId,depois){
   const p=S.paginas.find(x=>x.id===pid);if(!p)return;
   const from=p.blocks.findIndex(b=>b.id===bid);
-  if(from<0)return;
+  const alvoIdx=p.blocks.findIndex(b=>b.id===alvoId);
+  if(from<0||alvoIdx<0)return;
+  pushUndo('reordenar blocos da página',['paginas']);
   const [mv]=p.blocks.splice(from,1);
   let to=p.blocks.findIndex(b=>b.id===alvoId);
-  if(to<0){p.blocks.splice(from,0,mv);return;}
   p.blocks.splice(depois?to+1:to,0,mv);
   p.atualizadoEm=todayStr();save();
   refreshPaginaBlocks(pid);
@@ -5063,6 +5081,7 @@ Concluído"></textarea></div>`,
 function delBaseCampo(baseId,campoId){
   const base=S.bases.find(x=>x.id===baseId);if(!base)return;
   if(!confirm('Remover este campo de todos os registros?'))return;
+  pushUndo('remover campo da base',['bases']);
   base.campos=base.campos.filter(c=>c.id!==campoId);
   (base.registros||[]).forEach(r=>{delete r[campoId];});
   base.views=(base.views||[]).filter(v=>v.groupBy!==campoId); /* views que agrupavam por ele deixam de fazer sentido */
@@ -5077,6 +5096,7 @@ function novoBaseRegistro(baseId){
 }
 function delBaseRegistro(baseId,regId){
   const base=S.bases.find(x=>x.id===baseId);if(!base)return;
+  pushUndo('excluir registro da base',['bases']);
   base.registros=base.registros.filter(r=>r.id!==regId);
   save();refreshBasesEmbeds();
 }
@@ -5148,6 +5168,76 @@ function renderBaseKanban(base,view){
 document.addEventListener('pointermove',bdgMove,{passive:false});
 document.addEventListener('pointerup',bdgEnd);
 document.addEventListener('pointercancel',bdgClear);
+
+/* ── arrastar linhas do "Personalizar dashboard" — mesmo princípio do BDG
+   (índice por posição vertical), só que sobre S.dash em vez de blocks ── */
+let WDG=null;
+function wdgDown(ev,id){
+  if(ev.pointerType==='mouse'&&ev.button!==0)return;
+  const el=ev.currentTarget.closest('.dash-row');if(!el)return;
+  WDG={id,el,list:el.parentElement,x0:ev.clientX,y0:ev.clientY,live:false,ghost:null};
+  try{el.setPointerCapture(ev.pointerId);}catch(e){}
+}
+function wdgActivate(x,y){
+  const r=WDG.el.getBoundingClientRect();
+  WDG.ox=r.left-WDG.x0;WDG.oy=r.top-WDG.y0;
+  const g=WDG.el.cloneNode(true);g.classList.add('drag-ghost');g.style.width=r.width+'px';
+  document.body.appendChild(g);WDG.ghost=g;WDG.live=true;
+  WDG.el.classList.add('bdg-src');
+  document.body.classList.add('dg-on');
+  wdgGhostTo(x,y);
+}
+function wdgGhostTo(x,y){if(WDG&&WDG.ghost){WDG.ghost.style.left=(x+WDG.ox)+'px';WDG.ghost.style.top=(y+WDG.oy)+'px';}}
+function wdgAlvoEm(y){
+  if(!WDG)return null;
+  const rows=[...WDG.list.querySelectorAll('.dash-row')].filter(r=>r!==WDG.el);
+  for(const r of rows){
+    const rect=r.getBoundingClientRect();
+    if(y<rect.top+rect.height/2)return{el:r,depois:false};
+  }
+  return rows.length?{el:rows[rows.length-1],depois:true}:null;
+}
+function wdgMove(ev){
+  if(!WDG)return;
+  if(!WDG.live){
+    if(Math.abs(ev.clientX-WDG.x0)<5&&Math.abs(ev.clientY-WDG.y0)<5)return;
+    wdgActivate(ev.clientX,ev.clientY);
+  }
+  ev.preventDefault();
+  wdgGhostTo(ev.clientX,ev.clientY);
+  document.querySelectorAll('.dash-row.bdg-over-cima,.dash-row.bdg-over-baixo').forEach(r=>r.classList.remove('bdg-over-cima','bdg-over-baixo'));
+  const alvo=wdgAlvoEm(ev.clientY);
+  if(alvo)alvo.el.classList.add(alvo.depois?'bdg-over-baixo':'bdg-over-cima');
+}
+function wdgEnd(ev){
+  if(!WDG)return;
+  const live=WDG.live,id=WDG.id;
+  const alvo=live?wdgAlvoEm(ev.clientY):null;
+  const alvoId=alvo?alvo.el.dataset.dashId:null,depois=alvo?alvo.depois:false;
+  wdgClear();
+  if(live&&alvoId)wdgDrop(id,alvoId,depois);
+}
+function wdgClear(){
+  if(!WDG)return;
+  if(WDG.ghost)WDG.ghost.remove();
+  if(WDG.el)WDG.el.classList.remove('bdg-src');
+  document.body.classList.remove('dg-on');
+  document.querySelectorAll('.dash-row.bdg-over-cima,.dash-row.bdg-over-baixo').forEach(r=>r.classList.remove('bdg-over-cima','bdg-over-baixo'));
+  WDG=null;
+}
+function wdgDrop(id,alvoId,depois){
+  const from=S.dash.findIndex(w=>w.id===id);
+  const alvoIdx=S.dash.findIndex(w=>w.id===alvoId);
+  if(from<0||alvoIdx<0)return;
+  pushUndo('reordenar dashboard',['dash']);
+  const [mv]=S.dash.splice(from,1);
+  let to=S.dash.findIndex(w=>w.id===alvoId);
+  S.dash.splice(depois?to+1:to,0,mv);
+  save();openDashCustomizer();render();
+}
+document.addEventListener('pointermove',wdgMove,{passive:false});
+document.addEventListener('pointerup',wdgEnd);
+document.addEventListener('pointercancel',wdgClear);
 
 /* ═══════════════════════════════════════════════════════════
    VISÕES EXTRAS — Kanban extra sobre módulos que já existem

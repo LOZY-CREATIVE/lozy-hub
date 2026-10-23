@@ -172,7 +172,7 @@ tr:hover .tacts{opacity:1;}
 .col-name{font-size:12px;font-weight:550;color:var(--lx2);}
 .col-stat{font-size:11px;color:var(--lx3);}
 .col-body{display:flex;flex-direction:column;gap:8px;min-height:40px;}
-.kcard{background:var(--s1);border:1px solid var(--ltb);border-radius:12px;padding:13px 14px;color:var(--t1);transition:border-color .15s;}
+.kcard{background:var(--s1);border:1px solid var(--ltb);border-radius:var(--r-lg);padding:13px 14px;color:var(--t1);transition:border-color .15s;box-shadow:var(--shadow-1);}
 .kcard:hover{border-color:var(--b3);}
 .kc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:2px;}
 .kc-name{font-size:12.5px;font-weight:550;}
@@ -181,7 +181,7 @@ tr:hover .tacts{opacity:1;}
 .kc-val{font-size:12.5px;font-weight:550;}
 .kc-acts{display:flex;gap:4px;opacity:0;transition:opacity .13s;}
 .kcard:hover .kc-acts{opacity:1;}
-.col-empty{border:1px dashed #a0a0a0;border-radius:10px;padding:16px 10px;text-align:center;font-size:11px;color:var(--lx3);}
+.col-empty{border:1px dashed var(--bline);border-radius:var(--r-sm);padding:18px 10px;text-align:center;font-size:11px;color:var(--lx3);}
 /* MEU DIA */
 .day-lbl{font-size:10.5px;color:var(--dk3);text-transform:uppercase;letter-spacing:.08em;font-weight:550;margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--ltb);}
 .task-input-wrap{display:flex;gap:8px;margin-bottom:10px;}
@@ -418,7 +418,7 @@ body.dg-on *{cursor:grabbing !important;}
 .bloco:hover .dg-grip{opacity:.5;}
 .bloco-body{flex:1;min-width:0;display:flex;align-items:center;}
 .bloco-texto{flex:1;min-width:0;border:none;background:transparent;resize:none;font-family:inherit;color:var(--t1);line-height:1.6;padding:4px 0;}
-.bloco-texto:focus{outline:none;background:rgba(0,0,0,.025);border-radius:6px;}
+.bloco-texto:focus{outline:none;background:var(--chromeHi);border-radius:6px;}
 .bloco-texto.bloco-h1{font-size:22px;font-weight:700;}
 .bloco-texto.bloco-h2{font-size:18px;font-weight:650;}
 .bloco-texto.bloco-h3{font-size:15px;font-weight:600;}
@@ -430,7 +430,7 @@ body.dg-on *{cursor:grabbing !important;}
 .bloco-divisor{border:none;border-top:1px solid var(--b2);margin:10px 0;width:100%;}
 .bloco-img{max-width:100%;border-radius:8px;display:block;}
 .bloco-vinculo{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid var(--b2);border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--t2);}
-.bloco-vinculo:hover{background:rgba(0,0,0,.04);}
+.bloco-vinculo:hover{background:var(--chromeHi);}
 .bloco-vinculo svg{width:14px;height:14px;}
 .bloco .bloco-del{opacity:0;flex-shrink:0;margin-top:3px;}
 .bloco:hover .bloco-del{opacity:1;}
@@ -438,7 +438,7 @@ body.dg-on *{cursor:grabbing !important;}
 .bloco.bdg-over-cima{box-shadow:0 -2px 0 var(--acc);}
 .bloco.bdg-over-baixo{box-shadow:0 2px 0 var(--acc);}
 /* BASES (coleções livres embutidas num bloco de página) */
-.base-embed{border:1px solid var(--b2);border-radius:12px;padding:14px;}
+.base-embed{border:1px solid var(--b2);border-radius:var(--r-lg);padding:14px;}
 .base-embed-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .base-nome-input{flex:1;min-width:0;border:none;background:transparent;font-size:15px;font-weight:600;color:var(--t1);font-family:inherit;padding:2px 0;}
 .base-nome-input:focus{outline:none;}
@@ -1367,7 +1367,7 @@ function comJornada(b){
   </div>`;
   b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+STAGES.map(st=>{
     const ls=base.filter(l=>l.stage===st);const pg=kanbanPage('leads:'+st,ls);
-    return `<div class="col" data-dg="leads" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-name">${st}</span><span class="col-stat">${ls.length} · ${fmtBRL(sum(ls))}</span></div><div class="col-body">${pg.shown.length?pg.shown.map(leadCard).join(''):'<div class="col-empty">Sem leads</div>'}${kanbanMoreBtn(pg)}</div></div>`;
+    return `<div class="col" data-dg="leads" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:var(--chromeOn);color:var(--lx1)">${st}<span style="opacity:.75;font-weight:500">${ls.length}</span></span><span class="col-stat">${fmtBRL(sum(ls))}</span></div><div class="col-body">${pg.shown.length?pg.shown.map(leadCard).join(''):'<div class="col-empty">Sem leads</div>'}${kanbanMoreBtn(pg)}</div></div>`;
   }).join('')+'</div>';
 }
 function leadCard(l){

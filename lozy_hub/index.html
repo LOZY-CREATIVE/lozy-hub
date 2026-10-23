@@ -428,7 +428,7 @@ body.dg-on *{cursor:grabbing !important;}
 .bloco-check-txt{border:none;background:transparent;font-family:inherit;font-size:13px;color:var(--t1);flex:1;padding:4px 0;}
 .bloco-check-txt:focus{outline:none;}
 .bloco-divisor{border:none;border-top:1px solid var(--b2);margin:10px 0;width:100%;}
-.bloco-img{max-width:100%;border-radius:8px;display:block;}
+.bloco-img{max-width:100%;max-height:420px;object-fit:cover;border-radius:8px;display:block;cursor:zoom-in;}
 .bloco-vinculo{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid var(--b2);border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--t2);}
 .bloco-vinculo:hover{background:var(--chromeHi);}
 .bloco-vinculo svg{width:14px;height:14px;}
@@ -4011,6 +4011,7 @@ function openModal(title,body,onSubmit,hideSubmit){
   setTimeout(()=>document.getElementById('m1')?.focus(),60);
 }
 function closeModal(){document.getElementById('overlay').classList.remove('show');}
+function abrirImagemCheia(src){openModal('Imagem',`<img src="${esc(src)}" style="max-width:100%;border-radius:10px;display:block;">`,null,true);document.getElementById('modal').classList.add('wide');}
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
 
 /* ═══ CARD DRAWER — abrir qualquer item numa visão isolada (Notion-like) ═══
@@ -4177,7 +4178,7 @@ function cardTabBody(){
     const obs=[...(it.observacoes||[])].reverse();
     return `${obs.length?obs.map(o=>o.id===OBS_EDIT?`<div style="border:1px solid var(--acc);border-radius:10px;padding:11px;margin-bottom:8px;">
       <div style="font-size:10.5px;color:var(--t3);margin-bottom:5px;">${fmtD(o.em)}</div>
-      ${o.img?`<img src="${o.img}" style="max-width:100%;border-radius:8px;margin-bottom:8px;display:block;">`:''}
+      ${o.img?`<img src="${o.img}" class="bloco-img" style="margin-bottom:8px" onclick="abrirImagemCheia(this.src)">`:''}
       <textarea id="obs-edit-${o.id}" rows="3" style="width:100%;">${esc(o.texto)}</textarea>
       <div style="display:flex;gap:8px;margin-top:8px;">
       <button class="btn-sm" onclick="saveObsEdit('${o.id}')">Salvar</button>
@@ -4185,7 +4186,7 @@ function cardTabBody(){
       :`<div style="border:1px solid var(--b2);border-radius:10px;padding:11px;margin-bottom:8px;">
       <div style="font-size:10.5px;color:var(--t3);margin-bottom:5px;">${fmtD(o.em)}${o.editadoEm?' · <span title="Editada">editada '+fmtD(o.editadoEm)+'</span>':''}</div>
       ${o.texto?`<div style="font-size:13px;white-space:pre-wrap;line-height:1.5;">${esc(o.texto)}</div>`:''}
-      ${o.img?`<img src="${o.img}" style="max-width:100%;border-radius:8px;margin-top:8px;display:block;">`:''}
+      ${o.img?`<img src="${o.img}" class="bloco-img" style="margin-top:8px" onclick="abrirImagemCheia(this.src)">`:''}
       <div style="display:flex;gap:6px;margin-top:6px;">
       <button class="btn-sm" onclick="editObs('${o.id}')">✎ editar</button>
       <button class="btn-sm" style="color:var(--red)" onclick="delObs('${o.id}')">✕ remover</button></div></div>`).join(''):'<div class="empty-msg">Nenhuma observação ainda.</div>'}
@@ -4681,7 +4682,7 @@ function blocoHtml(p,b){
   }else if(b.tipo==='divisor'){
     body=`<hr class="bloco-divisor">`;
   }else if(b.tipo==='imagem'){
-    body=`<img src="${b.img}" class="bloco-img">`;
+    body=`<img src="${b.img}" class="bloco-img" onclick="abrirImagemCheia(this.src)">`;
   }else if(b.tipo==='vinculo'){
     const ent=(S[b.kind]||[]).find(x=>x.id===b.refId);
     const label=ent?(ent.titulo||ent.nome||ent.desc||'Item'):'(registro removido)';

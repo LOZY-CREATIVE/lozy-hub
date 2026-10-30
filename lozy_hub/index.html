@@ -540,6 +540,7 @@ const TAREAS=['Atendimento','Comercial','Operacional','Financeiro','Marketing Lo
 const FASES=['Briefing','Pré-produção','Captação','Edição','Revisão','Entrega'];
 const PISTATUS=['Planejamento','Em andamento','Pausado','Concluído'];
 const PICOLORS={'Planejamento':'#6e6e6e','Em andamento':'#2563eb','Pausado':'#d97706','Concluído':'#15803d'};
+const PROPSTATUS=['Rascunho','Enviada','Aprovada','Recusada','Sem retorno'];
 const FCATS=['Equipamentos','Softwares','Transporte','Alimentação','Operação','Impostos','Outros'];
 const RTIPOS=['Captação','Edição','Fotos','Deslocamento','Extra'];
 const FORMAS=['PIX','Crédito','Débito','Dinheiro','Boleto','Transferência'];
@@ -1068,10 +1069,11 @@ const COLDEFS={
     {k:'contato',l:'Contato',def:0,get:r=>r.cliente||'',cell:r=>`<span style="color:var(--t2)">${esc(r.cliente)||'—'}</span>`},
     {k:'formato',l:'Formato',def:1,get:r=>r.formato||(r.recorrente?'Recorrente':'Projeto'),cell:r=>`<span class="bdg">${r.formato||(r.recorrente?'Recorrente':'Projeto')}</span>`},
     {k:'investimento',l:'Investimento',def:1,get:r=>r.investimento||r.total||0,cell:r=>fmtBRL(r.investimento||r.total)},
+    {k:'valorFechado',l:'Valor fechado',def:1,get:r=>r.valorFechado??-1,cell:r=>`<button class="btn-sm" title="Clique pra registrar o valor que foi realmente acordado, se diferente do investimento proposto" onclick="setValorFechado('${r.id}')">${r.valorFechado!=null?fmtBRL(r.valorFechado):'—'}</button>`},
     {k:'entregas',l:'Entregas',def:0,get:r=>(r.entregas||r.itens||[]).length,cell:r=>String((r.entregas||r.itens||[]).length)},
     {k:'criada',l:'Criada em',def:0,get:r=>r.criada||'',cell:r=>`<span style="color:var(--t2);font-size:12px">${fmtD(r.criada)}</span>`},
     {k:'validade',l:'Validade',def:1,get:r=>r.validade||'',cell:r=>`<span style="color:var(--t2);font-size:12px">${fmtD(r.validade)}</span>`},
-    {k:'status',l:'Status',def:1,get:r=>r.status||'',cell:r=>{const c={Rascunho:'s-gray',Enviada:'s-amber',Aprovada:'s-green',Recusada:'s-red'}[r.status]||'s-gray';return `<span class="sdot ${c}"></span><button class="btn-sm" onclick="cycleProp('${r.id}')">${r.status}</button>`;}}
+    {k:'status',l:'Status',def:1,get:r=>r.status||'',cell:r=>{const c={Rascunho:'s-gray',Enviada:'s-amber',Aprovada:'s-green',Recusada:'s-red','Sem retorno':'s-blue'}[r.status]||'s-gray';return `<span class="sdot ${c}"></span><select class="fsel" style="padding:3px 8px;font-size:11px;" onchange="setPropStatus('${r.id}',this.value)">${PROPSTATUS.map(s=>`<option ${r.status===s?'selected':''}>${s}</option>`).join('')}</select>`;}}
   ]},
   tarefas:{nome:'Tarefas',cols:[
     {k:'titulo',l:'Tarefa',def:1,get:r=>r.titulo||'',cell:r=>`<span style="font-weight:500">${esc(r.titulo)}</span>`},
@@ -3214,7 +3216,16 @@ function renderPropostas(c){
     ${ps.length?`<div class="toolbar">${colBtn('propostas')}${csvBtn('propostas',ps)}</div><div class="card" style="padding:6px 20px;">${renderDataTable('propostas',applyTableSort('propostas',ps),p=>`${p.versao===2?`<button class="ibtn" title="editar" onclick="editProp('${p.id}')">✎</button>`:''}<button class="ibtn" title="baixar HTML" onclick="downloadProp('${p.id}')">↓</button><button class="ibtn" title="visualizar" onclick="previewProp('${p.id}')">👁</button><button class="ibtn del" onclick="delProp('${p.id}')">✕</button>`)}</div>`
     :`<div class="card"><div class="empty-msg">Nenhuma proposta criada ainda. A proposta guiada puxa direto de um orçamento calculado na Calculadora — ou comece do zero em "Nova proposta guiada".</div></div>`}`;
 }
-function cycleProp(id){const p=S.propostas.find(x=>x.id===id);const st=['Rascunho','Enviada','Aprovada','Recusada'];p.status=st[(st.indexOf(p.status)+1)%st.length];save();render();}
+function setPropStatus(id,val){const p=S.propostas.find(x=>x.id===id);if(!p)return;p.status=val;save();render();}
+function setValorFechado(id){
+  const p=S.propostas.find(x=>x.id===id);if(!p)return;
+  const atual=p.valorFechado!=null?p.valorFechado:'';
+  const v=prompt('Valor final acordado (R$) — deixe em branco pra limpar. Diferente do investimento da proposta, se foi negociado:',atual);
+  if(v===null)return;
+  if(v.trim()===''){p.valorFechado=null;}
+  else{const n=Number(v.replace(',','.'));if(isNaN(n))return toast('Valor inválido.');p.valorFechado=n;}
+  save();render();
+}
 function delProp(id){softDel('propostas',id);}
 
 function startWizard(){

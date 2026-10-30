@@ -878,6 +878,18 @@ function clientes(){ /* base derivada: todos os nomes de cliente do sistema */
   S.fin.forEach(f=>f.cliente&&s.add(f.cliente));
   return[...s].filter(Boolean).sort();
 }
+/* fonte do autocomplete (datalist) em qualquer campo de nome de cliente/empresa —
+   mais abrangente que clientes() (que só conta quem já É cliente de fato): inclui
+   cadastro, leads em qualquer etapa, propostas e tarefas. Existe pra evitar o
+   problema de "mesmo cliente, grafia diferente" virando dois registros. */
+function nomesConhecidos(){
+  const s=new Set(clientes());
+  S.cbase.forEach(c=>c.nome&&s.add(c.nome));
+  S.leads.forEach(l=>l.empresa&&s.add(l.empresa));
+  S.propostas.forEach(p=>{if(p.empresa)s.add(p.empresa);if(p.cliente)s.add(p.cliente);});
+  S.tasks.forEach(t=>t.cliente&&s.add(t.cliente));
+  return[...s].filter(Boolean).sort();
+}
 function greeting(){const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';}
 
 /* ═══ NAV ═══ */
@@ -1554,7 +1566,7 @@ function comAgenda(b){
 function openLead(id){
   const l=id?S.leads.find(x=>x.id===id):null;
   openModal(l?'Editar lead':'Novo lead',`
-    <div class="field"><label>Empresa / marca</label><input id="m1" value="${esc(l?.empresa)}" placeholder="Ex: Clínica Aurora"></div>
+    <div class="field"><label>Empresa / marca</label><input id="m1" list="cl-lead" value="${esc(l?.empresa)}" placeholder="Ex: Clínica Aurora"><datalist id="cl-lead">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="f2"><div class="field"><label>Contato</label><input id="m2" value="${esc(l?.contato)}"></div>
     <div class="field"><label>Valor estimado (R$)</label><input id="m3" type="number" value="${l?.valor??''}"></div></div>
     <div class="f2"><div class="field"><label>Origem</label><input id="m4" value="${esc(l?.origem)}" placeholder="Indicação, Instagram..."></div>
@@ -1579,7 +1591,7 @@ function openLead(id){
 function openContato(){
   openModal('Novo contato',`
     <div class="field"><label>Nome</label><input id="m1"></div>
-    <div class="field"><label>Empresa</label><input id="m2"></div>
+    <div class="field"><label>Empresa</label><input id="m2" list="cl-contato"><datalist id="cl-contato">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="f2"><div class="field"><label>Cargo</label><input id="m3"></div><div class="field"><label>Telefone</label><input id="m4"></div></div>
     <div class="field"><label>E-mail</label><input id="m5" type="email"></div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
@@ -1731,7 +1743,7 @@ function openDem(id){
   const maes=S.demandas.filter(x=>!x.maeId&&x.id!==id);
   openModal(d?('Editar '+d.uid):'Nova demanda',`
     <div class="field"><label>Título</label><input id="m1" value="${esc(d?.titulo)}" placeholder="Ex: Editar 4 reels de julho"></div>
-    <div class="f2"><div class="field"><label>Cliente</label><input id="m2" list="cl-list" value="${esc(d?.cliente)}"><datalist id="cl-list">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Cliente</label><input id="m2" list="cl-list" value="${esc(d?.cliente)}"><datalist id="cl-list">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="field"><label>Tipo</label><select id="m3">${DTIPOS.map(t=>`<option ${d?.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Prazo (V1)</label><input id="m4" type="date" value="${d?.prazo||''}"></div>
     <div class="field"><label>Status</label><select id="m5">${DSTATUS.map(t=>`<option ${d?.status===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
@@ -1820,7 +1832,7 @@ function openTask(id){
     <div class="field"><label>Status</label><select id="m3">${TSTATUS.map(p=>`<option ${t?.status===p?'selected':''}>${p}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Prazo</label><input id="m4" type="date" value="${t?.prazo||''}"></div>
     <div class="field"><label>Área</label><select id="m6"><option value="">—</option>${TAREAS.map(a=>`<option ${t?.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
-    <div class="f2"><div class="field"><label>Cliente (opcional)</label><input id="m7" list="cl-tk" value="${esc(t?.cliente)}"><datalist id="cl-tk">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Cliente (opcional)</label><input id="m7" list="cl-tk" value="${esc(t?.cliente)}"><datalist id="cl-tk">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="field"><label>Demanda vinculada</label><select id="m5"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${t?.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div></div>
     <div class="field"><label>Projeto interno vinculado</label><select id="m8"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${t?.projIntId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
@@ -1872,7 +1884,7 @@ function openProj(id){
   const p=id?S.projetos.find(x=>x.id===id):null;
   openModal(p?'Editar projeto':'Novo projeto',`
     <div class="field"><label>Nome do projeto</label><input id="m1" value="${esc(p?.nome)}"></div>
-    <div class="field"><label>Cliente</label><input id="m2" list="cl-list2" value="${esc(p?.cliente)}"><datalist id="cl-list2">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="field"><label>Cliente</label><input id="m2" list="cl-list2" value="${esc(p?.cliente)}"><datalist id="cl-list2">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="f2"><div class="field"><label>Fase</label><select id="m3">${FASES.map(f=>`<option ${p?.fase===f?'selected':''}>${f}</option>`).join('')}</select></div>
     <div class="field"><label>Data de entrega</label><input id="m4" type="date" value="${p?.entrega||''}"></div></div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
@@ -2780,7 +2792,7 @@ function openLanc(tipo,id){
     <div id="parc-extra"></div>`}
     <div class="f2"><div class="field"><label>Forma de pagamento</label><select id="m6">${FORMAS.map(t=>`<option ${l?.forma===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div class="field"><label>Conta</label><select id="m7">${CONTAS.map(c=>`<option ${l?.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select></div></div>
-    <div class="field"><label>Cliente / Projeto (opcional)</label><input id="m9" list="cl-list3" value="${esc(l?.cliente)}"><datalist id="cl-list3">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="field"><label>Cliente / Projeto (opcional)</label><input id="m9" list="cl-list3" value="${esc(l?.cliente)}"><datalist id="cl-list3">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="field"><label>Demanda vinculada (opcional)</label><select id="m14"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${l?.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div>
     <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="m10" style="width:auto" ${l?.pago?'checked':''}><label style="margin:0">${isRec?'Já foi recebido':'Já foi pago'}</label></div>
     ${!isRec?'<div style="font-size:11px;color:var(--t3)">Crédito: mês de referência segue o fechamento da fatura (Nubank 9 · BTG 27).</div>':''}`,
@@ -3239,8 +3251,9 @@ function renderWizard(c){
   const inv=calcInvest(w);
   let body='';
   if(w.step===0)body=`
-    <div class="field"><label>Cliente (pessoa)</label><input id="w1" value="${esc(w.cliente)}" placeholder="Nome da pessoa" oninput="S.wiz.cliente=this.value"></div>
-    <div class="field"><label>Empresa ou marca</label><input id="w2" value="${esc(w.empresa)}" placeholder="Nome da empresa" oninput="S.wiz.empresa=this.value"></div>
+    <div class="field"><label>Cliente (pessoa)</label><input id="w1" list="cl-wiz" value="${esc(w.cliente)}" placeholder="Nome da pessoa" oninput="S.wiz.cliente=this.value"></div>
+    <div class="field"><label>Empresa ou marca</label><input id="w2" list="cl-wiz" value="${esc(w.empresa)}" placeholder="Nome da empresa" oninput="S.wiz.empresa=this.value"></div>
+    <datalist id="cl-wiz">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist>
     <div class="field"><label>Nome do projeto</label><input id="w3" value="${esc(w.projeto)}" placeholder="Ex: Conteúdo mensal — Redes sociais" oninput="S.wiz.projeto=this.value"></div>
     <div class="field"><label>Formato</label><select id="w4" onchange="S.wiz.formato=this.value">${['Projeto Personalizado','Conteúdo Mensal','Vídeo Institucional','Evento','Captação','Edição','Fotografia'].map(f=>`<option ${w.formato===f?'selected':''}>${f}</option>`).join('')}</select></div>`;
   else if(w.step===1)body=`
@@ -3468,8 +3481,8 @@ function calcNova(b){
   b.innerHTML=`
     <div class="card" style="margin-bottom:12px;">
       <div class="f2">
-        <div class="field"><label>Cliente</label><input value="${esc(w.cliente)}" list="cl-listcalc" oninput="S.calc.cliente=this.value"><datalist id="cl-listcalc">${clientes().map(cl=>`<option>${esc(cl)}</option>`).join('')}</datalist></div>
-        <div class="field"><label>Empresa/marca (opcional)</label><input value="${esc(w.empresa)}" oninput="S.calc.empresa=this.value"></div>
+        <div class="field"><label>Cliente</label><input value="${esc(w.cliente)}" list="cl-listcalc" oninput="S.calc.cliente=this.value"><datalist id="cl-listcalc">${nomesConhecidos().map(cl=>`<option>${esc(cl)}</option>`).join('')}</datalist></div>
+        <div class="field"><label>Empresa/marca (opcional)</label><input value="${esc(w.empresa)}" list="cl-listcalc" oninput="S.calc.empresa=this.value"></div>
       </div>
       <div class="f2">
         <div class="field"><label>Escopo</label><select onchange="S.calc.escopo=this.value;render()">
@@ -3784,8 +3797,9 @@ function renderPropWizard(c){
           <div style="font-size:11px;color:var(--t3);line-height:1.5;">${d}</div></div>`).join('')}
     </div>
     <div class="f2">
-      <div class="field"><label>Cliente (pessoa)</label><input value="${esc(w.cliente)}" oninput="S.propWiz.cliente=this.value"></div>
-      <div class="field"><label>Empresa ou marca</label><input value="${esc(w.empresa)}" oninput="S.propWiz.empresa=this.value"></div>
+      <div class="field"><label>Cliente (pessoa)</label><input list="cl-wiz2" value="${esc(w.cliente)}" oninput="S.propWiz.cliente=this.value"></div>
+      <div class="field"><label>Empresa ou marca</label><input list="cl-wiz2" value="${esc(w.empresa)}" oninput="S.propWiz.empresa=this.value"></div>
+      <datalist id="cl-wiz2">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist>
     </div>
     <div class="field"><label>Título do projeto</label><input value="${esc(w.titulo)}" placeholder="Ex: Conteúdo audiovisual para autoridade médica" oninput="S.propWiz.titulo=this.value"></div>
     <div class="field"><label>Subtítulo (1-2 linhas)</label><textarea rows="2" oninput="S.propWiz.subtitulo=this.value">${esc(w.subtitulo)}</textarea></div>
@@ -4192,7 +4206,7 @@ function cardDetalhesHtml(kind,it){
     const maes=S.demandas.filter(x=>!x.maeId&&x.id!==it.id);
     return `
     <div class="field"><label>Título</label><input value="${esc(it.titulo)}" oninput="cardSet('titulo',this.value)" onchange="renderCard()"></div>
-    <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" oninput="cardSet('cliente',this.value)" onchange="renderCard()"></div>
+    <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-card-dem" oninput="cardSet('cliente',this.value)" onchange="renderCard()"><datalist id="cl-card-dem">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="field"><label>Tipo</label><select onchange="cardSetRefresh('tipo',this.value)">${DTIPOS.map(t=>`<option ${it.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Prazo (V1)</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>
     <div class="field"><label>Status</label><select onchange="cardSetStatus(this.value)">${DSTATUS.map(t=>`<option ${it.status===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
@@ -4211,7 +4225,7 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Status</label><select onchange="cardSetStatus(this.value)">${TSTATUS.map(p=>`<option ${it.status===p?'selected':''}>${p}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Prazo</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>
     <div class="field"><label>Área</label><select onchange="cardSetRefresh('area',this.value)"><option value="">—</option>${TAREAS.map(a=>`<option ${it.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
-    <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" oninput="cardSet('cliente',this.value)"></div>
+    <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-card-task" oninput="cardSet('cliente',this.value)"><datalist id="cl-card-task">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="field"><label>Demanda vinculada</label><select onchange="cardSetRefresh('demandaId',this.value||null)"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${it.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div></div>
     <div class="field"><label>Projeto interno vinculado</label><select onchange="cardSetRefresh('projIntId',this.value||null)"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${it.projIntId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`;
   }
@@ -4237,7 +4251,7 @@ function cardDetalhesHtml(kind,it){
   if(kind==='projetos'){
     return `
     <div class="field"><label>Nome do projeto</label><input value="${esc(it.nome)}" oninput="cardSet('nome',this.value)" onchange="renderCard()"></div>
-    <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-list-proj" oninput="cardSet('cliente',this.value)"><datalist id="cl-list-proj">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-list-proj" oninput="cardSet('cliente',this.value)"><datalist id="cl-list-proj">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="f2"><div class="field"><label>Fase</label><select onchange="cardSetRefresh('fase',this.value)">${FASES.map(f=>`<option ${it.fase===f?'selected':''}>${f}</option>`).join('')}</select></div>
     <div class="field"><label>Data de entrega</label><input type="date" value="${it.entrega||''}" onchange="cardSetRefresh('entrega',this.value||null)"></div></div>`;
   }
@@ -4263,7 +4277,7 @@ function cardDetalhesHtml(kind,it){
   <div class="field"><label>Natureza</label><select onchange="cardSet('natureza',this.value)">${NATUREZAS.map(t=>`<option ${it.natureza===t?'selected':''}>${t}</option>`).join('')}</select></div></div>`}
   <div class="f2"><div class="field"><label>Forma</label><select onchange="cardSet('forma',this.value)">${FORMAS.map(t=>`<option ${it.forma===t?'selected':''}>${t}</option>`).join('')}</select></div>
   <div class="field"><label>Conta</label><select onchange="cardSet('conta',this.value)">${CONTAS.map(c=>`<option ${it.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select></div></div>
-  <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" oninput="cardSet('cliente',this.value)"></div>
+  <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-card-fin" oninput="cardSet('cliente',this.value)"><datalist id="cl-card-fin">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
   <div class="field"><label>Demanda vinculada</label><select onchange="cardSetRefresh('demandaId',this.value||null)"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${it.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div>
   <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto" ${it.pago?'checked':''} onchange="cardSetRefresh('pago',this.checked)"><label style="margin:0">${isRec?'Já foi recebido':'Já foi pago'}</label></div>`;
 }

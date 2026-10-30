@@ -1159,6 +1159,9 @@ function trGo(ev,tblId,recId){
   else if(tblId==='tarefas')openCard('tasks',recId);
   else if(tblId==='fin_lanc')openCard('fin',recId);
   else if(tblId==='clientes')openClienteCard(recId);
+  else if(tblId==='leads')openCard('leads',recId);
+  else if(tblId==='contatos'){if(S.contatos.some(c=>c.id===recId))openCard('contatos',recId);}
+  else if(tblId==='propostas')openCard('propostas',recId);
 }
 /* ── arrastar linhas de tabela pra reordenar manualmente — mesmo princípio
    do WDG/BDG, só ativo quando a tabela não está ordenada por coluna (ver
@@ -1509,7 +1512,7 @@ function leadCard(l){
   return `<div class="kcard" onpointerdown="dgDown(event,'leads','${l.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(l.empresa)}</div></div><span class="bdg ${l.temp}">${l.temp}</span></div>
   <div class="kc-sub">${esc(l.contato)||'Sem contato'}${l.origem?' · '+esc(l.origem):''}</div>
   <div class="kc-ft"><div class="kc-val">${fmtBRL(l.valor)}</div><div class="kc-acts">
-  <button class="ibtn" onclick="openLead('${l.id}')">✎</button>
+  <button class="ibtn" onclick="openCard('leads','${l.id}')">✎</button>
   <button class="ibtn" ${i===0?'disabled style="opacity:.25"':''} onclick="mvLead('${l.id}',-1)">←</button>
   <button class="ibtn" ${i===STAGES.length-1?'disabled style="opacity:.25"':''} onclick="mvLead('${l.id}',1)">→</button>
   <button class="ibtn del" onclick="delLead('${l.id}')">✕</button></div></div></div>`;
@@ -1551,7 +1554,7 @@ function comLeads(b){
       <select class="fsel" onchange="S.f.leads={...S.f.leads,origem:this.value};render()"><option value="">Origem: Todas</option>${origens.map(s=>`<option ${f.origem===s?'selected':''}>${s}</option>`).join('')}</select>
       ${colBtn('leads')}${csvBtn('leads',ls)}
     </div>
-    ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('leads',applyTableSort('leads',ls),l=>`<button class="ibtn" onclick="openLead('${l.id}')">✎</button><button class="ibtn del" onclick="delLead('${l.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lead encontrado.</div></div>'}`;
+    ${ls.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('leads',applyTableSort('leads',ls),l=>`<button class="ibtn del" onclick="delLead('${l.id}')">✕</button>`,true)}</div>`:'<div class="card"><div class="empty-msg">Nenhum lead encontrado.</div></div>'}`;
 }
 
 function comEmpresas(b){
@@ -1565,7 +1568,7 @@ function comContatos(b){
   const auto=S.leads.filter(l=>l.contato).map(l=>({id:'auto'+l.id,nome:l.contato,empresa:l.empresa,cargo:'',email:'',tel:'',auto:true}));
   const all=[...S.contatos,...auto.filter(a=>!S.contatos.some(c=>c.nome===a.nome&&c.empresa===a.empresa))];
   b.innerHTML=`<div class="toolbar">${colBtn('contatos')}${csvBtn('contatos',all)}<span style="flex:1"></span><button class="btn-ghost" onclick="openContato()">+ Novo contato</button></div>`+
-  (all.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('contatos',applyTableSort('contatos',all),ct=>ct.auto?'':`<button class="ibtn del" onclick="delContato('${ct.id}')">✕</button>`)}</div>`:'<div class="card"><div class="empty-msg">Nenhum contato ainda. Eles aparecem automaticamente quando você cadastra leads.</div></div>');
+  (all.length?`<div class="card" style="padding:6px 20px;">${renderDataTable('contatos',applyTableSort('contatos',all),ct=>ct.auto?'':`<button class="ibtn del" onclick="delContato('${ct.id}')">✕</button>`,true)}</div>`:'<div class="card"><div class="empty-msg">Nenhum contato ainda. Eles aparecem automaticamente quando você cadastra leads.</div></div>');
 }
 function delContato(id){softDel('contatos',id);}
 
@@ -1599,27 +1602,24 @@ function comAgenda(b){
 }
 
 /* lead modal (novo/editar) */
-function openLead(id){
-  const l=id?S.leads.find(x=>x.id===id):null;
-  openModal(l?'Editar lead':'Novo lead',`
-    <div class="field"><label>Empresa / marca</label><input id="m1" list="cl-lead" value="${esc(l?.empresa)}" placeholder="Ex: Clínica Aurora"><datalist id="cl-lead">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
-    <div class="f2"><div class="field"><label>Contato</label><input id="m2" value="${esc(l?.contato)}"></div>
-    <div class="field"><label>Valor estimado (R$)</label><input id="m3" type="number" value="${l?.valor??''}"></div></div>
-    <div class="f2"><div class="field"><label>Origem</label><input id="m4" value="${esc(l?.origem)}" placeholder="Indicação, Instagram..."></div>
-    <div class="field"><label>Temperatura</label><select id="m5">${['morno','quente','frio'].map(t=>`<option ${l?.temp===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
-    <div class="f2"><div class="field"><label>Segmento</label><input id="m6" value="${esc(l?.segmento)}" placeholder="Saúde, Gastronomia..."></div>
-    <div class="field"><label>Cidade</label><input id="m7" value="${esc(l?.cidade)}"></div></div>
-    <div class="f2"><div class="field"><label>Próxima ação</label><input id="m8" value="${esc(l?.proxAcao)}" placeholder="Ligar, enviar proposta..."></div>
-    <div class="field"><label>Data da ação</label><input id="m9" type="date" value="${l?.proxData||''}"></div></div>
-    ${l?`<div class="field"><label>Etapa</label><select id="m10">${STAGES.map(s=>`<option ${l.stage===s?'selected':''}>${s}</option>`).join('')}</select></div>`:''}`,
+function openLead(){
+  openModal('Novo lead',`
+    <div class="field"><label>Empresa / marca</label><input id="m1" list="cl-lead" placeholder="Ex: Clínica Aurora"><datalist id="cl-lead">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Contato</label><input id="m2"></div>
+    <div class="field"><label>Valor estimado (R$)</label><input id="m3" type="number"></div></div>
+    <div class="f2"><div class="field"><label>Origem</label><input id="m4" placeholder="Indicação, Instagram..."></div>
+    <div class="field"><label>Temperatura</label><select id="m5">${['morno','quente','frio'].map(t=>`<option>${t}</option>`).join('')}</select></div></div>
+    <div class="f2"><div class="field"><label>Segmento</label><input id="m6" placeholder="Saúde, Gastronomia..."></div>
+    <div class="field"><label>Cidade</label><input id="m7"></div></div>
+    <div class="f2"><div class="field"><label>Próxima ação</label><input id="m8" placeholder="Ligar, enviar proposta..."></div>
+    <div class="field"><label>Data da ação</label><input id="m9" type="date"></div></div>`,
   ()=>{
     const v=k=>document.getElementById(k).value;
     if(!v('m1').trim())return;
     const data={empresa:v('m1').trim(),contato:v('m2').trim(),valor:Number(v('m3'))||0,origem:v('m4').trim(),temp:v('m5'),segmento:v('m6').trim(),cidade:v('m7').trim(),proxAcao:v('m8').trim(),proxData:v('m9')||null};
-    if(l){Object.assign(l,data);if(document.getElementById('m10'))l.stage=v('m10');}
-    else S.leads.push({id:uid('l'),stage:'Novo Lead',...data});
-    if(data.proxAcao&&data.proxData&&!S.followups.some(f=>f.lead===(l?l.id:null)&&f.titulo===data.proxAcao)){
-      S.followups.push({id:uid('f'),titulo:data.proxAcao,data:data.proxData,lead:l?l.id:S.leads[S.leads.length-1].id,feito:false});
+    S.leads.push({id:uid('l'),stage:'Novo Lead',...data});
+    if(data.proxAcao&&data.proxData){
+      S.followups.push({id:uid('f'),titulo:data.proxAcao,data:data.proxData,lead:S.leads[S.leads.length-1].id,feito:false});
     }
     save();closeModal();render();
   });
@@ -1940,10 +1940,16 @@ function setTaskStatus(id,st){const t=S.tasks.find(x=>x.id===id);if(!t||t.status
    extra própria — "Tarefas" — pra listar o que está vinculado. */
 function renderPint(c){
   const ativos=S.pint.filter(p=>p.status!=='Concluído');
+  const tkAtras=S.tasks.filter(t=>t.projIntId&&t.status!=='Concluída'&&t.prazo&&prazoStatus(t.prazo)?.cls==='atrasada').length;
+  const prox=S.pint.filter(p=>p.status!=='Concluído'&&p.prazo&&prazoStatus(p.prazo)&&prazoStatus(p.prazo).diff>=0&&prazoStatus(p.prazo).diff<=7).length;
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Projetos Internos</div><div class="page-sub">Frentes de trabalho da agência — cada uma agrupa suas próprias tarefas, notas e checklist</div></div>
     <button class="btn-ghost" onclick="openPint()">+ Novo projeto interno</button></div>
-    <div class="kpis"><div class="card"><div class="clabel">Ativos</div><div class="metric">${ativos.length}</div></div></div>
+    <div class="kpis">
+      <div class="card"><div class="clabel">Projetos ativos</div><div class="metric">${ativos.length}</div></div>
+      <div class="card"><div class="clabel">Tarefas atrasadas</div><div class="metric" style="color:${tkAtras?'var(--red)':'var(--t1)'}">${tkAtras}</div></div>
+      <div class="card"><div class="clabel">Prazos próximos</div><div class="metric">${prox}</div><div class="metric-s">próximos 7 dias</div></div>
+    </div>
     ${kanbanLimBar()}<div class="board">${PISTATUS.map(st=>{
       const arr=S.pint.filter(p=>p.status===st);const cor=PICOLORS[st]||'#6e6e6e';const pg=kanbanPage('pint:'+st,arr);
       return `<div class="col" data-dg="pint" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
@@ -1953,10 +1959,12 @@ function renderPint(c){
         return `<div class="kcard kc-tint" style="border-left-color:${cor}" onpointerdown="dgDown(event,'pint','${p.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(p.nome)}</div></div></div>
         <div class="kc-sub">${p.area||'Sem área'}${tks.length?' · '+doneT+'/'+tks.length+' tarefas':''}</div>
         <div class="kc-ft"><div class="kc-val" style="font-size:11.5px;color:${ps&&ps.cls==='atrasada'?'var(--red)':'var(--t2)'}">${p.prazo?fmtD(p.prazo):'Sem prazo'}</div>
-        <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('pint','${p.id}')">⤢</button></div></div></div>`;
+        <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('pint','${p.id}')">⤢</button>
+        <button class="ibtn del" onclick="delPint('${p.id}')">✕</button></div></div></div>`;
       }).join(''):'<div class="col-empty">Vazio</div>'}${kanbanMoreBtn(pg)}</div></div>`;
     }).join('')}</div>`;
 }
+function delPint(id){softDel('pint',id);}
 function openPint(){
   openModal('Novo projeto interno',`
     <div class="field"><label>Nome</label><input id="m1"></div>
@@ -3274,17 +3282,17 @@ function renderPropostas(c){
   if(!ps.length)return;
   const b=document.getElementById('prop-body');
   if(t==='lista'){
-    b.innerHTML=`<div class="card" style="padding:6px 20px;">${renderDataTable('propostas',applyTableSort('propostas',ps),propActs)}</div>`;
+    b.innerHTML=`<div class="card" style="padding:6px 20px;">${renderDataTable('propostas',applyTableSort('propostas',ps),propActs,true)}</div>`;
   }else if(t==='cards'){
     b.innerHTML='<div class="cli-grid">'+ps.map(p=>`
-      <div class="card cli-card" style="cursor:default">
+      <div class="card cli-card" style="cursor:pointer" onclick="openCard('propostas','${p.id}')">
       <div class="cli-nome">${esc(p.projeto||p.titulo)}${p.versao===2?' <span class="bdg" title="Gerada pelo assistente de proposta">v2</span>':''}</div>
       <div class="cli-meta">${esc(p.empresa)||esc(p.cliente)||'Sem cliente'} · ${esc(p.formato||(p.recorrente?'Recorrente':'Projeto'))}</div>
       <div class="cli-stats">
         <div class="cli-stat"><b>${fmtBRL(p.investimento||p.total)}</b><span>Investimento</span></div>
         <div class="cli-stat"><b style="color:${p.valorFechado!=null?'var(--green)':'inherit'}">${p.valorFechado!=null?fmtBRL(p.valorFechado):'—'}</b><span>Fechado</span></div>
       </div>
-      <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;" onclick="event.stopPropagation()">
         <span><span class="sdot ${PROP_SDOT[p.status]||'s-gray'}"></span><span style="font-size:12px;color:var(--t2)">${esc(p.status)}</span></span>
         <div style="display:flex;gap:4px;">${propActs(p)}</div>
       </div></div>`).join('')+'</div>';
@@ -3634,12 +3642,7 @@ function orcSetStatus(id,status,quiet){
   save();
   if(!quiet){render();toast('Orçamento → '+status,'Desfazer','doUndo()',5000);}
 }
-function delOrc(id){
-  const idx=S.orcamentos.findIndex(x=>x.id===id);if(idx<0)return;
-  pushUndo('excluir orçamento',['orcamentos']);
-  S.orcamentos.splice(idx,1);save();render();
-  toast('Orçamento excluído.','Desfazer','doUndo()');
-}
+function delOrc(id){softDel('orcamentos',id);}
 function orcamentosCsv(){
   const rows=[['Cliente','Empresa','Escopo','Total','Desconto','Status','Criado']];
   S.orcamentos.forEach(o=>rows.push([o.cliente,o.empresa,o.escopo,o.total.toFixed(2),o.desconto.toFixed(2),o.status,o.criado]));
@@ -3672,22 +3675,22 @@ function calcHistorico(b){
   const bb=document.getElementById('orc-body');
   if(t==='lista'){
     bb.innerHTML=`<div class="card" style="padding:6px 20px;">${os.map(o=>`
-      <div class="row-item"><div style="min-width:0;flex:1;">
+      <div class="row-item row-go" onclick="openCard('orcamentos','${o.id}')"><div style="min-width:0;flex:1;">
         <div class="ri-name">${esc(o.cliente||'Sem cliente')}${o.empresa?' · '+esc(o.empresa):''}</div>
         <div class="ri-sub">${o.escopo==='completo'?'Completo':o.escopo==='captacao'?'Só captação':'Só edição'} · ${fmtD(o.criado)} · ${fmtBRL2(o.total)}</div>
       </div>
-      <button style="border:none;background:none;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="orcStatusCycle('${o.id}')"><span class="sdot ${o.status==='Ganho'?'s-green':o.status==='Perdido'?'s-red':'s-amber'}"></span><span style="font-size:12px;color:var(--t2)">${o.status}</span></button>
-      <div style="display:flex;gap:4px;margin-left:8px;">${orcActs(o)}</div></div>`).join('')}</div>`;
+      <button style="border:none;background:none;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation();orcStatusCycle('${o.id}')"><span class="sdot ${o.status==='Ganho'?'s-green':o.status==='Perdido'?'s-red':'s-amber'}"></span><span style="font-size:12px;color:var(--t2)">${o.status}</span></button>
+      <div style="display:flex;gap:4px;margin-left:8px;" onclick="event.stopPropagation()">${orcActs(o)}</div></div>`).join('')}</div>`;
   }else if(t==='cards'){
     bb.innerHTML='<div class="cli-grid">'+os.map(o=>`
-      <div class="card cli-card" style="cursor:default">
+      <div class="card cli-card" style="cursor:pointer" onclick="openCard('orcamentos','${o.id}')">
       <div class="cli-nome">${esc(o.cliente||'Sem cliente')}</div>
       <div class="cli-meta">${o.empresa?esc(o.empresa)+' · ':''}${o.escopo==='completo'?'Completo':o.escopo==='captacao'?'Só captação':'Só edição'}</div>
       <div class="cli-stats">
         <div class="cli-stat"><b>${fmtBRL(o.total)}</b><span>Total</span></div>
         <div class="cli-stat"><b>${fmtD(o.criado)}</b><span>Criado</span></div>
       </div>
-      <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;" onclick="event.stopPropagation()">
         <button style="border:none;background:none;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="orcStatusCycle('${o.id}')"><span class="sdot ${o.status==='Ganho'?'s-green':o.status==='Perdido'?'s-red':'s-amber'}"></span><span style="font-size:12px;color:var(--t2)">${o.status}</span></button>
         <div style="display:flex;gap:4px;">${orcActs(o)}</div>
       </div></div>`).join('')+'</div>';
@@ -4376,17 +4379,22 @@ function renderCard(c){
   c=c||document.getElementById('content');
   const cv=S.cardView;const it=cardEntity();
   if(!cv||!it){closeCard();return;}
-  const titulo=it.titulo||it.nome||it.desc||'Item';
+  const titulo=it.titulo||it.nome||it.desc||it.empresa||it.cliente||'Item';
   const sub=cv.kind==='demandas'?((it.cliente||'Sem cliente')+' · '+it.uid+' · '+it.status)
     :cv.kind==='tasks'?((it.area||'Tarefa')+' · '+it.status)
     :cv.kind==='pint'?((it.area||'Sem área')+' · '+it.status)
     :cv.kind==='cbase'?((it.segmento||'Sem segmento')+(it.cidade?' · '+it.cidade:''))
     :cv.kind==='projetos'?((it.cliente||'Sem cliente')+' · '+it.fase)
     :cv.kind==='eventos'?(it.tipo+' · '+fmtD(it.data)+(it.hIni?' · '+it.hIni:''))
+    :cv.kind==='leads'?('Lead · '+it.stage+(it.contato?' · '+it.contato:''))
+    :cv.kind==='contatos'?(it.empresa||it.cargo||'Contato')
+    :cv.kind==='orcamentos'?('Orçamento · '+it.status+' · '+fmtBRL(it.total))
+    :cv.kind==='propostas'?('Proposta · '+it.status+(it.cliente?' · '+it.cliente:''))
     :((it.tipo==='receita'?'Receita':'Despesa')+' · '+fmtBRL2(it.valor)+(it.cliente?' · '+esc(it.cliente):''));
   const tabs=[['det','Detalhes']];
   if(cv.kind==='pint')tabs.push(['tarefas','Tarefas']);
-  tabs.push(['obs','Observações'],['chk','Checklist'],['paginas','Páginas']);
+  if(cv.kind==='projetos')tabs.push(['demandas','Demandas']);
+  tabs.push(['obs','Observações']);
   if(cv.kind==='demandas'||cv.kind==='tasks'||cv.kind==='pint')tabs.push(['hist','Tempo por status']);
   c.innerHTML=`
     <div class="page-hd"><div>
@@ -4467,6 +4475,47 @@ function cardDetalhesHtml(kind,it){
     <div class="f2"><div class="field"><label>Fase</label><select onchange="cardSetRefresh('fase',this.value)">${FASES.map(f=>`<option ${it.fase===f?'selected':''}>${f}</option>`).join('')}</select></div>
     <div class="field"><label>Data de entrega</label><input type="date" value="${it.entrega||''}" onchange="cardSetRefresh('entrega',this.value||null)"></div></div>`;
   }
+  if(kind==='leads'){
+    return `
+    <div class="field"><label>Empresa / marca</label><input value="${esc(it.empresa)}" list="cl-card-lead" oninput="cardSet('empresa',this.value)" onchange="renderCard()"><datalist id="cl-card-lead">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Contato</label><input value="${esc(it.contato)}" oninput="cardSet('contato',this.value)"></div>
+    <div class="field"><label>Valor estimado (R$)</label><input type="number" value="${it.valor??''}" oninput="cardSet('valor',Number(this.value)||0)"></div></div>
+    <div class="f2"><div class="field"><label>Origem</label><input value="${esc(it.origem)}" oninput="cardSet('origem',this.value)"></div>
+    <div class="field"><label>Temperatura</label><select onchange="cardSet('temp',this.value)">${['morno','quente','frio'].map(t=>`<option ${it.temp===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+    <div class="f2"><div class="field"><label>Segmento</label><input value="${esc(it.segmento)}" oninput="cardSet('segmento',this.value)"></div>
+    <div class="field"><label>Cidade</label><input value="${esc(it.cidade)}" oninput="cardSet('cidade',this.value)"></div></div>
+    <div class="f2"><div class="field"><label>Próxima ação</label><input value="${esc(it.proxAcao)}" oninput="cardSet('proxAcao',this.value)"></div>
+    <div class="field"><label>Data da ação</label><input type="date" value="${it.proxData||''}" onchange="cardSetRefresh('proxData',this.value||null)"></div></div>
+    <div class="field"><label>Etapa</label><select onchange="cardSetRefresh('stage',this.value)">${STAGES.map(s=>`<option ${it.stage===s?'selected':''}>${s}</option>`).join('')}</select></div>`;
+  }
+  if(kind==='contatos'){
+    return `
+    <div class="field"><label>Nome</label><input value="${esc(it.nome)}" oninput="cardSet('nome',this.value)" onchange="renderCard()"></div>
+    <div class="field"><label>Empresa</label><input value="${esc(it.empresa)}" list="cl-card-contato" oninput="cardSet('empresa',this.value)"><datalist id="cl-card-contato">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Cargo</label><input value="${esc(it.cargo)}" oninput="cardSet('cargo',this.value)"></div>
+    <div class="field"><label>Telefone</label><input value="${esc(it.tel)}" oninput="cardSet('tel',this.value)"></div></div>
+    <div class="field"><label>E-mail</label><input type="email" value="${esc(it.email)}" oninput="cardSet('email',this.value)"></div>`;
+  }
+  if(kind==='orcamentos'){
+    return `
+    <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-card-orc" oninput="cardSet('cliente',this.value)" onchange="renderCard()"><datalist id="cl-card-orc">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="field"><label>Empresa</label><input value="${esc(it.empresa)}" oninput="cardSet('empresa',this.value)"></div>
+    <div class="field"><label>Escopo</label><textarea rows="3" oninput="cardSet('escopo',this.value)">${esc(it.escopo)}</textarea></div>
+    <div class="f2"><div class="field"><label>Total (R$)</label><input value="${fmtBRL(it.total)}" disabled></div>
+    <div class="field"><label>Desconto (R$)</label><input value="${fmtBRL(it.desconto)}" disabled></div></div>
+    <div style="font-size:10.5px;color:var(--t3);margin-top:-6px;">Total e desconto vêm da Calculadora — editar exige refazer o orçamento.</div>
+    <div class="field"><label>Status</label><select onchange="orcSetStatus('${it.id}',this.value)">${['Aberto','Ganho','Perdido'].map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <button class="btn-sm" style="margin-top:4px;" onclick="startPropFromOrc('${it.id}')">📄 Gerar proposta</button>`;
+  }
+  if(kind==='propostas'){
+    return `
+    <div class="field"><label>Título</label><input value="${esc(it.titulo)}" oninput="cardSet('titulo',this.value)" onchange="renderCard()"></div>
+    <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" oninput="cardSet('cliente',this.value)"></div>
+    <div class="field"><label>Empresa</label><input value="${esc(it.empresa)}" oninput="cardSet('empresa',this.value)"></div></div>
+    <div class="field"><label>Status</label><select onchange="propSetStatus('${it.id}',this.value)">${PROPSTATUS.map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div style="font-size:11px;color:var(--t3)">Versão ${it.versao===2?'2':'1'}</div>
+    <button class="btn-sm" style="margin-top:4px;" onclick="editProp('${it.id}')">✎ Editar no assistente</button>`;
+  }
   if(kind==='eventos'){
     return `
     <div class="field"><label>Título</label><input value="${esc(it.titulo)}" oninput="cardSet('titulo',this.value)" onchange="renderCard()"></div>
@@ -4493,13 +4542,50 @@ function cardDetalhesHtml(kind,it){
   <div class="field"><label>Demanda vinculada</label><select onchange="cardSetRefresh('demandaId',this.value||null)"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${it.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div>
   <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto" ${it.pago?'checked':''} onchange="cardSetRefresh('pago',this.checked)"><label style="margin:0">${isRec?'Já foi recebido':'Já foi pago'}</label></div>`;
 }
+/* toggle Kanban/Lista local à aba (S.cardView.sub, não S.tab.*) — compartilhado
+   pela aba "Tarefas" de Projetos Internos e pela aba "Demandas" de Projetos,
+   pra não brigar com o toggle de view da seção inteira. */
+function cardSubToggle(sub){
+  return `<div class="tabs" style="margin-bottom:12px;">
+    <button class="tab ${sub==='kanban'?'active':''}" onclick="cardSetSub('kanban')">Kanban</button>
+    <button class="tab ${sub==='lista'?'active':''}" onclick="cardSetSub('lista')">Lista</button>
+  </div>`;
+}
+function cardSetSub(v){S.cardView.sub=v;document.getElementById('card-tab-body').innerHTML=cardTabBody();}
+function cardKanbanBoard(itens,statusList,corMap,openKind,moveFn){
+  if(!itens.length)return '<div class="empty-msg">Nada vinculado ainda.</div>';
+  return '<div class="board" style="margin:0;">'+statusList.map((st,i)=>{
+    const arr=itens.filter(x=>x.status===st);const cor=corMap[st]||'#6e6e6e';
+    return `<div class="col"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
+    ${arr.length?arr.map(x=>`<div class="kcard" style="border-left:3px solid ${cor}">
+      <div class="kc-name">${esc(x.titulo||x.nome)}</div>
+      <div class="kc-ft"><div class="kc-acts">
+      <button class="ibtn" title="abrir" onclick="openCard('${openKind}','${x.id}')">⤢</button>
+      <button class="ibtn" ${i===0?'disabled style="opacity:.25"':''} onclick="${moveFn}('${x.id}',-1)">←</button>
+      <button class="ibtn" ${i===statusList.length-1?'disabled style="opacity:.25"':''} onclick="${moveFn}('${x.id}',1)">→</button>
+      </div></div></div>`).join(''):'<div class="col-empty">Vazio</div>'}
+    </div></div>`;
+  }).join('')+'</div>';
+}
+function mvDemStatus(id,d){
+  const dem=S.demandas.find(x=>x.id===id);if(!dem)return;
+  const n=DSTATUS.indexOf(dem.status)+d;if(n<0||n>=DSTATUS.length)return;
+  demTransicao(dem,DSTATUS[n]);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function mvTaskStatus(id,d){
+  const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  const n=TSTATUS.indexOf(t.status)+d;if(n<0||n>=TSTATUS.length)return;
+  taskTransicao(t,TSTATUS[n]);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
 function cardTabBody(){
   const cv=S.cardView;const it=cardEntity();if(!it)return'';
   if(cv.tab==='det')return cardDetalhesHtml(cv.kind,it);
   if(cv.tab==='tarefas'&&cv.kind==='pint'){
     const tks=S.tasks.filter(t=>t.projIntId===it.id);
     const doneT=tks.filter(t=>t.status==='Concluída').length;
-    return `<div style="display:flex;gap:8px;margin-bottom:14px;">
+    const sub=S.cardView.sub||'lista';
+    if(sub==='kanban')return cardSubToggle(sub)+cardKanbanBoard(tks,TSTATUS,TCOLORS,'tasks','mvTaskStatus');
+    return cardSubToggle(sub)+`<div style="display:flex;gap:8px;margin-bottom:14px;">
       <input id="pint-task-novo" class="task-input" style="flex:1" placeholder="Nova tarefa..." onkeydown="if(event.key==='Enter'){event.preventDefault();pintAddTask('${it.id}');}">
       <button class="btn-sm" onclick="pintAddTask('${it.id}')">+ Adicionar</button></div>
     ${tks.length?`<div style="font-size:11px;color:var(--t3);margin-bottom:10px;">${doneT}/${tks.length} concluídas</div>`:''}
@@ -4512,37 +4598,25 @@ function cardTabBody(){
       <button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button></div>`;
     }).join(''):'<div class="empty-msg">Nenhuma tarefa vinculada ainda.</div>'}`;
   }
+  if(cv.tab==='demandas'&&cv.kind==='projetos'){
+    const dems=S.demandas.filter(d=>d.cliente===it.cliente);
+    const sub=S.cardView.sub||'kanban';
+    if(sub==='lista')return cardSubToggle(sub)+(dems.length?dems.map(d=>`<div class="row-item row-go" onclick="openCard('demandas','${d.id}')"><div class="ri-name">${d.uid} · ${esc(d.titulo)}</div><div class="ri-sub">${esc(d.status)}</div></div>`).join(''):'<div class="empty-msg">Nenhuma demanda deste cliente ainda.</div>');
+    return cardSubToggle(sub)+cardKanbanBoard(dems,DSTATUS,DCOLORS,'demandas','mvDemStatus');
+  }
   if(cv.tab==='obs'){
-    const obs=[...(it.observacoes||[])].reverse();
-    return `${obs.length?obs.map(o=>`<div class="bloco" style="padding:8px 0;">
-      <div class="bloco-body" style="flex-direction:column;align-items:stretch;">
-        <div style="font-size:10.5px;color:var(--t3);margin-bottom:4px;">${fmtD(o.em)}</div>
-        <textarea id="obs-${o.id}" class="bloco-texto" rows="${Math.max(1,(o.texto||'').split('\n').length)}" oninput="obsSet('${o.id}','texto',this.value)" placeholder="Escrever uma observação...">${esc(o.texto)}</textarea>
-        ${o.img?`<img src="${o.img}" class="bloco-img" style="margin-top:6px" onclick="abrirImagemCheia(this.src)">`:''}
-      </div>
-      <button class="ibtn del bloco-del" onclick="delObs('${o.id}')">✕</button>
-    </div>`).join(''):'<div class="empty-msg">Nenhuma observação ainda.</div>'}
-    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-      <button class="btn-sm" onclick="addObs()">+ Observação</button>
-      <label class="btn-sm" style="cursor:pointer;">+ Imagem<input type="file" accept="image/*" style="display:none" onchange="addObsImg(this)"></label>
+    CURRENT_BLOCKS_OWNER={kind:cv.kind,id:cv.id};
+    return `<div id="obs-blocks">${renderBlocks(cv.kind,cv.id)}</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn-sm" onclick="addBloco('${cv.kind}','${cv.id}','texto')">+ Texto</button>
+      <button class="btn-sm" onclick="addBloco('${cv.kind}','${cv.id}','check')">+ Checklist</button>
+      <button class="btn-sm" onclick="addBloco('${cv.kind}','${cv.id}','divisor')">+ Divisor</button>
+      <label class="btn-sm" style="cursor:pointer;">+ Imagem<input type="file" accept="image/*" style="display:none" onchange="addBlocoImg('${cv.kind}','${cv.id}',this)"></label>
+      <button class="btn-sm" onclick="addBlocoVinculo('${cv.kind}','${cv.id}')">+ Vínculo</button>
+      <button class="btn-sm" onclick="addBlocoBase('${cv.kind}','${cv.id}')">+ Base</button>
+      <button class="btn-sm" onclick="novaPaginaVinculada('${cv.kind}','${cv.id}')">+ Subpágina</button>
     </div>
     <div style="font-size:10.5px;color:var(--t3);margin-top:6px;">Imagens ficam salvas no navegador — evite anexar muitas fotos em alta resolução (o espaço do Hub é limitado a alguns MB no total).</div>`;
-  }
-  if(cv.tab==='chk'){
-    const chk=it.checklist||[];
-    const feitos=chk.filter(c=>c.feito).length;
-    return `${chk.length?`<div style="font-size:11px;color:var(--t3);margin-bottom:10px;">${feitos}/${chk.length} concluídos</div>`:''}
-    ${chk.map(c=>`<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--b2);">
-      <input type="checkbox" style="width:auto" ${c.feito?'checked':''} onchange="toggleChk('${c.id}')">
-      <input class="bloco-check-txt" style="${c.feito?'text-decoration:line-through;color:var(--t3)':''}" value="${esc(c.texto)}" oninput="editChk('${c.id}',this.value)">
-      <button class="ibtn del" onclick="delChk('${c.id}')">✕</button></div>`).join('')}
-    ${!chk.length?'<div class="empty-msg">Nenhum item ainda.</div>':''}
-    <div style="display:flex;gap:8px;margin-top:12px;"><input id="chk-novo" class="task-input" placeholder="Novo item..." onkeydown="if(event.key==='Enter'){event.preventDefault();addChk();}"><button class="btn-sm" onclick="addChk()">+</button></div>`;
-  }
-  if(cv.tab==='paginas'){
-    const vinculadas=(S.paginas||[]).filter(p=>p.vinculoKind===cv.kind&&p.vinculoId===cv.id);
-    return `${vinculadas.length?vinculadas.map(p=>`<div class="row-item row-go" onclick="abrirPagina('${p.id}')"><div class="ri-name"><span style="display:inline-flex;width:14px;height:14px;vertical-align:-2px;margin-right:4px;">${IC.pagina}</span>${esc(p.titulo||'Sem título')}</div></div>`).join(''):'<div class="empty-msg">Nenhuma página vinculada ainda.</div>'}
-    <button class="btn-sm" style="margin-top:10px;" onclick="novaPaginaVinculada('${cv.kind}','${cv.id}')">+ Nova página</button>`;
   }
   if(cv.tab==='hist'){
     const hist=tempoPorStatus(it.statusHistory);
@@ -4551,65 +4625,6 @@ function cardTabBody(){
       <span>${esc(h.status)}${h.atual?' <span class="bdg">atual</span>':''}</span><span style="color:var(--t3);font-size:12px">${h.dias} dia${h.dias!==1?'s':''}</span></div>`).join('');
   }
   return '';
-}
-function addObsImg(input){
-  const file=input.files&&input.files[0];if(!file)return;
-  const it=cardEntity();if(!it)return;
-  const reader=new FileReader();
-  reader.onload=()=>{
-    const img=new Image();
-    img.onload=()=>{
-      const MAXW=900;const scale=Math.min(1,MAXW/img.width);
-      const canvas=document.createElement('canvas');
-      canvas.width=img.width*scale;canvas.height=img.height*scale;
-      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-      const dataUrl=canvas.toDataURL('image/jpeg',0.82);
-      if(!Array.isArray(it.observacoes))it.observacoes=[];
-      it.observacoes.push({id:uid('ob'),texto:'',img:dataUrl,em:todayStr()});
-      save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
-    };
-    img.src=reader.result;
-  };
-  reader.readAsDataURL(file);
-  input.value='';
-}
-function addObs(){
-  const it=cardEntity();if(!it)return;
-  if(!Array.isArray(it.observacoes))it.observacoes=[];
-  const ob={id:uid('ob'),texto:'',em:todayStr()};
-  it.observacoes.push(ob);
-  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
-  setTimeout(()=>document.getElementById('obs-'+ob.id)?.focus(),0);
-}
-function delObs(id){
-  const it=cardEntity();if(!it||!it.observacoes)return;
-  it.observacoes=it.observacoes.filter(o=>o.id!==id);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
-}
-function obsSet(id,field,val){
-  const it=cardEntity();if(!it||!it.observacoes)return;
-  const o=it.observacoes.find(x=>x.id===id);if(!o)return;
-  o[field]=val;save();
-}
-function addChk(){
-  const el=document.getElementById('chk-novo');const txt=el.value.trim();if(!txt)return;
-  const it=cardEntity();if(!it)return;
-  if(!Array.isArray(it.checklist))it.checklist=[];
-  it.checklist.push({id:uid('ck'),texto:txt,feito:false});
-  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
-}
-function toggleChk(id){
-  const it=cardEntity();if(!it||!it.checklist)return;
-  const c=it.checklist.find(x=>x.id===id);if(c)c.feito=!c.feito;
-  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
-}
-function delChk(id){
-  const it=cardEntity();if(!it||!it.checklist)return;
-  it.checklist=it.checklist.filter(x=>x.id!==id);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
-}
-function editChk(id,val){
-  const it=cardEntity();if(!it||!it.checklist)return;
-  const c=it.checklist.find(x=>x.id===id);if(c)c.texto=val;
-  save();
 }
 function pintAddTask(pid){
   const el=document.getElementById('pint-task-novo');const v=el.value.trim();if(!v)return;
@@ -4644,6 +4659,7 @@ const TRASH_META={
   fin:{l:'Lançamento',n:r=>r.desc,ir:'financeiro'},
   eventos:{l:'Evento',n:r=>r.titulo,ir:'agenda'},
   propostas:{l:'Proposta',n:r=>r.titulo||r.cliente,ir:'propostas'},
+  orcamentos:{l:'Orçamento',n:r=>r.cliente||r.empresa,ir:'calc'},
   parc:{l:'Parcelamento',n:r=>r.nome,ir:'financeiro'},
   assin:{l:'Assinatura',n:r=>r.nome,ir:'financeiro'},
   cbase:{l:'Cliente',n:r=>r.nome,ir:'clientes'},
@@ -4865,8 +4881,6 @@ function dgEnd(ev){
   const alvo=col?col.dataset.dgval:null;
   dgClear();
   if(live&&alvo)dgDrop(kind,id,alvo);
-  else if(!live&&kind==='leads')openLead(id);
-  else if(!live&&(kind==='propostas'||kind==='orcamentos')){/* sem Card Drawer — já têm os próprios botões de ação nos kcards */}
   else if(!live&&!kind.startsWith('base:'))openCard(kind,id);
 }
 function dgClear(){
@@ -4937,7 +4951,10 @@ function novaPagina(paiId){
    tempo: ou é livre/aninhada, ou pertence a um registro. */
 function novaPaginaVinculada(kind,id){
   const p={id:uid('pg'),titulo:'',icone:'',pai:null,vinculoKind:kind,vinculoId:id,blocks:[],criadoEm:todayStr(),atualizadoEm:todayStr()};
-  S.paginas.push(p);save();
+  S.paginas.push(p);
+  const it=blocksOwner(kind,id);
+  if(it){if(!Array.isArray(it.blocks))it.blocks=[];it.blocks.push({id:uid('bl'),tipo:'subpagina',pageId:p.id});}
+  save();
   abrirPagina(p.id);
 }
 function paginaSet(pid,field,val){
@@ -4958,6 +4975,7 @@ function renderPaginaView(c){
   const paiPg=p.pai?S.paginas.find(x=>x.id===p.pai):null;
   const origem=p.vinculoKind?(S[p.vinculoKind]||[]).find(x=>x.id===p.vinculoId):null;
   const subs=S.paginas.filter(x=>x.pai===p.id);
+  CURRENT_BLOCKS_OWNER={kind:'paginas',id:p.id};
   c.innerHTML=`
     <div class="page-hd"><div>
       ${paiPg?`<button class="btn-ghost" onclick="abrirPagina('${paiPg.id}')">← ${esc(paiPg.titulo||'Sem título')}</button>`:''}
@@ -4965,14 +4983,14 @@ function renderPaginaView(c){
       <input class="pg-title-input" value="${esc(p.titulo)}" placeholder="Sem título" oninput="paginaSet('${p.id}','titulo',this.value)" onchange="buildNav()">
     </div>
     <button class="btn-ghost" style="color:var(--red)" onclick="delPagina('${p.id}')">✕ Excluir página</button></div>
-    <div id="pg-blocks">${renderPaginaBlocks(p)}</div>
+    <div id="pg-blocks">${renderBlocks('paginas',p.id)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-      <button class="btn-sm" onclick="addBloco('${p.id}','texto')">+ Texto</button>
-      <button class="btn-sm" onclick="addBloco('${p.id}','check')">+ Checklist</button>
-      <button class="btn-sm" onclick="addBloco('${p.id}','divisor')">+ Divisor</button>
-      <label class="btn-sm" style="cursor:pointer;">+ Imagem<input type="file" accept="image/*" style="display:none" onchange="addBlocoImg('${p.id}',this)"></label>
-      <button class="btn-sm" onclick="addBlocoVinculo('${p.id}')">+ Vínculo</button>
-      <button class="btn-sm" onclick="addBlocoBase('${p.id}')">+ Base</button>
+      <button class="btn-sm" onclick="addBloco('paginas','${p.id}','texto')">+ Texto</button>
+      <button class="btn-sm" onclick="addBloco('paginas','${p.id}','check')">+ Checklist</button>
+      <button class="btn-sm" onclick="addBloco('paginas','${p.id}','divisor')">+ Divisor</button>
+      <label class="btn-sm" style="cursor:pointer;">+ Imagem<input type="file" accept="image/*" style="display:none" onchange="addBlocoImg('paginas','${p.id}',this)"></label>
+      <button class="btn-sm" onclick="addBlocoVinculo('paginas','${p.id}')">+ Vínculo</button>
+      <button class="btn-sm" onclick="addBlocoBase('paginas','${p.id}')">+ Base</button>
     </div>
     ${subs.length?`<div style="margin-top:24px;">
       <div class="day-lbl">Subpáginas</div>
@@ -4980,19 +4998,49 @@ function renderPaginaView(c){
     </div>`:''}
     <button class="btn-ghost" style="margin-top:12px;" onclick="novaPagina('${p.id}')">+ Nova subpágina</button>`;
 }
-function renderPaginaBlocks(p){
-  if(!p.blocks||!p.blocks.length)return '<div class="empty-msg">Página vazia — adicione um bloco abaixo.</div>';
-  return p.blocks.map(b=>blocoHtml(p,b)).join('');
+/* ═══ MOTOR DE BLOCOS — genérico por (kind,id) ═══
+   Página é só mais um "dono" entre outros (demanda, task, pint, lead, etc) —
+   todo dono guarda seus blocos em it.blocks, igual página guarda em p.blocks.
+   CURRENT_BLOCKS_OWNER rastreia qual dono está visível agora (página standalone
+   ou aba Observações de um Card Drawer), pra refreshBasesEmbeds() saber o que
+   atualizar quando uma Base embutida muda de view/registro. */
+let CURRENT_BLOCKS_OWNER=null;
+function blocksOwner(kind,id){
+  const it=kind==='paginas'?S.paginas.find(x=>x.id===id):(S[kind]||[]).find(x=>x.id===id);
+  if(it&&!Array.isArray(it.blocks)){
+    /* migração única e tardia: observações/checklist/páginas vinculadas antigas
+       viram blocos — sem apagar os arrays originais, só deixam de ser lidos. */
+    it.blocks=[];
+    (it.observacoes||[]).forEach(o=>{
+      it.blocks.push({id:uid('bl'),tipo:'texto',texto:o.texto||'',estilo:'p'});
+      if(o.img)it.blocks.push({id:uid('bl'),tipo:'imagem',img:o.img});
+    });
+    (it.checklist||[]).forEach(c=>{
+      it.blocks.push({id:uid('bl'),tipo:'check',texto:c.texto||'',feito:!!c.feito});
+    });
+    if(kind!=='paginas'){
+      S.paginas.filter(pg=>pg.vinculoKind===kind&&pg.vinculoId===id).forEach(pg=>{
+        it.blocks.push({id:uid('bl'),tipo:'subpagina',pageId:pg.id});
+      });
+    }
+    save();
+  }
+  return it;
 }
-function refreshPaginaBlocks(pid){
-  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
-  const el=document.getElementById('pg-blocks');if(el)el.innerHTML=renderPaginaBlocks(p);
+function renderBlocks(kind,id){
+  const it=blocksOwner(kind,id);if(!it)return'';
+  if(!it.blocks.length)return '<div class="empty-msg">Nada por aqui ainda — adicione um bloco abaixo.</div>';
+  return it.blocks.map(b=>blocoHtml(kind,id,b)).join('');
 }
-function blocoHtml(p,b){
+function refreshBlocks(kind,id){
+  const el=document.getElementById(kind==='paginas'?'pg-blocks':'obs-blocks');
+  if(el)el.innerHTML=renderBlocks(kind,id);
+}
+function blocoHtml(kind,id,b){
   let body='';
   if(b.tipo==='texto'){
-    body=`<textarea class="bloco-texto bloco-${b.estilo||'p'}" rows="${Math.max(1,(b.texto||'').split('\n').length)}" oninput="blocoSet('${p.id}','${b.id}','texto',this.value)" placeholder="Escreva algo...">${esc(b.texto)}</textarea>
-    <select class="fsel bloco-estilo-sel" onchange="blocoSetRefresh('${p.id}','${b.id}','estilo',this.value)">
+    body=`<textarea class="bloco-texto bloco-${b.estilo||'p'}" rows="${Math.max(1,(b.texto||'').split('\n').length)}" oninput="blocoSet('${kind}','${id}','${b.id}','texto',this.value)" placeholder="Escreva algo...">${esc(b.texto)}</textarea>
+    <select class="fsel bloco-estilo-sel" onchange="blocoSetRefresh('${kind}','${id}','${b.id}','estilo',this.value)">
       <option value="p" ${(!b.estilo||b.estilo==='p')?'selected':''}>Texto</option>
       <option value="h1" ${b.estilo==='h1'?'selected':''}>Título 1</option>
       <option value="h2" ${b.estilo==='h2'?'selected':''}>Título 2</option>
@@ -5001,8 +5049,8 @@ function blocoHtml(p,b){
     </select>`;
   }else if(b.tipo==='check'){
     body=`<div style="display:flex;align-items:center;gap:8px;flex:1;">
-      <input type="checkbox" style="width:auto" ${b.feito?'checked':''} onchange="blocoSetRefresh('${p.id}','${b.id}','feito',this.checked)">
-      <input class="bloco-check-txt" style="${b.feito?'text-decoration:line-through;color:var(--t3)':''}" value="${esc(b.texto)}" oninput="blocoSet('${p.id}','${b.id}','texto',this.value)" placeholder="Item da lista...">
+      <input type="checkbox" style="width:auto" ${b.feito?'checked':''} onchange="blocoSetRefresh('${kind}','${id}','${b.id}','feito',this.checked)">
+      <input class="bloco-check-txt" style="${b.feito?'text-decoration:line-through;color:var(--t3)':''}" value="${esc(b.texto)}" oninput="blocoSet('${kind}','${id}','${b.id}','texto',this.value)" placeholder="Item da lista...">
     </div>`;
   }else if(b.tipo==='divisor'){
     body=`<hr class="bloco-divisor">`;
@@ -5012,37 +5060,40 @@ function blocoHtml(p,b){
     const ent=(S[b.kind]||[]).find(x=>x.id===b.refId);
     const label=ent?(ent.titulo||ent.nome||ent.desc||'Item'):'(registro removido)';
     body=`<div class="bloco-vinculo" onclick="openCard('${b.kind}','${b.refId}')">${IC[TRASH_META[b.kind]?TRASH_META[b.kind].ir:'']||IC.pagina} ${esc(label)}</div>`;
+  }else if(b.tipo==='subpagina'){
+    const pg=(S.paginas||[]).find(x=>x.id===b.pageId);
+    const label=pg?(pg.titulo||'Sem título'):'(página removida)';
+    body=`<div class="bloco-vinculo" onclick="abrirPagina('${b.pageId}')">${IC.pagina} ${esc(label)}</div>`;
   }else if(b.tipo==='database'){
     body=`<div style="flex:1;min-width:0;">${renderBaseEmbed(b.baseId)}</div>`;
   }
-  return `<div class="bloco" data-bloco-id="${b.id}"><span class="dg-grip" title="Arrastar" onpointerdown="bdgDown(event,'${p.id}','${b.id}')">⠿</span><div class="bloco-body">${body}</div><button class="ibtn del bloco-del" onclick="delBloco('${p.id}','${b.id}')">✕</button></div>`;
+  return `<div class="bloco" data-bloco-id="${b.id}"><span class="dg-grip" title="Arrastar" onpointerdown="bdgDown(event,'${kind}','${id}','${b.id}')">⠿</span><div class="bloco-body">${body}</div><button class="ibtn del bloco-del" onclick="delBloco('${kind}','${id}','${b.id}')">✕</button></div>`;
 }
-function blocoSet(pid,bid,field,val){
-  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
-  const b=p.blocks.find(x=>x.id===bid);if(!b)return;
-  b[field]=val;p.atualizadoEm=todayStr();save();
+function blocoSet(kind,id,bid,field,val){
+  const it=blocksOwner(kind,id);if(!it)return;
+  const b=it.blocks.find(x=>x.id===bid);if(!b)return;
+  b[field]=val;if(kind==='paginas')it.atualizadoEm=todayStr();save();
 }
-function blocoSetRefresh(pid,bid,field,val){blocoSet(pid,bid,field,val);refreshPaginaBlocks(pid);}
-function addBloco(pid,tipo){
-  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
-  if(!Array.isArray(p.blocks))p.blocks=[];
+function blocoSetRefresh(kind,id,bid,field,val){blocoSet(kind,id,bid,field,val);refreshBlocks(kind,id);}
+function addBloco(kind,id,tipo){
+  const it=blocksOwner(kind,id);if(!it)return;
   const base={id:uid('bl'),tipo};
   if(tipo==='texto'){base.texto='';base.estilo='p';}
   if(tipo==='check'){base.texto='';base.feito=false;}
-  p.blocks.push(base);
-  p.atualizadoEm=todayStr();save();
-  refreshPaginaBlocks(pid);
+  it.blocks.push(base);
+  if(kind==='paginas')it.atualizadoEm=todayStr();save();
+  refreshBlocks(kind,id);
 }
-function delBloco(pid,bid){
-  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
-  pushUndo('excluir bloco da página',['paginas']);
-  p.blocks=p.blocks.filter(b=>b.id!==bid);
-  p.atualizadoEm=todayStr();save();
-  refreshPaginaBlocks(pid);
+function delBloco(kind,id,bid){
+  const it=blocksOwner(kind,id);if(!it)return;
+  pushUndo('excluir bloco',[kind]);
+  it.blocks=it.blocks.filter(b=>b.id!==bid);
+  if(kind==='paginas')it.atualizadoEm=todayStr();save();
+  refreshBlocks(kind,id);
 }
-function addBlocoImg(pid,input){
+function addBlocoImg(kind,id,input){
   const file=input.files&&input.files[0];if(!file)return;
-  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+  const it=blocksOwner(kind,id);if(!it)return;
   const reader=new FileReader();
   reader.onload=()=>{
     const img=new Image();
@@ -5052,10 +5103,9 @@ function addBlocoImg(pid,input){
       canvas.width=img.width*scale;canvas.height=img.height*scale;
       canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
       const dataUrl=canvas.toDataURL('image/jpeg',0.82);
-      if(!Array.isArray(p.blocks))p.blocks=[];
-      p.blocks.push({id:uid('bl'),tipo:'imagem',img:dataUrl});
-      p.atualizadoEm=todayStr();save();
-      refreshPaginaBlocks(pid);
+      it.blocks.push({id:uid('bl'),tipo:'imagem',img:dataUrl});
+      if(kind==='paginas')it.atualizadoEm=todayStr();save();
+      refreshBlocks(kind,id);
     };
     img.src=reader.result;
   };
@@ -5063,15 +5113,19 @@ function addBlocoImg(pid,input){
   input.value='';
 }
 /* vincular um registro existente — picker simples por busca, reusando o modal genérico */
-function addBlocoVinculo(pid){
-  window._vincPid=pid;
+function addBlocoVinculo(kind,id){
+  window._vincOwner={kind,id};
   window._vincOpts=[
     ...S.demandas.map(d=>({kind:'demandas',id:d.id,label:(d.uid?d.uid+' · ':'')+d.titulo})),
     ...S.tasks.map(t=>({kind:'tasks',id:t.id,label:t.titulo})),
     ...S.pint.map(p=>({kind:'pint',id:p.id,label:p.nome})),
     ...S.cbase.map(c=>({kind:'cbase',id:c.id,label:c.nome})),
     ...S.projetos.map(p=>({kind:'projetos',id:p.id,label:p.nome})),
-    ...S.eventos.map(e=>({kind:'eventos',id:e.id,label:e.titulo}))
+    ...S.eventos.map(e=>({kind:'eventos',id:e.id,label:e.titulo})),
+    ...S.leads.map(l=>({kind:'leads',id:l.id,label:l.empresa})),
+    ...S.contatos.map(ct=>({kind:'contatos',id:ct.id,label:ct.nome})),
+    ...S.orcamentos.map(o=>({kind:'orcamentos',id:o.id,label:(o.cliente||o.empresa||'Orçamento')})),
+    ...S.propostas.map(pr=>({kind:'propostas',id:pr.id,label:pr.titulo||pr.cliente||'Proposta'}))
   ];
   openModal('Vincular um registro',`
     <input class="search" id="vinc-q" placeholder="Buscar por título, nome..." oninput="vincFiltra()">
@@ -5084,19 +5138,19 @@ function vincFiltra(){
   const el=document.getElementById('vinc-list');if(!el)return;
   el.innerHTML=list.length?list.map(o=>`<div class="row-item row-go" onclick="confirmaVinculo('${o.kind}','${o.id}')">${esc(o.label)}</div>`).join(''):'<div class="empty-msg">Nada encontrado.</div>';
 }
-function confirmaVinculo(kind,id){
-  const pid=window._vincPid;const p=S.paginas.find(x=>x.id===pid);if(!p)return;
-  if(!Array.isArray(p.blocks))p.blocks=[];
-  p.blocks.push({id:uid('bl'),tipo:'vinculo',kind,refId:id});
-  p.atualizadoEm=todayStr();save();closeModal();refreshPaginaBlocks(pid);
+function confirmaVinculo(tKind,tId){
+  const owner=window._vincOwner;if(!owner)return;
+  const it=blocksOwner(owner.kind,owner.id);if(!it)return;
+  it.blocks.push({id:uid('bl'),tipo:'vinculo',kind:tKind,refId:tId});
+  if(owner.kind==='paginas')it.atualizadoEm=todayStr();save();closeModal();refreshBlocks(owner.kind,owner.id);
 }
 /* ── arrastar blocos por posição (não por coluna, ao contrário do DG) ──
    calcula o índice de inserção pela metade vertical do bloco sob o mouse. */
 let BDG=null;
-function bdgDown(ev,pid,bid){
+function bdgDown(ev,kind,id,bid){
   if(ev.pointerType==='mouse'&&ev.button!==0)return;
   const el=ev.currentTarget.closest('.bloco');if(!el)return;
-  BDG={pid,bid,el,list:el.parentElement,x0:ev.clientX,y0:ev.clientY,live:false,ghost:null};
+  BDG={kind,id,bid,el,list:el.parentElement,x0:ev.clientX,y0:ev.clientY,live:false,ghost:null};
   try{el.setPointerCapture(ev.pointerId);}catch(e){}
 }
 function bdgActivate(x,y){
@@ -5132,11 +5186,11 @@ function bdgMove(ev){
 }
 function bdgEnd(ev){
   if(!BDG)return;
-  const live=BDG.live,pid=BDG.pid,bid=BDG.bid;
+  const live=BDG.live,kind=BDG.kind,id=BDG.id,bid=BDG.bid;
   const alvo=live?bdgAlvoEm(ev.clientY):null;
   const alvoId=alvo?alvo.el.dataset.blocoId:null,depois=alvo?alvo.depois:false;
   bdgClear();
-  if(live&&alvoId)bdgDrop(pid,bid,alvoId,depois);
+  if(live&&alvoId)bdgDrop(kind,id,bid,alvoId,depois);
 }
 function bdgClear(){
   if(!BDG)return;
@@ -5146,17 +5200,17 @@ function bdgClear(){
   document.querySelectorAll('.bloco.bdg-over-cima,.bloco.bdg-over-baixo').forEach(b=>b.classList.remove('bdg-over-cima','bdg-over-baixo'));
   BDG=null;
 }
-function bdgDrop(pid,bid,alvoId,depois){
-  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
-  const from=p.blocks.findIndex(b=>b.id===bid);
-  const alvoIdx=p.blocks.findIndex(b=>b.id===alvoId);
+function bdgDrop(kind,id,bid,alvoId,depois){
+  const it=blocksOwner(kind,id);if(!it)return;
+  const from=it.blocks.findIndex(b=>b.id===bid);
+  const alvoIdx=it.blocks.findIndex(b=>b.id===alvoId);
   if(from<0||alvoIdx<0)return;
-  pushUndo('reordenar blocos da página',['paginas']);
-  const [mv]=p.blocks.splice(from,1);
-  let to=p.blocks.findIndex(b=>b.id===alvoId);
-  p.blocks.splice(depois?to+1:to,0,mv);
-  p.atualizadoEm=todayStr();save();
-  refreshPaginaBlocks(pid);
+  pushUndo('reordenar blocos',[kind]);
+  const [mv]=it.blocks.splice(from,1);
+  let to=it.blocks.findIndex(b=>b.id===alvoId);
+  it.blocks.splice(depois?to+1:to,0,mv);
+  if(kind==='paginas')it.atualizadoEm=todayStr();save();
+  refreshBlocks(kind,id);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -5171,16 +5225,15 @@ function bdgDrop(pid,bid,alvoId,depois){
    negócio (tipo demTransicao) sendo contornada, é um registro livre
    criado pelo próprio usuário.
    ═══════════════════════════════════════════════════════════ */
-function refreshBasesEmbeds(){if(S.paginaView)refreshPaginaBlocks(S.paginaView);}
-function addBlocoBase(pid){
-  const p=S.paginas.find(x=>x.id===pid);if(!p)return;
+function refreshBasesEmbeds(){if(CURRENT_BLOCKS_OWNER)refreshBlocks(CURRENT_BLOCKS_OWNER.kind,CURRENT_BLOCKS_OWNER.id);}
+function addBlocoBase(kind,id){
+  const it=blocksOwner(kind,id);if(!it)return;
   const tabelaView={id:uid('vw'),nome:'Tabela',tipo:'tabela',groupBy:null};
   const base={id:uid('bs'),nome:'Nova base',campos:[{id:uid('cp'),nome:'Nome',tipo:'texto'}],registros:[],views:[tabelaView],viewAtiva:tabelaView.id};
   S.bases.push(base);
-  if(!Array.isArray(p.blocks))p.blocks=[];
-  p.blocks.push({id:uid('bl'),tipo:'database',baseId:base.id});
-  p.atualizadoEm=todayStr();save();
-  refreshPaginaBlocks(pid);
+  it.blocks.push({id:uid('bl'),tipo:'database',baseId:base.id});
+  if(kind==='paginas')it.atualizadoEm=todayStr();save();
+  refreshBlocks(kind,id);
 }
 function delBase(baseId){
   if(!confirm('Excluir esta base e todos os registros? Vai para a lixeira por 30 dias.'))return;

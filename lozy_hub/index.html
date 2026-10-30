@@ -1073,7 +1073,7 @@ const COLDEFS={
     {k:'entregas',l:'Entregas',def:0,get:r=>(r.entregas||r.itens||[]).length,cell:r=>String((r.entregas||r.itens||[]).length)},
     {k:'criada',l:'Criada em',def:0,get:r=>r.criada||'',cell:r=>`<span style="color:var(--t2);font-size:12px">${fmtD(r.criada)}</span>`},
     {k:'validade',l:'Validade',def:1,get:r=>r.validade||'',cell:r=>`<span style="color:var(--t2);font-size:12px">${fmtD(r.validade)}</span>`},
-    {k:'status',l:'Status',def:1,get:r=>r.status||'',cell:r=>{const c={Rascunho:'s-gray',Enviada:'s-amber',Aprovada:'s-green',Recusada:'s-red','Sem retorno':'s-blue'}[r.status]||'s-gray';return `<span class="sdot ${c}"></span><select class="fsel" style="padding:3px 8px;font-size:11px;" onchange="setPropStatus('${r.id}',this.value)">${PROPSTATUS.map(s=>`<option ${r.status===s?'selected':''}>${s}</option>`).join('')}</select>`;}}
+    {k:'status',l:'Status',def:1,get:r=>r.status||'',cell:r=>{const c={Rascunho:'s-gray',Enviada:'s-amber',Aprovada:'s-green',Recusada:'s-red','Sem retorno':'s-blue'}[r.status]||'s-gray';return `<span class="sdot ${c}"></span><select class="fsel" style="padding:3px 8px;font-size:11px;" onchange="propSetStatus('${r.id}',this.value)">${PROPSTATUS.map(s=>`<option ${r.status===s?'selected':''}>${s}</option>`).join('')}</select>`;}}
   ]},
   tarefas:{nome:'Tarefas',cols:[
     {k:'titulo',l:'Tarefa',def:1,get:r=>r.titulo||'',cell:r=>`<span style="font-weight:500">${esc(r.titulo)}</span>`},
@@ -1483,9 +1483,26 @@ function leadCard(l){
   <button class="ibtn" ${i===STAGES.length-1?'disabled style="opacity:.25"':''} onclick="mvLead('${l.id}',1)">→</button>
   <button class="ibtn del" onclick="delLead('${l.id}')">✕</button></div></div></div>`;
 }
-function mvLead(id,d){const l=S.leads.find(x=>x.id===id);if(!l)return;const n=STAGES.indexOf(l.stage)+d;if(n<0||n>=STAGES.length)return;pushUndo('mover lead "'+l.empresa+'" para "'+STAGES[n]+'"',['leads','projetos']);l.stage=STAGES[n];
-  if(l.stage==='Fechado'&&!S.projetos.some(p=>p.leadId===id)){S.projetos.push({id:uid('p'),nome:l.empresa,cliente:l.empresa,fase:'Briefing',entrega:null,leadId:id});}
-  save();render();}
+function mvLead(id,d){const l=S.leads.find(x=>x.id===id);if(!l)return;const n=STAGES.indexOf(l.stage)+d;if(n<0||n>=STAGES.length)return;leadMoveTo(id,STAGES[n]);}
+/* move um lead de etapa (botão ou drag) e cascateia pra orçamentos/propostas
+   vinculados ainda abertos quando chega em "Fechado"/"Perdido" — quiet=true
+   suspende undo/toast/render (cascata). */
+function leadMoveTo(id,novaFase,quiet){
+  const l=S.leads.find(x=>x.id===id);
+  if(!l||l.stage===novaFase)return;
+  if(!quiet)pushUndo('mover lead "'+l.empresa+'" para "'+novaFase+'"',['leads','projetos','orcamentos','propostas']);
+  l.stage=novaFase;
+  if(novaFase==='Fechado'&&!S.projetos.some(p=>p.leadId===id))
+    S.projetos.push({id:uid('p'),nome:l.empresa,cliente:l.empresa,fase:'Briefing',entrega:null,leadId:id});
+  if(novaFase==='Fechado'||novaFase==='Perdido'){
+    const alvoOrc=novaFase==='Fechado'?'Ganho':'Perdido';
+    const alvoProp=novaFase==='Fechado'?'Aprovada':'Recusada';
+    S.orcamentos.filter(o=>o.leadId===id&&o.status==='Aberto').forEach(o=>orcSetStatus(o.id,alvoOrc,true));
+    S.propostas.filter(p=>p.leadId===id&&!['Aprovada','Recusada'].includes(p.status)).forEach(p=>propSetStatus(p.id,alvoProp,true));
+  }
+  save();
+  if(!quiet){render();toast(l.empresa+' → '+novaFase,'Desfazer','doUndo()',5000);}
+}
 function delLead(id){softDel('leads',id);}
 
 function comLeads(b){
@@ -3207,16 +3224,66 @@ function ceCrescimento(b){
 </script>
 <script>
 /* ═══ PROPOSTAS (com calculadora Lozy) ═══ */
+/* botões de ação compartilhados entre Lista/Cards/Kanban — mesmo conjunto que a lista já tinha. */
+function propActs(p){
+  return `${p.versao===2?`<button class="ibtn" title="editar" onclick="editProp('${p.id}')">✎</button>`:''}<button class="ibtn" title="baixar HTML" onclick="downloadProp('${p.id}')">↓</button><button class="ibtn" title="visualizar" onclick="previewProp('${p.id}')">👁</button><button class="ibtn del" onclick="delProp('${p.id}')">✕</button>`;
+}
+const PROP_SDOT={Rascunho:'s-gray',Enviada:'s-amber',Aprovada:'s-green',Recusada:'s-red','Sem retorno':'s-blue'};
 function renderPropostas(c){
   if(S.tab.propostas==='nova'&&S.wiz)return renderWizard(c);
   const ps=[...S.propostas].sort((a,b)=>String(b.criada).localeCompare(a.criada));
+  const t=['lista','cards','kanban'].includes(S.tab.propostas)?S.tab.propostas:'lista';
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Propostas</div>${secSub('propostas')}</div>
     <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="startWizard()">+ Nova (rápida)</button><button class="btn" onclick="startPropBlank()">+ Nova proposta guiada</button></div></div>
-    ${ps.length?`<div class="toolbar">${colBtn('propostas')}${csvBtn('propostas',ps)}</div><div class="card" style="padding:6px 20px;">${renderDataTable('propostas',applyTableSort('propostas',ps),p=>`${p.versao===2?`<button class="ibtn" title="editar" onclick="editProp('${p.id}')">✎</button>`:''}<button class="ibtn" title="baixar HTML" onclick="downloadProp('${p.id}')">↓</button><button class="ibtn" title="visualizar" onclick="previewProp('${p.id}')">👁</button><button class="ibtn del" onclick="delProp('${p.id}')">✕</button>`)}</div>`
+    ${ps.length?`${tabsHtml('propostas',[{id:'lista',l:'Lista'},{id:'cards',l:'Cards'},{id:'kanban',l:'Kanban'}])}
+    <div class="toolbar">${t==='lista'?colBtn('propostas')+csvBtn('propostas',ps):''}</div>
+    <div id="prop-body"></div>`
     :`<div class="card"><div class="empty-msg">Nenhuma proposta criada ainda. A proposta guiada puxa direto de um orçamento calculado na Calculadora — ou comece do zero em "Nova proposta guiada".</div></div>`}`;
+  if(!ps.length)return;
+  const b=document.getElementById('prop-body');
+  if(t==='lista'){
+    b.innerHTML=`<div class="card" style="padding:6px 20px;">${renderDataTable('propostas',applyTableSort('propostas',ps),propActs)}</div>`;
+  }else if(t==='cards'){
+    b.innerHTML='<div class="cli-grid">'+ps.map(p=>`
+      <div class="card cli-card" style="cursor:default">
+      <div class="cli-nome">${esc(p.projeto||p.titulo)}${p.versao===2?' <span class="bdg" title="Gerada pelo assistente de proposta">v2</span>':''}</div>
+      <div class="cli-meta">${esc(p.empresa)||esc(p.cliente)||'Sem cliente'} · ${esc(p.formato||(p.recorrente?'Recorrente':'Projeto'))}</div>
+      <div class="cli-stats">
+        <div class="cli-stat"><b>${fmtBRL(p.investimento||p.total)}</b><span>Investimento</span></div>
+        <div class="cli-stat"><b style="color:${p.valorFechado!=null?'var(--green)':'inherit'}">${p.valorFechado!=null?fmtBRL(p.valorFechado):'—'}</b><span>Fechado</span></div>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;">
+        <span><span class="sdot ${PROP_SDOT[p.status]||'s-gray'}"></span><span style="font-size:12px;color:var(--t2)">${esc(p.status)}</span></span>
+        <div style="display:flex;gap:4px;">${propActs(p)}</div>
+      </div></div>`).join('')+'</div>';
+  }else{
+    b.innerHTML=kanbanLimBar()+'<div class="board">'+PROPSTATUS.map(st=>{
+      const col=ps.filter(p=>p.status===st);const pg=kanbanPage('prop:'+st,col);
+      return `<div class="col" data-dg="propostas" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:var(--chromeOn);color:var(--lx1)">${st}<span style="opacity:.75;font-weight:500">${col.length}</span></span><span class="col-stat">${fmtBRL(sum(col,p=>p.valorFechado||p.investimento||p.total||0))}</span></div><div class="col-body">${pg.shown.length?pg.shown.map(p=>`
+      <div class="kcard" onpointerdown="dgDown(event,'propostas','${p.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(p.projeto||p.titulo)}</div></div></div>
+      <div class="kc-sub">${esc(p.empresa)||esc(p.cliente)||'Sem cliente'}</div>
+      <div class="kc-ft"><div class="kc-val">${fmtBRL(p.valorFechado||p.investimento||p.total)}</div><div class="kc-acts">${propActs(p)}</div></div></div>`).join(''):'<div class="col-empty">Nenhuma proposta</div>'}${kanbanMoreBtn(pg)}</div></div>`;
+    }).join('')+'</div>';
+  }
 }
-function setPropStatus(id,val){const p=S.propostas.find(x=>x.id===id);if(!p)return;p.status=val;save();render();}
+/* muda o status de uma proposta e cascateia pro lead e pro orçamento de origem
+   vinculados — quiet=true suspende undo/toast/render (cascata). */
+function propSetStatus(id,status,quiet){
+  const p=S.propostas.find(x=>x.id===id);
+  if(!p||p.status===status)return;
+  if(!quiet)pushUndo('mudar status da proposta "'+(p.titulo||p.empresa||p.cliente||'')+'" para "'+status+'"',['propostas','leads','orcamentos','projetos']);
+  p.status=status;
+  if(status==='Enviada'){
+    const l=p.leadId&&S.leads.find(x=>x.id===p.leadId);
+    if(l&&STAGES.indexOf(l.stage)<STAGES.indexOf('Proposta Enviada'))leadMoveTo(p.leadId,'Proposta Enviada',true);
+  }else if(status==='Aprovada'||status==='Recusada'){
+    if(p.leadId)leadMoveTo(p.leadId,status==='Aprovada'?'Fechado':'Perdido',true);
+    if(p.orcId)orcSetStatus(p.orcId,status==='Aprovada'?'Ganho':'Perdido',true);
+  }
+  save();
+  if(!quiet){render();toast('Proposta → '+status,'Desfazer','doUndo()',5000);}
+}
 function setValorFechado(id){
   const p=S.propostas.find(x=>x.id===id);if(!p)return;
   const atual=p.valorFechado!=null?p.valorFechado:'';
@@ -3497,27 +3564,46 @@ function calcNova(b){
       <button class="btn-ghost" onclick="S.calc=null;render()">Limpar</button>
     </div>`;
 }
-function ensureLeadFromOrc(o){
-  const chave=(o.empresa||o.cliente||'').trim().toLowerCase();
-  if(!chave)return false;
-  const existe=S.leads.some(l=>(l.empresa||'').trim().toLowerCase()===chave||(!(l.empresa||'').trim()&&(l.contato||'').trim().toLowerCase()===chave));
-  if(existe)return false;
-  S.leads.push({id:uid('l'),stage:'Novo Lead',empresa:o.empresa||o.cliente,contato:o.cliente||'',valor:o.total,origem:'Calculadora',temp:'morno',segmento:'',cidade:'',proxAcao:'Entrar em contato sobre o orçamento calculado',proxData:null});
-  return true;
+/* match por nome de empresa/contato — reaproveitado por orçamentos e propostas
+   feitas do zero. Agora retorna e guarda o id, em vez de criar-ou-ignorar em silêncio. */
+function ensureLeadFor(nome,valorEstimado,contato){
+  const chave=(nome||'').trim().toLowerCase();
+  if(!chave)return null;
+  const existente=S.leads.find(l=>(l.empresa||'').trim().toLowerCase()===chave||(!(l.empresa||'').trim()&&(l.contato||'').trim().toLowerCase()===chave));
+  if(existente)return existente.id;
+  const l={id:uid('l'),stage:'Novo Lead',empresa:nome,contato:contato||'',valor:valorEstimado||0,origem:'Calculadora',temp:'morno',segmento:'',cidade:'',proxAcao:'Entrar em contato sobre o orçamento calculado',proxData:null};
+  S.leads.push(l);
+  return l.id;
 }
 function saveOrcamento(){
   const w=ensureCalc();
   const r=calcOrcamento(S.pricing,w);
   if(r.edicao&&r.edicao.manual)return toast('Um dos vídeos passa de 5min — ajuste a duração ou orce essa parte manualmente antes de salvar.');
   const o={id:uid('orc'),cliente:w.cliente.trim(),empresa:w.empresa.trim(),escopo:w.escopo,modo:w.modo,input:JSON.parse(JSON.stringify(w)),total:r.total,desconto:r.desconto,status:'Aberto',criado:todayStr()};
+  const antes=S.leads.length;
+  o.leadId=ensureLeadFor(o.empresa||o.cliente,o.total,o.cliente);
+  const novoLead=S.leads.length>antes;
   S.orcamentos.unshift(o);
-  const novoLead=ensureLeadFromOrc(o);
   save();
   S.calc=null;
   S.tab.calc='historico';render();
   toast('Orçamento salvo'+(o.cliente?' para '+o.cliente:'')+'.'+(novoLead?' Criado também em Comercial.':''));
 }
-function orcStatusCycle(id){const o=S.orcamentos.find(x=>x.id===id);if(!o)return;const st=['Aberto','Ganho','Perdido'];o.status=st[(st.indexOf(o.status)+1)%st.length];save();render();}
+function orcStatusCycle(id){const o=S.orcamentos.find(x=>x.id===id);if(!o)return;const st=['Aberto','Ganho','Perdido'];orcSetStatus(id,st[(st.indexOf(o.status)+1)%st.length]);}
+/* muda o status de um orçamento e cascateia pro lead e pra proposta vinculados
+   (quiet=true suspende undo/toast/render — usado quando a chamada já vem de uma cascata). */
+function orcSetStatus(id,status,quiet){
+  const o=S.orcamentos.find(x=>x.id===id);
+  if(!o||o.status===status)return;
+  if(!quiet)pushUndo('mudar status do orçamento de "'+(o.empresa||o.cliente)+'" para "'+status+'"',['orcamentos','leads','propostas','projetos']);
+  o.status=status;
+  if(status==='Ganho'||status==='Perdido'){
+    if(o.leadId)leadMoveTo(o.leadId,status==='Ganho'?'Fechado':'Perdido',true);
+    if(o.propostaId)propSetStatus(o.propostaId,status==='Ganho'?'Aprovada':'Recusada',true);
+  }
+  save();
+  if(!quiet){render();toast('Orçamento → '+status,'Desfazer','doUndo()',5000);}
+}
 function delOrc(id){
   const idx=S.orcamentos.findIndex(x=>x.id===id);if(idx<0)return;
   pushUndo('excluir orçamento',['orcamentos']);
@@ -3531,12 +3617,16 @@ function orcamentosCsv(){
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='orcamentos-lozy.csv';a.click();
 }
+function orcActs(o){
+  return `<button class="ibtn" title="Gerar proposta" onclick="startPropFromOrc('${o.id}')">📄</button><button class="ibtn del" onclick="delOrc('${o.id}')">✕</button>`;
+}
 function calcHistorico(b){
   const os=[...S.orcamentos].sort((a,b2)=>String(b2.criado).localeCompare(a.criado));
   const ganhos=os.filter(o=>o.status==='Ganho'),perdidos=os.filter(o=>o.status==='Perdido');
   const conv=(ganhos.length+perdidos.length)?ganhos.length/(ganhos.length+perdidos.length)*100:0;
   const ticket=ganhos.length?sum(ganhos,o=>o.total)/ganhos.length:0;
   const descMedio=os.length?os.reduce((a,o)=>a+(o.desconto&&o.total?o.desconto/(o.desconto+o.total)*100:0),0)/os.length:0;
+  const t=['lista','cards','kanban'].includes(S.tab.orcView)?S.tab.orcView:'lista';
   b.innerHTML=`
     <div class="g4" style="margin-bottom:14px;">
       <div class="card"><div class="clabel">Orçamentos</div><div class="metric">${os.length}</div></div>
@@ -3544,18 +3634,42 @@ function calcHistorico(b){
       <div class="card"><div class="clabel">Taxa de conversão</div><div class="metric">${conv.toFixed(0)}%</div><div class="metric-s">${ganhos.length} ganhos / ${perdidos.length} perdidos</div></div>
       <div class="card"><div class="clabel">Desconto médio</div><div class="metric">${descMedio.toFixed(1)}%</div></div>
     </div>
-    ${os.length?`<div class="toolbar"><button class="btn-ghost" onclick="orcamentosCsv()">↓ Exportar CSV</button></div>
-    <div class="card" style="padding:6px 20px;">${os.map(o=>`
+    ${os.length?`${tabsHtml('orcView',[{id:'lista',l:'Lista'},{id:'cards',l:'Cards'},{id:'kanban',l:'Kanban'}])}
+    <div class="toolbar">${t==='lista'?'<button class="btn-ghost" onclick="orcamentosCsv()">↓ Exportar CSV</button>':''}</div>
+    <div id="orc-body"></div>`
+    :'<div class="card"><div class="empty-msg">Nenhum orçamento salvo ainda. Calcule um em "Novo orçamento" e clique em Salvar.</div></div>'}`;
+  if(!os.length)return;
+  const bb=document.getElementById('orc-body');
+  if(t==='lista'){
+    bb.innerHTML=`<div class="card" style="padding:6px 20px;">${os.map(o=>`
       <div class="row-item"><div style="min-width:0;flex:1;">
         <div class="ri-name">${esc(o.cliente||'Sem cliente')}${o.empresa?' · '+esc(o.empresa):''}</div>
         <div class="ri-sub">${o.escopo==='completo'?'Completo':o.escopo==='captacao'?'Só captação':'Só edição'} · ${fmtD(o.criado)} · ${fmtBRL2(o.total)}</div>
       </div>
       <button style="border:none;background:none;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="orcStatusCycle('${o.id}')"><span class="sdot ${o.status==='Ganho'?'s-green':o.status==='Perdido'?'s-red':'s-amber'}"></span><span style="font-size:12px;color:var(--t2)">${o.status}</span></button>
-      <div style="display:flex;gap:4px;margin-left:8px;">
-        <button class="ibtn" title="Gerar proposta" onclick="startPropFromOrc('${o.id}')">📄</button>
-        <button class="ibtn del" onclick="delOrc('${o.id}')">✕</button>
-      </div></div>`).join('')}</div>`
-    :'<div class="card"><div class="empty-msg">Nenhum orçamento salvo ainda. Calcule um em "Novo orçamento" e clique em Salvar.</div></div>'}`;
+      <div style="display:flex;gap:4px;margin-left:8px;">${orcActs(o)}</div></div>`).join('')}</div>`;
+  }else if(t==='cards'){
+    bb.innerHTML='<div class="cli-grid">'+os.map(o=>`
+      <div class="card cli-card" style="cursor:default">
+      <div class="cli-nome">${esc(o.cliente||'Sem cliente')}</div>
+      <div class="cli-meta">${o.empresa?esc(o.empresa)+' · ':''}${o.escopo==='completo'?'Completo':o.escopo==='captacao'?'Só captação':'Só edição'}</div>
+      <div class="cli-stats">
+        <div class="cli-stat"><b>${fmtBRL(o.total)}</b><span>Total</span></div>
+        <div class="cli-stat"><b>${fmtD(o.criado)}</b><span>Criado</span></div>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;">
+        <button style="border:none;background:none;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="orcStatusCycle('${o.id}')"><span class="sdot ${o.status==='Ganho'?'s-green':o.status==='Perdido'?'s-red':'s-amber'}"></span><span style="font-size:12px;color:var(--t2)">${o.status}</span></button>
+        <div style="display:flex;gap:4px;">${orcActs(o)}</div>
+      </div></div>`).join('')+'</div>';
+  }else{
+    bb.innerHTML=kanbanLimBar()+'<div class="board">'+['Aberto','Ganho','Perdido'].map(st=>{
+      const col=os.filter(o=>o.status===st);const pg=kanbanPage('orc:'+st,col);
+      return `<div class="col" data-dg="orcamentos" data-dgval="${st}"><div class="col-hd"><span class="col-pill" style="background:var(--chromeOn);color:var(--lx1)">${st}<span style="opacity:.75;font-weight:500">${col.length}</span></span><span class="col-stat">${fmtBRL(sum(col,o=>o.total))}</span></div><div class="col-body">${pg.shown.length?pg.shown.map(o=>`
+      <div class="kcard" onpointerdown="dgDown(event,'orcamentos','${o.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(o.cliente||'Sem cliente')}</div></div></div>
+      <div class="kc-sub">${o.empresa?esc(o.empresa):(o.escopo==='completo'?'Completo':o.escopo==='captacao'?'Só captação':'Só edição')}</div>
+      <div class="kc-ft"><div class="kc-val">${fmtBRL(o.total)}</div><div class="kc-acts">${orcActs(o)}</div></div></div>`).join(''):'<div class="col-empty">Nenhum orçamento</div>'}${kanbanMoreBtn(pg)}</div></div>`;
+    }).join('')+'</div>';
+  }
 }
 function calcAjustes(b){
   const p=S.pricing;
@@ -3848,7 +3962,7 @@ function renderPropWizard(c){
           <input type="checkbox" style="width:auto" ${on?'checked':''} onchange="togglePropSec('${k}',this.checked)">
           <span style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;">${label}</span></label>
         ${on?`<input class="task-input" style="margin-bottom:6px;" value="${esc(w.textos[k+'_titulo'])}" placeholder="Título da seção" oninput="S.propWiz.textos['${k}_titulo']=this.value">
-        <textarea rows="2" placeholder="Descrição da seção" oninput="S.propWiz.textos['${k}_desc']=this.value">${esc(w.textos[k+'_desc'])}</textarea>
+        <textarea class="task-input" rows="2" placeholder="Descrição da seção" oninput="S.propWiz.textos['${k}_desc']=this.value">${esc(w.textos[k+'_desc'])}</textarea>
         ${k==='escopo'?`<label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;"><input type="checkbox" style="width:auto" ${w.secoes.valoresItens!==false?'checked':''} onchange="togglePropSec('valoresItens',this.checked)"><span style="font-size:11.5px;color:var(--t3);">Mostrar valor de cada item (desligado, o cliente vê só o total)</span></label>`:''}`:''}
       </div>`;}).join('')}
     <div class="widget-hd" style="margin-top:18px"><span class="widget-ttl">Rótulos e rodapé</span></div>
@@ -3867,7 +3981,7 @@ function renderPropWizard(c){
     <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">Aparecem como cards no fim da proposta — pontos que evitam ruído na aprovação.</div>
     ${w.notas.map((n,i)=>`<div style="border:1px solid var(--b2);border-radius:10px;padding:10px;margin-bottom:8px;">
       <input class="task-input" style="margin-bottom:6px;" value="${esc(n.titulo)}" placeholder="Título" oninput="S.propWiz.notas[${i}].titulo=this.value">
-      <textarea rows="2" oninput="S.propWiz.notas[${i}].texto=this.value" placeholder="Texto">${esc(n.texto)}</textarea>
+      <textarea class="task-input" rows="2" oninput="S.propWiz.notas[${i}].texto=this.value" placeholder="Texto">${esc(n.texto)}</textarea>
       <button class="ibtn del" onclick="S.propWiz.notas.splice(${i},1);render()">✕ remover</button></div>`).join('')}
     <button class="btn-sm" onclick="S.propWiz.notas.push({titulo:'',texto:''});render()">+ Nota</button>
     <div class="widget-hd" style="margin-top:18px"><span class="widget-ttl">Cor de destaque</span></div>
@@ -3910,12 +4024,18 @@ function editProp(id){
 }
 function savePropWiz(dl){
   const w=S.propWiz;
-  const base={versao:2,numero:w.numero,orcId:w.orcId,cliente:w.cliente.trim(),empresa:w.empresa.trim(),
+  const pExisting=w.editId?S.propostas.find(x=>x.id===w.editId):null;
+  /* leadId: mantém o da proposta já existente; senão herda do orçamento de
+     origem (se já tiver um); senão cria/acha pelo nome — cobre proposta do zero. */
+  let leadId=pExisting&&pExisting.leadId?pExisting.leadId:null;
+  if(!leadId&&w.orcId){const oOrig=S.orcamentos.find(x=>x.id===w.orcId);leadId=oOrig&&oOrig.leadId?oOrig.leadId:null;}
+  if(!leadId)leadId=ensureLeadFor(w.empresa||w.cliente,propWizTotal(w),w.cliente);
+  const base={versao:2,leadId,numero:w.numero,orcId:w.orcId,cliente:w.cliente.trim(),empresa:w.empresa.trim(),
     titulo:w.titulo||'Proposta Lozy',subtitulo:w.subtitulo,contexto:w.contexto,recorrente:w.recorrente,
     itens:w.itens,desconto:w.desconto,deslocamento:w.deslocamento,totalManual:w.totalManual,total:propWizTotal(w),
     cronograma:w.cronograma,condicoes:w.condicoes,notas:w.notas,accent:w.accent,textos:w.textos||PROP_TEXTOS_PADRAO,secoes:propSecoes(w.secoes),
     validade:(()=>{const d=new Date();d.setDate(d.getDate()+Number(w.condicoes.validadeDias||30));return dstr(d);})()};
-  let p=w.editId?S.propostas.find(x=>x.id===w.editId):null;
+  let p=pExisting;
   if(p)Object.assign(p,base);
   else{p={id:uid('pp'),...base,status:'Rascunho',criada:todayStr()};S.propostas.push(p);}
   save();
@@ -4640,6 +4760,7 @@ function dgEnd(ev){
   dgClear();
   if(live&&alvo)dgDrop(kind,id,alvo);
   else if(!live&&kind==='leads')openLead(id);
+  else if(!live&&(kind==='propostas'||kind==='orcamentos')){/* sem Card Drawer — já têm os próprios botões de ação nos kcards */}
   else if(!live&&!kind.startsWith('base:'))openCard(kind,id);
 }
 function dgClear(){
@@ -4664,14 +4785,11 @@ function dgDrop(kind,id,alvo){
     taskTransicao(t,alvo);save();render();
     toast('"'+t.titulo+'" → '+alvo,'Desfazer','doUndo()',5000);
   }else if(kind==='leads'){
-    const l=S.leads.find(x=>x.id===id);
-    if(!l||l.stage===alvo)return;
-    pushUndo('mover lead "'+l.empresa+'" para "'+alvo+'"',['leads','projetos']);
-    l.stage=alvo;
-    if(alvo==='Fechado'&&!S.projetos.some(p=>p.leadId===id))
-      S.projetos.push({id:uid('p'),nome:l.empresa,cliente:l.empresa,fase:'Briefing',entrega:null,leadId:id});
-    save();render();
-    toast(l.empresa+' → '+alvo,'Desfazer','doUndo()',5000);
+    leadMoveTo(id,alvo);
+  }else if(kind==='propostas'){
+    propSetStatus(id,alvo);
+  }else if(kind==='orcamentos'){
+    orcSetStatus(id,alvo);
   }else if(kind==='pint'){
     const p=S.pint.find(x=>x.id===id);
     if(!p||p.status===alvo)return;

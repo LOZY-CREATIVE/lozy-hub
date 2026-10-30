@@ -170,6 +170,7 @@ tr:hover .tacts{opacity:1;}
 .bdg{font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid #a2a2a2;color:#555;font-weight:500;white-space:nowrap;}
 .bdg.quente{color:var(--red);}.bdg.morno{color:var(--amber);}.bdg.frio{color:var(--blue);}
 .bdg.alta{color:var(--red);}.bdg.media{color:var(--amber);}.bdg.baixa{color:var(--blue);}
+.bdg.producao{color:var(--t3);}.bdg.com_cliente{color:var(--amber);}.bdg.ajustes{color:var(--red);}.bdg.aprovado{color:var(--green);}
 .sdot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:7px;flex-shrink:0;}
 .s-gray{background:#8a8a8a;}.s-amber{background:var(--amber);}.s-green{background:var(--green);}.s-red{background:var(--red);}.s-blue{background:var(--blue);}
 /* KANBAN — cards claros sobre fundo */
@@ -538,6 +539,7 @@ const TSTATUS=['A fazer','Em andamento','Em pausa','Concluída','Cancelada'];
 const TCOLORS={'A fazer':'#6e6e6e','Em andamento':'#2563eb','Em pausa':'#d97706','Concluída':'#15803d','Cancelada':'#dc2626'};
 const TAREAS=['Atendimento','Comercial','Operacional','Financeiro','Marketing Lozy','Legal','P/ Clientes'];
 const FASES=['Briefing','Pré-produção','Captação','Edição','Revisão','Entrega'];
+const ENTREGA_STATUS=[['producao','Em produção'],['com_cliente','Com o cliente'],['ajustes','Ajustes'],['aprovado','Aprovado']];
 const PISTATUS=['Planejamento','Em andamento','Pausado','Concluído'];
 const PICOLORS={'Planejamento':'#6e6e6e','Em andamento':'#2563eb','Pausado':'#d97706','Concluído':'#15803d'};
 const FCATS=['Equipamentos','Softwares','Transporte','Alimentação','Operação','Impostos','Outros'];
@@ -785,6 +787,13 @@ function prazoStatus(prazo){
   if(diff<0)return{label:'Atrasada '+Math.abs(diff)+'d',cls:'atrasada',diff};
   if(diff===0)return{label:'Hoje',cls:'hoje',diff};
   return{label:'Em '+diff+'d',cls:'ok',diff};
+}
+/* Demandas de um projeto: vínculo explícito (projetoId) tem prioridade；
+   demandas ainda não vinculadas caem no fallback por nome de cliente, que
+   era o único critério antes de projetoId existir — mantém o que já
+   funcionava pra quem ainda não vinculou nada. */
+function projetoDemandas(p){
+  return S.demandas.filter(d=>d.projetoId===p.id||(!d.projetoId&&d.cliente===p.cliente));
 }
 /* ═══ PRAZO DE DEMANDAS (lógica V1 → ajuste → entrega) ═══
    `prazo` = prazo da V1. Quando o status entra em "Com o cliente", a V1 já foi
@@ -1846,12 +1855,15 @@ function renderProjetos(c){
     </div>
     <div class="board">${FASES.map(fase=>{
       const ps=S.projetos.filter(p=>p.fase===fase);
-      return `<div class="col"><div class="col-hd"><span class="col-name">${fase}</span><span class="col-stat">${ps.length}</span></div><div class="col-body">
-      ${ps.length?ps.map(p=>{const es=p.entrega?prazoStatus(p.entrega):null;const dems=S.demandas.filter(d=>d.cliente===p.cliente&&d.status!=='Entregue').length;
+      return `<div class="col" data-dg="projetos" data-dgval="${esc(fase)}"><div class="col-hd"><span class="col-name">${fase}</span><span class="col-stat">${ps.length}</span></div><div class="col-body">
+      ${ps.length?ps.map(p=>{const es=p.entrega?prazoStatus(p.entrega):null;
+      const link=projetoDemandas(p);const feitas=link.filter(d=>d.status==='Entregue').length;const total=link.length;const pct=total?Math.round(feitas/total*100):0;
+      const atrasadas=link.filter(d=>d.status!=='Entregue'&&d.prazo&&prazoStatus(d.prazo)?.cls==='atrasada').length;
       const i=FASES.indexOf(p.fase);
-      return `<div class="kcard"><div class="kc-name" style="margin-bottom:2px">${esc(p.nome)}</div>
-      <div class="kc-sub">${esc(p.cliente)}${dems?' · '+dems+' demandas abertas':''}</div>
-      <div class="kc-ft"><div class="kc-val" style="font-size:11.5px;color:${es&&es.cls==='atrasada'?'var(--red)':'var(--t2)'}">${p.entrega?'Entrega '+fmtD(p.entrega):'Sem prazo'}</div>
+      return `<div class="kcard" onpointerdown="dgDown(event,'projetos','${p.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(p.nome)}</div></div></div>
+      <div class="kc-sub">${esc(p.cliente)}${total?' · '+feitas+'/'+total+' tarefas':''}</div>
+      ${total?`<div style="height:4px;background:rgba(0,0,0,.09);border-radius:99px;margin:6px 0 8px;"><div style="height:100%;background:var(--acc);border-radius:99px;width:${pct}%"></div></div>`:''}
+      <div class="kc-ft"><div class="kc-val" style="font-size:11.5px;color:${(es&&es.cls==='atrasada')||atrasadas?'var(--red)':'var(--t2)'}">${p.entrega?'Entrega '+fmtD(p.entrega):'Sem prazo'}${atrasadas?' · '+atrasadas+' atrasada'+(atrasadas>1?'s':''):''}</div>
       <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('projetos','${p.id}')">⤢</button>
       <button class="ibtn" ${i===0?'disabled style="opacity:.25"':''} onclick="mvProj('${p.id}',-1)">←</button>
       <button class="ibtn" ${i===FASES.length-1?'disabled style="opacity:.25"':''} onclick="mvProj('${p.id}',1)">→</button>
@@ -1864,7 +1876,14 @@ function importFechados(){
     S.projetos.push({id:uid('p'),nome:l.empresa,cliente:l.empresa,fase:'Briefing',entrega:null,leadId:l.id});n++;});
   save();render();
 }
-function mvProj(id,d){const p=S.projetos.find(x=>x.id===id);const n=FASES.indexOf(p.fase)+d;if(n<0||n>=FASES.length)return;p.fase=FASES[n];save();render();}
+function mvProj(id,d){const p=S.projetos.find(x=>x.id===id);if(!p)return;const n=FASES.indexOf(p.fase)+d;if(n<0||n>=FASES.length)return;projMoveTo(id,FASES[n]);}
+function projMoveTo(id,novaFase){
+  const p=S.projetos.find(x=>x.id===id);
+  if(!p||p.fase===novaFase)return;
+  pushUndo('mover projeto "'+p.nome+'" para "'+novaFase+'"',['projetos']);
+  p.fase=novaFase;save();render();
+  toast('"'+p.nome+'" → '+novaFase,'Desfazer','doUndo()',5000);
+}
 function delProj(id){softDel('projetos',id);}
 function openProj(id){
   const p=id?S.projetos.find(x=>x.id===id):null;
@@ -4148,7 +4167,8 @@ function renderCard(c){
     :cv.kind==='eventos'?(it.tipo+' · '+fmtD(it.data)+(it.hIni?' · '+it.hIni:''))
     :((it.tipo==='receita'?'Receita':'Despesa')+' · '+fmtBRL2(it.valor)+(it.cliente?' · '+esc(it.cliente):''));
   const tabs=[['det','Detalhes']];
-  if(cv.kind==='pint')tabs.push(['tarefas','Tarefas']);
+  if(cv.kind==='pint'||cv.kind==='projetos')tabs.push(['tarefas','Tarefas']);
+  if(cv.kind==='projetos')tabs.push(['entregas','Entregas']);
   tabs.push(['obs','Observações'],['chk','Checklist'],['paginas','Páginas']);
   if(cv.kind==='demandas'||cv.kind==='tasks'||cv.kind==='pint')tabs.push(['hist','Tempo por status']);
   c.innerHTML=`
@@ -4176,6 +4196,33 @@ function cardDelete(){
   if(cv.kind==='fin')delLanc(cv.id);else softDel(cv.kind,cv.id);
   closeCard();render();
 }
+/* Seção compacta de links externos (rótulo+URL), reaproveitada no Detalhes
+   de projetos e clientes — não é vínculo a registro interno (isso já existe
+   via bloco-vinculo nas páginas), é referência de texto livre. */
+function linksSectionHtml(kind,it){
+  const links=it.links||[];
+  return `<div style="margin-top:16px;">
+    <div class="clabel" style="margin-bottom:8px;">Links</div>
+    ${links.map(l=>`<div class="row-item"><a href="${esc(l.url)}" target="_blank" rel="noopener" class="ri-name" style="text-decoration:none;color:var(--t1);">${esc(l.label)||esc(l.url)}</a><button class="ibtn del" onclick="delLink('${kind}','${it.id}','${l.id}')">✕</button></div>`).join('')}
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <input id="link-label-${it.id}" class="task-input" style="flex:1" placeholder="Rótulo">
+      <input id="link-url-${it.id}" class="task-input" style="flex:2" placeholder="https://...">
+      <button class="btn-sm" onclick="addLink('${kind}','${it.id}')">+</button>
+    </div>
+  </div>`;
+}
+function addLink(kind,id){
+  const it=(S[kind]||[]).find(x=>x.id===id);if(!it)return;
+  const lb=document.getElementById('link-label-'+id),ur=document.getElementById('link-url-'+id);
+  const url=ur.value.trim();if(!url)return;
+  if(!Array.isArray(it.links))it.links=[];
+  it.links.push({id:uid('lk'),label:lb.value.trim()||url,url});
+  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function delLink(kind,id,linkId){
+  const it=(S[kind]||[]).find(x=>x.id===id);if(!it||!it.links)return;
+  it.links=it.links.filter(l=>l.id!==linkId);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
 function cardDetalhesHtml(kind,it){
   if(kind==='demandas'){
     const maes=S.demandas.filter(x=>!x.maeId&&x.id!==it.id);
@@ -4189,6 +4236,8 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>V1 entregue em</label><input type="date" value="${it.entregueV1Em||''}" onchange="cardSetRefresh('entregueV1Em',this.value||null)"></div></div>
     <div class="field"><label>Entrega final em</label><input type="date" value="${it.entregueEm||''}" onchange="cardSetRefresh('entregueEm',this.value||null)"></div>
     <div class="field"><label>Demanda mãe</label><select onchange="cardSetRefresh('maeId',this.value||null)"><option value="">Nenhuma</option>${maes.map(m=>`<option value="${m.id}" ${it.maeId===m.id?'selected':''}>${m.uid} · ${esc(m.titulo)}</option>`).join('')}</select></div>
+    <div class="field"><label>Projeto</label><select onchange="cardSetRefresh('projetoId',this.value||null)"><option value="">Nenhum</option>${S.projetos.filter(p=>p.cliente===it.cliente).map(p=>`<option value="${p.id}" ${it.projetoId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>
+    <div class="field"><label>Link (Drive, Frame.io...)</label><input value="${esc(it.link)}" oninput="cardSet('link',this.value)" placeholder="https://..."></div>
     <div class="f2"><div class="field"><label>Receita (R$)</label><input type="number" step="0.01" value="${it.receita??''}" oninput="cardSet('receita',Number(this.value)||0)"></div>
     <div class="field"><label>Custo direto (R$)</label><input type="number" step="0.01" value="${it.custo??''}" oninput="cardSet('custo',Number(this.value)||0)"></div></div>
     <div class="field"><label>Horas trabalhadas</label><input type="number" step="0.5" value="${it.horas??''}" oninput="cardSet('horas',Number(this.value)||0)"></div>`;
@@ -4202,7 +4251,8 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Área</label><select onchange="cardSetRefresh('area',this.value)"><option value="">—</option>${TAREAS.map(a=>`<option ${it.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" oninput="cardSet('cliente',this.value)"></div>
     <div class="field"><label>Demanda vinculada</label><select onchange="cardSetRefresh('demandaId',this.value||null)"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${it.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div></div>
-    <div class="field"><label>Projeto interno vinculado</label><select onchange="cardSetRefresh('projIntId',this.value||null)"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${it.projIntId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`;
+    <div class="field"><label>Projeto interno vinculado</label><select onchange="cardSetRefresh('projIntId',this.value||null)"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${it.projIntId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>
+    <div class="field"><label>Link (Drive, Frame.io...)</label><input value="${esc(it.link)}" oninput="cardSet('link',this.value)" placeholder="https://..."></div>`;
   }
   if(kind==='pint'){
     return `
@@ -4221,14 +4271,30 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Telefone</label><input value="${esc(it.tel)}" oninput="cardSet('tel',this.value)"></div></div>
     <div class="field"><label>Instagram</label><input value="${esc(it.instagram)}" oninput="cardSet('instagram',this.value)" placeholder="@perfil"></div>
     <div class="field"><label>Notas</label><textarea rows="3" oninput="cardSet('notas',this.value)">${esc(it.notas)}</textarea></div>
-    <div style="font-size:11px;color:var(--t3)">${st.dems} demandas · ${st.projetos} projetos · Receita líq. ${fmtBRL(st.rec)}</div>`;
+    <div style="font-size:11px;color:var(--t3)">${st.dems} demandas · ${st.projetos} projetos · Receita líq. ${fmtBRL(st.rec)}</div>
+    ${linksSectionHtml('cbase',it)}`;
   }
   if(kind==='projetos'){
+    const link=projetoDemandas(it);
+    const feitas=link.filter(d=>d.status==='Entregue').length;
+    const total=link.length;
+    const pct=total?Math.round(feitas/total*100):0;
+    const atrasadas=link.filter(d=>d.status!=='Entregue'&&d.prazo&&prazoStatus(d.prazo)?.cls==='atrasada').length;
+    const es=it.entrega?prazoStatus(it.entrega):null;
     return `
     <div class="field"><label>Nome do projeto</label><input value="${esc(it.nome)}" oninput="cardSet('nome',this.value)" onchange="renderCard()"></div>
     <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-list-proj" oninput="cardSet('cliente',this.value)"><datalist id="cl-list-proj">${clientes().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="f2"><div class="field"><label>Fase</label><select onchange="cardSetRefresh('fase',this.value)">${FASES.map(f=>`<option ${it.fase===f?'selected':''}>${f}</option>`).join('')}</select></div>
-    <div class="field"><label>Data de entrega</label><input type="date" value="${it.entrega||''}" onchange="cardSetRefresh('entrega',this.value||null)"></div></div>`;
+    <div class="field"><label>Data de entrega</label><input type="date" value="${it.entrega||''}" onchange="cardSetRefresh('entrega',this.value||null)"></div></div>
+    <div class="kpis" style="margin-top:16px;">
+      <div class="card"><div class="clabel">Progresso</div><div class="metric">${pct}%</div><div class="metric-s">${feitas}/${total} tarefas</div></div>
+      <div class="card"><div class="clabel">Fase atual</div><div class="metric" style="font-size:16px">${esc(it.fase)}</div></div>
+      <div class="card"><div class="clabel">Entrega</div><div class="metric" style="font-size:16px;${es&&es.cls==='atrasada'?'color:var(--red)':''}">${it.entrega?fmtD(it.entrega):'Sem prazo'}</div>${es?`<div class="metric-s" style="${es.cls==='atrasada'?'color:var(--red)':''}">${es.label}</div>`:''}</div>
+      <div class="card">${kpiIc('demandas_abertas')}<div class="clabel">Tarefas vinculadas</div><div class="metric">${total}</div></div>
+      <div class="card"><div class="clabel">Atrasadas</div><div class="metric" style="${atrasadas?'color:var(--red)':''}">${atrasadas}</div></div>
+      <div class="card"><div class="clabel">Cliente</div><div class="metric" style="font-size:16px">${esc(it.cliente)||'—'}</div></div>
+    </div>
+    ${linksSectionHtml('projetos',it)}`;
   }
   if(kind==='eventos'){
     return `
@@ -4274,6 +4340,38 @@ function cardTabBody(){
       <div class="ri-sub">${tk.status}${tk.prazo?' · '+fmtD(tk.prazo):''}${ps&&ps.cls==='atrasada'&&tk.status!=='Concluída'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div></div>
       <button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button></div>`;
     }).join(''):'<div class="empty-msg">Nenhuma tarefa vinculada ainda.</div>'}`;
+  }
+  if(cv.tab==='tarefas'&&cv.kind==='projetos'){
+    const dems=projetoDemandas(it);
+    const doneD=dems.filter(d=>d.status==='Entregue').length;
+    return `<div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input id="proj-dem-novo" class="task-input" style="flex:1" placeholder="Nova demanda..." onkeydown="if(event.key==='Enter'){event.preventDefault();projAddDemanda('${it.id}');}">
+      <button class="btn-sm" onclick="projAddDemanda('${it.id}')">+ Adicionar</button></div>
+    ${dems.length?`<div style="font-size:11px;color:var(--t3);margin-bottom:10px;">${doneD}/${dems.length} entregues</div>`:''}
+    ${dems.length?dems.map(d=>{
+      const ps=d.prazo?prazoStatus(d.prazo):null;
+      return `<div class="row-item"><div style="min-width:0;flex:1;">
+      <div class="ri-name">${d.uid} · ${esc(d.titulo)}</div>
+      <div class="ri-sub">${d.status}${d.prazo?' · '+fmtD(d.prazo):''}${ps&&ps.cls==='atrasada'&&d.status!=='Entregue'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div>
+      <button class="ibtn" title="abrir" onclick="openCard('demandas','${d.id}')">⤢</button></div>`;
+    }).join(''):'<div class="empty-msg">Nenhuma demanda vinculada ainda.</div>'}`;
+  }
+  if(cv.tab==='entregas'&&cv.kind==='projetos'){
+    const ents=it.entregas||[];
+    const counts=Object.fromEntries(ENTREGA_STATUS.map(([k])=>[k,ents.filter(e=>e.status===k).length]));
+    return `<div class="kpis" style="margin-bottom:16px;">
+      ${ENTREGA_STATUS.map(([k,l])=>`<div class="card"><div class="clabel">${l}</div><div class="metric">${counts[k]}</div></div>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <input id="ent-label-${it.id}" class="task-input" style="flex:1" placeholder="Rótulo (ex: Corte 1)">
+      <input id="ent-url-${it.id}" class="task-input" style="flex:2" placeholder="https://...">
+      <button class="btn-sm" onclick="addEntrega('${it.id}')">+ Adicionar</button>
+    </div>
+    ${ents.length?[...ents].reverse().map(e=>`<div class="row-item"><div style="min-width:0;flex:1;">
+      <a href="${esc(e.url)}" target="_blank" rel="noopener" class="ri-name" style="text-decoration:none;color:var(--t1);">${esc(e.label)||esc(e.url)}</a>
+      <div class="ri-sub">${fmtD(e.em)}</div></div>
+      <select class="bdg ${e.status}" style="margin-right:6px;cursor:pointer;" onchange="setEntregaStatus('${it.id}','${e.id}',this.value)">${ENTREGA_STATUS.map(([k,l])=>`<option value="${k}" ${e.status===k?'selected':''}>${l}</option>`).join('')}</select>
+      <button class="ibtn del" onclick="delEntrega('${it.id}','${e.id}')">✕</button></div>`).join(''):'<div class="empty-msg">Nenhuma entrega ainda.</div>'}`;
   }
   if(cv.tab==='obs'){
     const obs=[...(it.observacoes||[])].reverse();
@@ -4383,6 +4481,29 @@ function pintToggleTask(id){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
   taskTransicao(t,t.status==='Concluída'?'A fazer':'Concluída');
   save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function projAddDemanda(pid){
+  const el=document.getElementById('proj-dem-novo');const v=el.value.trim();if(!v)return;
+  const p=S.projetos.find(x=>x.id===pid);if(!p)return;
+  S.demandas.unshift({id:uid('d'),uid:nextDemUid(),status:DSTATUS[0],statusHistory:[{status:DSTATUS[0],em:todayStr()}],titulo:v,cliente:p.cliente,tipo:DTIPOS[0],prazo:null,prazoAjuste:null,entregueV1Em:null,entregueEm:null,maeId:null,receita:0,custo:0,horas:0,link:null,projetoId:pid});
+  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function addEntrega(pid){
+  const p=S.projetos.find(x=>x.id===pid);if(!p)return;
+  const lb=document.getElementById('ent-label-'+pid),ur=document.getElementById('ent-url-'+pid);
+  const url=ur.value.trim();if(!url)return;
+  if(!Array.isArray(p.entregas))p.entregas=[];
+  p.entregas.push({id:uid('en'),label:lb.value.trim()||url,url,em:todayStr(),status:'producao'});
+  save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function delEntrega(pid,entId){
+  const p=S.projetos.find(x=>x.id===pid);if(!p||!p.entregas)return;
+  p.entregas=p.entregas.filter(e=>e.id!==entId);save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
+}
+function setEntregaStatus(pid,entId,status){
+  const p=S.projetos.find(x=>x.id===pid);if(!p||!p.entregas)return;
+  const e=p.entregas.find(x=>x.id===entId);if(!e)return;
+  e.status=status;save();document.getElementById('card-tab-body').innerHTML=cardTabBody();
 }
 
 </script>
@@ -4667,6 +4788,8 @@ function dgDrop(kind,id,alvo){
     pushUndo('mover projeto interno "'+p.nome+'" para "'+alvo+'"',['pint']);
     pintTransicao(p,alvo);save();render();
     toast('"'+p.nome+'" → '+alvo,'Desfazer','doUndo()',5000);
+  }else if(kind==='projetos'){
+    projMoveTo(id,alvo);
   }else if(kind.startsWith('base:')){ /* kanban de uma base livre — "coluna" é "base:<baseId>:<campoId>" */
     const[,baseId,campoId]=kind.split(':');
     const base=S.bases.find(x=>x.id===baseId);if(!base)return;

@@ -35,6 +35,11 @@ python3 -m http.server 8080
 - **`contratos` ainda não tem render function** — é só placeholder. Para implementar: adicionar `contratos:renderContratos` no dispatch de `render()` e virar `ready:true` em `SECTIONS`.
 - **Propostas tem dois sistemas paralelos coexistindo** no mesmo array: wizard V1 antigo (`startWizard`/`renderWizard`/`propHTML`) e V2 novo (`startPropBlank`/`renderPropWizard`/`propostaHTML2`), distinguidos só por `p.versao===2`. Trate como dois sistemas até consolidar, não como um só.
 
+### Vínculo demanda ↔ projeto
+
+- `demanda.projetoId` liga uma demanda a um `S.projetos` específico (produção de cliente). Sem isso, duas produções do mesmo cliente "vazavam" demandas uma pra outra (tudo era inferido por `cliente===cliente`). `demandasDoProjeto(p)` é a função central: usa `projetoId` quando setado; demandas antigas sem o campo (migradas antes dele existir) só aparecem no projeto do cliente quando esse cliente tem **um único** projeto — em caso de ambiguidade, ficam sem projeto até alguém linkar manualmente (não assume, não deixa vazar). Use sempre `demandasDoProjeto()`/`demProjetoOpts()`, nunca volte a filtrar demandas de um projeto por `cliente===`.
+- **Seletor de "Demanda vinculada" com busca** (`demSelHtml`/`demSelFiltra`/`demSelEscolhe`): substitui o `<select>` nativo com todas as demandas (ficava inviável conforme a base cresce) por um campo de texto + lista flutuante — sem busca mostra as 10 mais recentes. Usado em Tarefas, Financeiro e no Card Drawer (tasks/fin). Nos formulários do modal único o valor só é lido no submit via o input oculto (mesmo `id` do antigo `<select>` — os handlers de submit não mudam); no Card Drawer (commit imediato) passe `cb:'cdSetDemanda'`. **Não existe pro seletor "Demanda mãe"** (openDem `m6` / Card Drawer) — ficou de fora de propósito, a lista de candidatas a mãe já é menor (exclui quem já é filha).
+
 ### Proposta V2 — seções liga/desliga
 
 - `p.secoes` (normalizado por `propSecoes()`) decide o que aparece na proposta do cliente: `cliente, partida, escopo, mensal, crono, cond, notas` + `valoresItens` (mostrar preço por item ou só o total). `PROP_PRESETS` traz dois pontos de partida — `essencial` (só valor) e `completa`.
@@ -103,3 +108,11 @@ python3 -m http.server 8080
 - Não "prettificar"/reformatar blocos de código só por estilo — o arquivo é grande e já denso de propósito.
 - Não mudar `.status` de demanda/task/pint diretamente — sempre pelas funções `*Transicao()`.
 - Não deletar registros direto dos arrays — sempre via `softDel()`.
+
+## Financeiro vindo do Fin Pessoal (Ajustes → "Financeiro vindo do Fin Pessoal")
+
+- O dado cru financeiro da Lozy passa a nascer no **Fin Pessoal** (importação de extrato/faturas). O Hub importa um *pacote Lozy* (JSON gerado lá) por `hubLerPacote`/`hubAplicarPacote`: cada lançamento mantém o **mesmo `id`**, `fonte:'fin-pessoal'`. Reimportar atualiza só os campos crus (`FP_CRU`: valor, data, categoria, pago, `desc`…) e **preserva** o que é do Hub (`demandaId`, `cliente` já preenchido, alíquota, observações criadas aqui — as do Fin Pessoal levam `origem:'fin-pessoal'`). Lançamentos digitados no Hub (sem `fonte`) nunca são tocados; os que sumiram do pacote vão para a Lixeira (opção marcada por padrão).
+- `mesRef()` e `dataVencimento()` usam `mesRefFP`/`vencFP` quando `fonte==='fin-pessoal'` (os ciclos reais de fechamento do cartão vivem no Fin Pessoal; `CONTAS` do Hub não os conhece). `parcInfo` considera `lancadasAntes`. `autoLancarPendentes` **pula** parcelamentos/assinaturas com `fonte:'fin-pessoal'` (as parcelas já chegam lançadas).
+- `hubZerarFinanceiro()` é a única exceção consciente à regra "nunca deletar direto": pedido explícito do usuário, baixa o backup completo antes, dupla confirmação e `pushUndo`. Marca `S.prefs.finFonte='fin-pessoal'` — com isso `load()`/`applySeed()` **não** recarregam o financeiro da carga do Notion (`finDoFP()`); sem a flag, zerar `parc`/`assin` seria desfeito no próximo carregamento.
+- Privacidade: o arquivo só tem o que é Lozy (lista fixa de campos). Não há Supabase nesse caminho ainda; quando houver, o desenho previsto é dois projetos separados (pessoal × equipe) — nunca o mesmo projeto, porque a RLS atual dá acesso total a qualquer usuário logado.
+

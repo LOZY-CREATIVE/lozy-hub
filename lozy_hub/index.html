@@ -147,6 +147,9 @@ button,input,select,textarea{font-family:inherit;letter-spacing:inherit;font-siz
 .row-item:last-child{border-bottom:none;}
 .row-go{cursor:pointer;margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:8px;transition:background .12s;}
 .row-go:hover{background:rgba(0,0,0,.045);}
+.dem-pick-list{position:absolute;z-index:5;top:100%;left:0;right:0;margin-top:4px;background:var(--s1);border:1px solid var(--ltb);border-radius:var(--r-sm);box-shadow:var(--shadow-2);max-height:220px;overflow-y:auto;}
+.dem-pick-list .row-item{padding:8px 10px;margin:0;}
+.dem-pick-hint{font-size:10.5px;color:var(--t3);padding:6px 10px;border-top:1px solid var(--ltb);}
 .ri-name{font-size:12.5px;font-weight:500;}
 .ri-sub{font-size:11.5px;color:var(--t3);margin-top:1px;}
 .ri-val{font-size:12.5px;font-weight:550;flex-shrink:0;margin-left:12px;}
@@ -729,11 +732,11 @@ async function load(){
       try{const r=await Store.get('lozy-'+k);if(r&&r.value)S[k]=JSON.parse(r.value);}catch(e){}
     }
     S.tasks=S.tasks.map(t=>t.titulo?t:{id:t.id,titulo:t.text,prioridade:'Média',status:t.done?'Concluída':'A fazer',prazo:null});
-    S.demandas=S.demandas.map((d,i)=>({uid:d.uid||('DEM-'+String(i+1).padStart(3,'0')),maeId:d.maeId||null,custo:d.custo||0,receita:d.receita||0,horas:d.horas||0,...d}));
+    S.demandas=S.demandas.map((d,i)=>({uid:d.uid||('DEM-'+String(i+1).padStart(3,'0')),maeId:d.maeId||null,custo:d.custo||0,receita:d.receita||0,horas:d.horas||0,projetoId:d.projetoId||null,...d}));
   }
   /* carga migrada do Notion: aplica sempre que o estado estiver vazio, mesmo se houver um save antigo em branco */
-  if(!S.demandas.length&&!S.fin.length)applySeed(false);
-  else if(!S.parc.length||!S.assin.length){S.parc=SEED3.parc.map(p=>({...p}));S.assin=SEED3.assin.map(a=>({...a}));linkAssinaturas();save();}
+  if(!S.demandas.length&&!S.fin.length&&!finDoFP())applySeed(false);
+  else if(!finDoFP()&&(!S.parc.length||!S.assin.length)){S.parc=SEED3.parc.map(p=>({...p}));S.assin=SEED3.assin.map(a=>({...a}));linkAssinaturas();save();}
   if(!S.tasks.some(t=>String(t.id).startsWith('nt'))||!S.cbase.length){S.tasks=[...SEED2.tasks.map(t=>({...t})),...S.tasks.filter(t=>!String(t.id).startsWith('nt'))];S.cbase=[...SEED2.cbase.map(c=>({...c})),...S.cbase.filter(c=>!String(c.id).startsWith('nc'))];save();}
   if(!Array.isArray(S.trash))S.trash=[];
   /* migração: edicao.unit (objeto fixo de 5 chaves) → edicao.tipos (lista
@@ -754,16 +757,17 @@ async function load(){
   applyTheme();
   syncFromHash();
 }
+const finDoFP=()=>!!(S.prefs&&S.prefs.finFonte==='fin-pessoal'); /* o financeiro vem do Fin Pessoal: carga do Notion NÃO se aplica ao financeiro */
 function applySeed(reset){
-  if(reset){S.demandas=[];S.fin=[];S.projetos=[];}
+  if(reset){S.demandas=[];if(!finDoFP())S.fin=[];S.projetos=[];}
   S.demandas=[...SEED.demandas.map(d=>({...d})),...S.demandas.filter(d=>!String(d.id).startsWith('nd'))];
   S.tasks=[...SEED2.tasks.map(t=>({...t})),...S.tasks.filter(t=>!String(t.id).startsWith('nt'))];
   S.cbase=[...SEED2.cbase.map(c=>({...c})),...S.cbase.filter(c=>!String(c.id).startsWith('nc'))];
-  S.fin=[...SEED.fin.map(f=>({...f})),...S.fin.filter(f=>!String(f.id).startsWith('nr')&&!String(f.id).startsWith('ne'))];
+  if(!finDoFP())S.fin=[...SEED.fin.map(f=>({...f})),...S.fin.filter(f=>!String(f.id).startsWith('nr')&&!String(f.id).startsWith('ne'))];
   SEED.projetos.forEach(p=>{if(!S.projetos.some(x=>x.id===p.id))S.projetos.push({...p});});
-  S.parc=[...SEED3.parc.map(p=>({...p})),...S.parc.filter(p=>!String(p.id).startsWith('np_'))];
+  if(!finDoFP()){S.parc=[...SEED3.parc.map(p=>({...p})),...S.parc.filter(p=>!String(p.id).startsWith('np_'))];
   S.assin=[...SEED3.assin.map(a=>({...a})),...S.assin.filter(a=>!String(a.id).startsWith('na'))];
-  linkAssinaturas();
+  linkAssinaturas();}
   save();
 }
 const ASSIN_ALIAS={'Adobe (?)':'Adobe','Higgsfield (?)':'Higgsfield AI','Apple Icloud':'Apple Icloud','Assinaturas MAIO 26':null,'Ocular Sounds - SFX':null};
@@ -858,6 +862,7 @@ function mesRef(l){ /* lógica Central Lozy: mês em que o lançamento entra no 
   fallback pra data quando o registro é antigo e não tem competência salva —
   separa "a que mês pertence" de "quando vence", que antes viviam no mesmo campo.
   Despesa: cartão de crédito + dia de fechamento da fatura. */
+  if(l.fonte==='fin-pessoal'&&l.mesRefFP)return l.mesRefFP; /* já calculado no Fin Pessoal (ciclos reais de fechamento) */
   if(l.tipo==='receita')return l.competencia||monthKey(l.data);
   if(l.tipo!=='despesa'||l.forma!=='Crédito')return monthKey(l.data);
   const c=CONTAS.find(c=>c.nome===l.conta);
@@ -875,6 +880,7 @@ function mesRef(l){ /* lógica Central Lozy: mês em que o lançamento entra no 
    disso ela só está dentro de uma fatura ainda aberta. Sem `venc` configurado,
    cai no comportamento antigo (usa a própria data da compra). */
 function dataVencimento(l){
+  if(l.fonte==='fin-pessoal'&&l.vencFP)return l.vencFP;
   if(l.tipo!=='despesa'||l.forma!=='Crédito')return l.data;
   const c=CONTAS.find(c=>c.nome===l.conta);
   if(!c||!c.venc)return l.data;
@@ -1698,6 +1704,39 @@ function kanbanLimBar(){
     </select></div>`;
 }
 function nextDemUid(){const mx=S.demandas.reduce((m,d)=>Math.max(m,parseInt((d.uid||'').replace('DEM-',''))||0),0);return 'DEM-'+String(mx+1).padStart(3,'0');}
+/* ── picker de "Demanda vinculada" com busca (substitui <select> com todas
+   as demandas) — campo texto + lista flutuante. Sem busca mostra as 10 mais
+   recentes. `cb` (opcional) é o nome de uma função global chamada com o id
+   escolhido, pros usos que aplicam na hora (Card Drawer); nos formulários
+   do modal único o valor só é lido no submit, via o input oculto. */
+function demSelHtml(id,selectedId,cb,label){
+  const d=selectedId?S.demandas.find(x=>x.id===selectedId):null;
+  return `<div class="field" style="position:relative">
+    <label>${label||'Demanda vinculada'}</label>
+    <input class="search" style="width:100%" id="${id}_q" autocomplete="off" placeholder="Buscar por título ou código..." value="${d?esc((d.uid?d.uid+' · ':'')+d.titulo):''}" oninput="demSelFiltra('${id}',true)" onfocus="demSelFiltra('${id}',false)" onblur="demSelBlur('${id}')">
+    <input type="hidden" id="${id}" value="${selectedId||''}" data-cb="${cb||''}">
+    <div id="${id}_list" class="dem-pick-list" style="display:none"></div>
+  </div>`;
+}
+function demSelFiltra(id,editing){
+  const qEl=document.getElementById(id+'_q'),listEl=document.getElementById(id+'_list');
+  if(!qEl||!listEl)return;
+  if(editing)document.getElementById(id).value='';
+  const q=qEl.value.trim().toLowerCase();
+  const base=q?S.demandas.filter(d=>d.titulo.toLowerCase().includes(q)||(d.uid||'').toLowerCase().includes(q)).slice(0,20):S.demandas.slice(-10).reverse();
+  listEl.innerHTML=(base.length?base.map(d=>`<div class="row-item row-go" onclick="demSelEscolhe('${id}','${d.id}')">${esc((d.uid?d.uid+' · ':'')+d.titulo)}</div>`).join(''):'<div class="empty-msg" style="padding:8px 10px">Nada encontrado.</div>')
+    +(!q&&S.demandas.length>10?'<div class="dem-pick-hint">Mostrando as 10 mais recentes — digite pra buscar em todas</div>':'');
+  listEl.style.display='block';
+}
+function demSelEscolhe(id,demId){
+  const d=S.demandas.find(x=>x.id===demId);if(!d)return;
+  document.getElementById(id).value=demId;
+  document.getElementById(id+'_q').value=(d.uid?d.uid+' · ':'')+d.titulo;
+  document.getElementById(id+'_list').style.display='none';
+  const cb=document.getElementById(id).dataset.cb;if(cb)window[cb](demId);
+}
+function demSelBlur(id){setTimeout(()=>{const l=document.getElementById(id+'_list');if(l)l.style.display='none';},150);}
+function cdSetDemanda(id){cardSetRefresh('demandaId',id||null);}
 function demMargem(d){return Number(d.receita||0)-Number(d.custo||0);}
 function filhas(id){return S.demandas.filter(x=>x.maeId===id);}
 
@@ -1779,8 +1818,9 @@ function openDem(id){
   const maes=S.demandas.filter(x=>!x.maeId&&x.id!==id);
   openModal(d?('Editar '+d.uid):'Nova demanda',`
     <div class="field"><label>Título</label><input id="m1" value="${esc(d?.titulo)}" placeholder="Ex: Editar 4 reels de julho"></div>
-    <div class="f2"><div class="field"><label>Cliente</label><input id="m2" list="cl-list" value="${esc(d?.cliente)}"><datalist id="cl-list">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Cliente</label><input id="m2" list="cl-list" value="${esc(d?.cliente)}" oninput="demAtualizaProj()"><datalist id="cl-list">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="field"><label>Tipo</label><select id="m3">${DTIPOS.map(t=>`<option ${d?.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Projeto (produção deste cliente)</label><select id="m13">${demProjetoOpts(d?.cliente,d?.projetoId)}</select></div>
     <div class="f2"><div class="field"><label>Prazo (V1)</label><input id="m4" type="date" value="${d?.prazo||''}"></div>
     <div class="field"><label>Status</label><select id="m5">${DSTATUS.map(t=>`<option ${d?.status===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Prazo de ajuste (revisão)</label><input id="m10" type="date" value="${d?.prazoAjuste||''}"></div>
@@ -1794,10 +1834,14 @@ function openDem(id){
     <div style="font-size:11px;color:var(--t3);margin-top:-4px;">Regra Lozy: custos de captação e horas na <b>mãe</b>; receita de edição em cada <b>filha</b> — evita duplicidade nos totais.</div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
     const novoStatus=v('m5');
-    const data={titulo:v('m1').trim(),cliente:v('m2').trim(),tipo:v('m3'),prazo:v('m4')||null,prazoAjuste:v('m10')||null,entregueV1Em:v('m11')||null,entregueEm:v('m12')||null,maeId:v('m6')||null,receita:Number(v('m7'))||0,custo:Number(v('m8'))||0,horas:Number(v('m9'))||0};
+    const data={titulo:v('m1').trim(),cliente:v('m2').trim(),tipo:v('m3'),projetoId:v('m13')||null,prazo:v('m4')||null,prazoAjuste:v('m10')||null,entregueV1Em:v('m11')||null,entregueEm:v('m12')||null,maeId:v('m6')||null,receita:Number(v('m7'))||0,custo:Number(v('m8'))||0,horas:Number(v('m9'))||0};
     if(d){Object.assign(d,data);demTransicao(d,novoStatus);}
     else S.demandas.push({id:uid('d'),uid:nextDemUid(),status:novoStatus,statusHistory:[{status:novoStatus,em:todayStr()}],...data});
     save();closeModal();render();});
+}
+function demAtualizaProj(){
+  const sel=document.getElementById('m13');if(!sel)return;
+  sel.innerHTML=demProjetoOpts(document.getElementById('m2').value.trim(),sel.value);
 }
 
 /* ═══ TAREFAS ═══ */
@@ -1869,7 +1913,7 @@ function openTask(id){
     <div class="f2"><div class="field"><label>Prazo</label><input id="m4" type="date" value="${t?.prazo||''}"></div>
     <div class="field"><label>Área</label><select id="m6"><option value="">—</option>${TAREAS.map(a=>`<option ${t?.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Cliente (opcional)</label><input id="m7" list="cl-tk" value="${esc(t?.cliente)}"><datalist id="cl-tk">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
-    <div class="field"><label>Demanda vinculada</label><select id="m5"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${t?.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div></div>
+    ${demSelHtml('m5',t?.demandaId||null)}</div>
     <div class="field"><label>Projeto interno vinculado</label><select id="m8"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${t?.projIntId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
     const novoStatus=v('m3');
@@ -1880,6 +1924,18 @@ function openTask(id){
 }
 
 /* ═══ PROJETOS ═══ */
+function projetosDoCliente(cliente){return S.projetos.filter(p=>p.cliente===cliente);}
+/* demandas de um projeto: por vínculo explícito (d.projetoId) quando existe.
+   Demandas antigas (migradas antes deste campo existir) só "herdam" o projeto
+   quando o cliente tem um único projeto — sem essa checagem, uma demanda
+   órfã aparecia em TODOS os projetos do mesmo cliente (o bug relatado). */
+function demandasDoProjeto(p){
+  return S.demandas.filter(d=>d.projetoId?d.projetoId===p.id:(d.cliente===p.cliente&&projetosDoCliente(p.cliente).length===1));
+}
+function demProjetoOpts(cliente,selectedId){
+  const mesmo=S.projetos.filter(p=>p.cliente===cliente),outros=S.projetos.filter(p=>p.cliente!==cliente);
+  return '<option value="">Nenhum / avulsa</option>'+[...mesmo,...outros].map(p=>`<option value="${p.id}" ${selectedId===p.id?'selected':''}>${esc(p.nome)}${p.cliente!==cliente?' · '+esc(p.cliente):''}</option>`).join('');
+}
 function renderProjetos(c){
   const ativos=S.projetos.filter(p=>p.fase!=='Entrega');
   const tkAtras=S.tasks.filter(t=>t.status!=='Concluída'&&t.prazo&&prazoStatus(t.prazo)?.cls==='atrasada').length;
@@ -1897,7 +1953,7 @@ function renderProjetos(c){
     <div class="board">${FASES.map(fase=>{
       const ps=S.projetos.filter(p=>p.fase===fase);
       return `<div class="col"><div class="col-hd"><span class="col-name">${fase}</span><span class="col-stat">${ps.length}</span></div><div class="col-body">
-      ${ps.length?ps.map(p=>{const es=p.entrega?prazoStatus(p.entrega):null;const dems=S.demandas.filter(d=>d.cliente===p.cliente&&d.status!=='Entregue').length;
+      ${ps.length?ps.map(p=>{const es=p.entrega?prazoStatus(p.entrega):null;const dems=demandasDoProjeto(p).filter(d=>d.status!=='Entregue').length;
       const i=FASES.indexOf(p.fase);
       return `<div class="kcard"><div class="kc-name" style="margin-bottom:2px">${esc(p.nome)}</div>
       <div class="kc-sub">${esc(p.cliente)}${dems?' · '+dems+' demandas abertas':''}</div>
@@ -1916,6 +1972,18 @@ function importFechados(){
 }
 function mvProj(id,d){const p=S.projetos.find(x=>x.id===id);const n=FASES.indexOf(p.fase)+d;if(n<0||n>=FASES.length)return;p.fase=FASES[n];save();render();}
 function delProj(id){softDel('projetos',id);}
+function dupProj(id){
+  const p=S.projetos.find(x=>x.id===id);if(!p)return;
+  const novo={id:uid('p'),leadId:null,nome:p.nome+' (cópia)',cliente:p.cliente,fase:FASES[0],entrega:null};
+  S.projetos.push(novo);save();render();
+  toast('Projeto duplicado como "'+novo.nome+'".','Abrir',"openCard('projetos','"+novo.id+"')");
+}
+function dupDem(id){
+  const d=S.demandas.find(x=>x.id===id);if(!d)return;
+  const novo={id:uid('d'),uid:nextDemUid(),titulo:d.titulo+' (cópia)',cliente:d.cliente,tipo:d.tipo,projetoId:d.projetoId||null,prazo:null,prazoAjuste:null,entregueV1Em:null,entregueEm:null,maeId:null,receita:0,custo:0,horas:0,status:DSTATUS[0],statusHistory:[{status:DSTATUS[0],em:todayStr()}]};
+  S.demandas.push(novo);save();render();
+  toast('Demanda duplicada como '+novo.uid+'.','Abrir',"openCard('demandas','"+novo.id+"')");
+}
 function openProj(id){
   const p=id?S.projetos.find(x=>x.id===id):null;
   openModal(p?'Editar projeto':'Novo projeto',`
@@ -2232,6 +2300,65 @@ function buildBackupData(){
   const out={_exportedAt:new Date().toISOString(),_countsSnapshot:{}};
   keys.forEach(k=>{out[k]=S[k]||[];out._countsSnapshot[k]=(S[k]||[]).length;});
   return out;
+}
+/* ═══ Financeiro vindo do Fin Pessoal ═══
+   O Fin Pessoal é a fonte do dado cru da Lozy (importação do banco). Aqui no Hub cada lançamento importado mantém o MESMO id; ao reimportar, só os campos "crus"
+   são atualizados — demanda, cliente, projeto, alíquota e o que você anotar no Hub ficam como estão. */
+const FP_CRU=['tipo','data','valor','forma','conta','categoria','subcategoria','tipoReceita','competencia','natureza','mecanismo','pago','parcelaN','parcelasTot','grupoId','assinId','desc','descBanco','mesRefFP','vencFP'];
+function hubZerarFinanceiro(){
+  if(!confirm('Vou BAIXAR um backup completo do Hub e, depois, apagar do Hub todos os lançamentos, parcelamentos e assinaturas do Financeiro (demandas, clientes, projetos e o resto ficam). Continuar?'))return;
+  exportBackup();
+  setTimeout(()=>{
+    if(!confirm('O arquivo de backup foi baixado? Só confirme se você já o encontrou na pasta de Downloads.\n\nApagar agora '+S.fin.length+' lançamentos, '+S.parc.length+' parcelamentos e '+S.assin.length+' assinaturas do Hub?'))return;
+    pushUndo('zerar financeiro',['fin','parc','assin','trash']);
+    S.fin=[];S.parc=[];S.assin=[];S.trash=(S.trash||[]).filter(t=>!['fin','parc','assin'].includes(t.kind));
+    S.prefs=S.prefs||{};S.prefs.finFonte='fin-pessoal';S.finLastUpdate=new Date().toISOString();
+    save();render();toast('Financeiro zerado. Agora importe o pacote do Fin Pessoal. (Cmd/Ctrl+Z desfaz nesta sessão.)','Desfazer','doUndo()');
+  },600);
+}
+let PK=null;
+async function hubLerPacote(input){
+  const f=(input.files||[])[0];input.value='';if(!f)return;
+  let P;try{P=JSON.parse(await f.text());}catch(e){return toast('Não consegui ler o arquivo: não é um JSON válido.');}
+  if(!P||P.formato!=='lozy-pacote'||!Array.isArray(P.fin))return toast('Este arquivo não é um pacote do Fin Pessoal ("Exportar pacote Lozy").');
+  if(P.versao>1)return toast('Este pacote é de uma versão mais nova do Fin Pessoal — atualize o Hub antes de importar.');
+  const ids=new Set(P.fin.map(x=>x.id)),atuais=S.fin.filter(x=>x.fonte==='fin-pessoal');
+  const novos=P.fin.filter(x=>!S.fin.some(y=>y.id===x.id)),existentes=P.fin.length-novos.length;
+  const sumiram=atuais.filter(x=>!ids.has(x.id)),manuais=S.fin.filter(x=>x.fonte!=='fin-pessoal').length;
+  PK={P,sumiram:sumiram.map(x=>x.id)};
+  openModal('Importar pacote do Fin Pessoal',`
+    <div style="font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:12px;">Pacote gerado em <b>${new Date(P.geradoEm).toLocaleString('pt-BR')}</b> · período <b>${P.periodo&&P.periodo.de?fmtD(P.periodo.de)+' → '+fmtD(P.periodo.ate):'—'}</b>. Lançamentos já importados são atualizados nos campos do banco; demanda, cliente e anotações do Hub <b>não são tocados</b>.</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;">
+      <div class="card"><div class="clabel">Novos</div><div class="metric">${novos.length}</div></div>
+      <div class="card"><div class="clabel">Já existiam (atualizar)</div><div class="metric">${existentes}</div></div>
+      <div class="card"><div class="clabel">Receitas</div><div class="metric" style="color:var(--green)">${fmtBRL(P.totais.receitas)}</div></div>
+      <div class="card"><div class="clabel">Despesas</div><div class="metric" style="color:var(--red)">${fmtBRL(P.totais.despesas)}</div></div></div>
+    <div style="font-size:12px;color:var(--t2);line-height:1.7;">${P.parc.length} parcelamento(s) e ${P.assin.length} assinatura(s) da Lozy também entram.${manuais?`<br>O Hub tem <b>${manuais}</b> lançamento(s) digitados aqui (não vieram do Fin Pessoal): ficam como estão.`:''}</div>
+    ${sumiram.length?`<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;"><input type="checkbox" id="pk_rm" style="width:auto" checked> Enviar para a Lixeira os <b>${sumiram.length}</b> lançamento(s) importados antes que não estão mais neste pacote (deixaram de ser Lozy ou foram apagados lá)</label>`:''}`,
+  ()=>hubAplicarPacote());
+  const b=document.getElementById('modal-submit');if(b)b.textContent='Importar';
+}
+function hubAplicarPacote(){
+  if(!PK)return;const P=PK.P,rm=(document.getElementById('pk_rm')||{}).checked,agora=new Date().toISOString();
+  pushUndo('importar pacote do Fin Pessoal',['fin','parc','assin','trash']);
+  let nNovos=0,nAtu=0;
+  P.fin.forEach(x=>{
+    const obs=(x.observacoes||[]).map(o=>({id:uid('ob'),texto:o.texto,em:o.em||'',origem:'fin-pessoal'}));
+    const ex=S.fin.find(y=>y.id===x.id);
+    if(ex){FP_CRU.forEach(k=>{if(x[k]===undefined)delete ex[k];else ex[k]=x[k];});
+      if(x.cliente&&!ex.cliente)ex.cliente=x.cliente;
+      ex.fonte='fin-pessoal';ex.observacoes=[...(ex.observacoes||[]).filter(o=>o.origem!=='fin-pessoal'),...obs];if(!ex.observacoes.length)delete ex.observacoes;nAtu++;}
+    else{const n={fonte:'fin-pessoal'};FP_CRU.forEach(k=>{if(x[k]!==undefined)n[k]=x[k];});n.id=x.id;if(x.cliente)n.cliente=x.cliente;if(obs.length)n.observacoes=obs;S.fin.push(n);nNovos++;}
+  });
+  const up=(arr,novos,chave)=>novos.forEach(n=>{const i=arr.findIndex(y=>y[chave]===n[chave]);if(i>=0)Object.assign(arr[i],n);else arr.push({...n});});
+  up(S.parc,P.parc,'id');up(S.assin,P.assin,'id');
+  let nRm=0;
+  if(rm&&PK.sumiram.length){PK.sumiram.forEach(id=>{const i=S.fin.findIndex(y=>y.id===id);if(i<0)return;const rec=S.fin[i];S.fin.splice(i,1);
+    S.trash.unshift({id:uid('tr'),kind:'fin',idx:i,at:agora,data:JSON.parse(JSON.stringify(rec)),rel:{}});nRm++;});
+    if(S.trash.length>400)S.trash.length=400;}
+  S.prefs=S.prefs||{};S.prefs.finFonte='fin-pessoal';S.prefs.ultimoPacote={em:agora,fin:P.fin.length,geradoEm:P.geradoEm};S.finLastUpdate=agora;
+  PK=null;save();closeModal();render();
+  toast('Pacote importado: '+nNovos+' novo(s), '+nAtu+' atualizado(s)'+(nRm?', '+nRm+' enviado(s) para a Lixeira':'')+'.','Desfazer','doUndo()');
 }
 function exportBackup(){
   const data=buildBackupData();
@@ -2837,7 +2964,7 @@ function openLanc(tipo,id){
     <div class="f2"><div class="field"><label>Forma de pagamento</label><select id="m6">${FORMAS.map(t=>`<option ${l?.forma===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div class="field"><label>Conta</label><select id="m7">${CONTAS.map(c=>`<option ${l?.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select></div></div>
     <div class="field"><label>Cliente / Projeto (opcional)</label><input id="m9" list="cl-list3" value="${esc(l?.cliente)}"><datalist id="cl-list3">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
-    <div class="field"><label>Demanda vinculada (opcional)</label><select id="m14"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${l?.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div>
+    ${demSelHtml('m14',l?.demandaId||null,null,'Demanda vinculada (opcional)')}
     <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="m10" style="width:auto" ${l?.pago?'checked':''}><label style="margin:0">${isRec?'Já foi recebido':'Já foi pago'}</label></div>
     ${!isRec?'<div style="font-size:11px;color:var(--t3)">Crédito: mês de referência segue o fechamento da fatura (Nubank 9 · BTG 27).</div>':''}`,
   ()=>{const v=k=>document.getElementById(k)?.value;
@@ -2872,13 +2999,13 @@ function parcInfo(p){
   const regs=S.fin.filter(f=>f.grupoId===p.grupoId).sort((a,b)=>String(a.data).localeCompare(b.data));
   const pagos=regs.filter(x=>x.pago);
   const valorParcela=p.valorTotal/p.nParcelas;
-  const n=pagos.length;
+  const antes=Number(p.lancadasAntes||0),n=pagos.length+antes; /* antes = parcelas já pagas antes do 1º lançamento (vem do Fin Pessoal) */
   const quitado=n>=p.nParcelas;
   /* próxima = 1º registro não pago; se não houver registro, será criado */
   const pendente=regs.find(x=>!x.pago)||null;
   const ultima=regs.length?regs[regs.length-1].data:null;
   const proxData=quitado?null:(pendente?pendente.data:(ultima?addM(ultima,1):p.primeira));
-  const pagoTotal=sum(pagos,x=>x.valor);
+  const pagoTotal=sum(pagos,x=>x.valor)+antes*valorParcela;
   return{pagas:n,valorParcela,quitado,proxData,pendente,pagoTotal,restante:Math.max(0,p.valorTotal-pagoTotal)};
 }
 function assinInfo(a){
@@ -2909,6 +3036,7 @@ function autoLancarPendentes(){
   const hoje=todayStr();
   let mudou=false;
   S.parc.forEach(p=>{
+    if(p.fonte==='fin-pessoal')return; /* as parcelas já chegam lançadas pelo Fin Pessoal */
     let lancadas=S.fin.filter(f=>f.grupoId===p.grupoId).length;
     if(lancadas>=p.nParcelas)return;
     const compra=p.dataCompra||p.primeira;if(!compra)return;
@@ -2921,7 +3049,7 @@ function autoLancarPendentes(){
     }
   });
   S.assin.forEach(a=>{
-    if(a.ativo===false)return;
+    if(a.ativo===false||a.fonte==='fin-pessoal')return;
     const passo=a.tipo==='Yearly'?12:1;
     const pagos=S.fin.filter(f=>f.assinId===a.id&&f.pago).sort((x,y)=>String(x.data).localeCompare(y.data));
     const ultima=pagos.length?pagos[pagos.length-1].data:null;
@@ -4428,6 +4556,7 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Título</label><input value="${esc(it.titulo)}" oninput="cardSet('titulo',this.value)" onchange="renderCard()"></div>
     <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-card-dem" oninput="cardSet('cliente',this.value)" onchange="renderCard()"><datalist id="cl-card-dem">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="field"><label>Tipo</label><select onchange="cardSetRefresh('tipo',this.value)">${DTIPOS.map(t=>`<option ${it.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Projeto (produção deste cliente)</label><select onchange="cardSetRefresh('projetoId',this.value||null)">${demProjetoOpts(it.cliente,it.projetoId)}</select></div>
     <div class="f2"><div class="field"><label>Prazo (V1)</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>
     <div class="field"><label>Status</label><select onchange="cardSetStatus(this.value)">${DSTATUS.map(t=>`<option ${it.status===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Prazo de ajuste</label><input type="date" value="${it.prazoAjuste||''}" onchange="cardSetRefresh('prazoAjuste',this.value||null)"></div>
@@ -4436,7 +4565,8 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Demanda mãe</label><select onchange="cardSetRefresh('maeId',this.value||null)"><option value="">Nenhuma</option>${maes.map(m=>`<option value="${m.id}" ${it.maeId===m.id?'selected':''}>${m.uid} · ${esc(m.titulo)}</option>`).join('')}</select></div>
     <div class="f2"><div class="field"><label>Receita (R$)</label><input type="number" step="0.01" value="${it.receita??''}" oninput="cardSet('receita',Number(this.value)||0)"></div>
     <div class="field"><label>Custo direto (R$)</label><input type="number" step="0.01" value="${it.custo??''}" oninput="cardSet('custo',Number(this.value)||0)"></div></div>
-    <div class="field"><label>Horas trabalhadas</label><input type="number" step="0.5" value="${it.horas??''}" oninput="cardSet('horas',Number(this.value)||0)"></div>`;
+    <div class="field"><label>Horas trabalhadas</label><input type="number" step="0.5" value="${it.horas??''}" oninput="cardSet('horas',Number(this.value)||0)"></div>
+    <button class="btn-sm" style="margin-top:4px;" onclick="dupDem('${it.id}')">⧉ Duplicar demanda</button>`;
   }
   if(kind==='tasks'){
     return `
@@ -4446,7 +4576,7 @@ function cardDetalhesHtml(kind,it){
     <div class="f2"><div class="field"><label>Prazo</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>
     <div class="field"><label>Área</label><select onchange="cardSetRefresh('area',this.value)"><option value="">—</option>${TAREAS.map(a=>`<option ${it.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
     <div class="f2"><div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-card-task" oninput="cardSet('cliente',this.value)"><datalist id="cl-card-task">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
-    <div class="field"><label>Demanda vinculada</label><select onchange="cardSetRefresh('demandaId',this.value||null)"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${it.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div></div>
+    ${demSelHtml('cd5',it.demandaId,'cdSetDemanda')}</div>
     <div class="field"><label>Projeto interno vinculado</label><select onchange="cardSetRefresh('projIntId',this.value||null)"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${it.projIntId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`;
   }
   if(kind==='pint'){
@@ -4473,7 +4603,8 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Nome do projeto</label><input value="${esc(it.nome)}" oninput="cardSet('nome',this.value)" onchange="renderCard()"></div>
     <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-list-proj" oninput="cardSet('cliente',this.value)"><datalist id="cl-list-proj">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
     <div class="f2"><div class="field"><label>Fase</label><select onchange="cardSetRefresh('fase',this.value)">${FASES.map(f=>`<option ${it.fase===f?'selected':''}>${f}</option>`).join('')}</select></div>
-    <div class="field"><label>Data de entrega</label><input type="date" value="${it.entrega||''}" onchange="cardSetRefresh('entrega',this.value||null)"></div></div>`;
+    <div class="field"><label>Data de entrega</label><input type="date" value="${it.entrega||''}" onchange="cardSetRefresh('entrega',this.value||null)"></div></div>
+    <button class="btn-sm" style="margin-top:4px;" onclick="dupProj('${it.id}')">⧉ Duplicar projeto</button>`;
   }
   if(kind==='leads'){
     return `
@@ -4539,7 +4670,7 @@ function cardDetalhesHtml(kind,it){
   <div class="f2"><div class="field"><label>Forma</label><select onchange="cardSet('forma',this.value)">${FORMAS.map(t=>`<option ${it.forma===t?'selected':''}>${t}</option>`).join('')}</select></div>
   <div class="field"><label>Conta</label><select onchange="cardSet('conta',this.value)">${CONTAS.map(c=>`<option ${it.conta===c.nome?'selected':''}>${c.nome}</option>`).join('')}</select></div></div>
   <div class="field"><label>Cliente</label><input value="${esc(it.cliente)}" list="cl-card-fin" oninput="cardSet('cliente',this.value)"><datalist id="cl-card-fin">${nomesConhecidos().map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
-  <div class="field"><label>Demanda vinculada</label><select onchange="cardSetRefresh('demandaId',this.value||null)"><option value="">Nenhuma</option>${S.demandas.map(d=>`<option value="${d.id}" ${it.demandaId===d.id?'selected':''}>${d.uid} · ${esc(d.titulo)}</option>`).join('')}</select></div>
+  ${demSelHtml('cd5',it.demandaId,'cdSetDemanda')}
   <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto" ${it.pago?'checked':''} onchange="cardSetRefresh('pago',this.checked)"><label style="margin:0">${isRec?'Já foi recebido':'Já foi pago'}</label></div>`;
 }
 /* toggle Kanban/Lista local à aba (S.cardView.sub, não S.tab.*) — compartilhado
@@ -4599,9 +4730,9 @@ function cardTabBody(){
     }).join(''):'<div class="empty-msg">Nenhuma tarefa vinculada ainda.</div>'}`;
   }
   if(cv.tab==='demandas'&&cv.kind==='projetos'){
-    const dems=S.demandas.filter(d=>d.cliente===it.cliente);
+    const dems=demandasDoProjeto(it);
     const sub=S.cardView.sub||'kanban';
-    if(sub==='lista')return cardSubToggle(sub)+(dems.length?dems.map(d=>`<div class="row-item row-go" onclick="openCard('demandas','${d.id}')"><div class="ri-name">${d.uid} · ${esc(d.titulo)}</div><div class="ri-sub">${esc(d.status)}</div></div>`).join(''):'<div class="empty-msg">Nenhuma demanda deste cliente ainda.</div>');
+    if(sub==='lista')return cardSubToggle(sub)+(dems.length?dems.map(d=>`<div class="row-item row-go" onclick="openCard('demandas','${d.id}')"><div class="ri-name">${d.uid} · ${esc(d.titulo)}</div><div class="ri-sub">${esc(d.status)}</div></div>`).join(''):'<div class="empty-msg">Nenhuma demanda vinculada a este projeto ainda.</div>');
     return cardSubToggle(sub)+cardKanbanBoard(dems,DSTATUS,DCOLORS,'demandas','mvDemStatus');
   }
   if(cv.tab==='obs'){
@@ -5950,6 +6081,12 @@ function renderAjustes(c){
         </div>`;}).join('')}
       </div>`).join('')}
       <button class="btn-sm" onclick="if(confirm('Restaurar ordem padrão do menu?')){S.prefs=S.prefs||{};S.prefs.navOrder={};save();buildNav();render();}">Restaurar ordem padrão</button>
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="widget-hd"><span class="widget-ttl">Financeiro vindo do Fin Pessoal</span><span class="widget-more">${finDoFP()?(S.prefs.ultimoPacote?'último pacote: '+new Date(S.prefs.ultimoPacote.em).toLocaleDateString('pt-BR')+' · '+S.prefs.ultimoPacote.fin+' lançamentos':'ativo'):'ainda não ativado'}</span></div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:12px;">O dado cru da Lozy (extrato e faturas) é importado no Fin Pessoal. No Fin Pessoal, Ajustes → <b>Exportar pacote Lozy</b> gera um arquivo só com o que é da Lozy; aqui você o importa e liga cada lançamento a demanda, cliente e projeto. Reimportar atualiza o valor/data/categoria e <b>não apaga</b> o que você ligou ou anotou.<br><b>Primeira vez:</b> use "Zerar financeiro" (baixa um backup completo e apaga lançamentos, parcelamentos e assinaturas do Hub) e depois importe o pacote.</div>
+      <button class="btn-sm" onclick="hubZerarFinanceiro()" style="background:var(--red);color:#fff;border-color:var(--red);">1. Zerar financeiro (com backup)</button>
+      <label class="btn-sm" style="cursor:pointer;margin-left:8px;display:inline-block;">2. Importar pacote do Fin Pessoal…<input type="file" accept=".json,application/json" style="display:none" onchange="hubLerPacote(this)"></label>
     </div>
     <div class="card" style="margin-bottom:12px;">
       <div class="widget-hd"><span class="widget-ttl">Dados migrados do Notion</span><span class="widget-more">Central Lozy · jul/2026</span></div>

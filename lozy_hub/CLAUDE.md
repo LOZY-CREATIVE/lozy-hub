@@ -116,3 +116,12 @@ python3 -m http.server 8080
 - `hubZerarFinanceiro()` é a única exceção consciente à regra "nunca deletar direto": pedido explícito do usuário, baixa o backup completo antes, dupla confirmação e `pushUndo`. Marca `S.prefs.finFonte='fin-pessoal'` — com isso `load()`/`applySeed()` **não** recarregam o financeiro da carga do Notion (`finDoFP()`); sem a flag, zerar `parc`/`assin` seria desfeito no próximo carregamento.
 - Privacidade: o arquivo só tem o que é Lozy (lista fixa de campos). Não há Supabase nesse caminho ainda; quando houver, o desenho previsto é dois projetos separados (pessoal × equipe) — nunca o mesmo projeto, porque a RLS atual dá acesso total a qualquer usuário logado.
 
+### Financeiro do Hub — paridade com o Fin Pessoal (leitura e vínculo)
+
+- **Ordenação** (Contas, Por cliente, Recorrentes): handlers inline NÃO enxergam variáveis locais do render; o padrão `onchange="S.sort.x={...srt,…}"` dava ReferenceError silencioso. Use `ordCampo(chave,padrao,valor)`/`ordInverter(chave,padrao)`.
+- **Recorrentes**: parcelamentos e assinaturas abrem em "em andamento" (`S.f.finRec.status`/`sa` indefinidos valem `andamento`; opções `quitado|todos` e `encerradas|todas` — não use `''` para "todos"). Busca por nome, ordenar por valor da parcela/total/data da compra. "Encerrada" = `ativo:false`. Parcelamentos com `fonte:'fin-pessoal'` não entram na auditoria de datas (`parcAudit`), e `projecaoFixos` soma `lancadasAntes` (senão projetaria parcelas já pagas).
+- **Lançamentos**: coluna/filtro de **subcategoria**, coluna **Demanda** (`demTituloFin`), filtro **Vínculo** (sem demanda / sem cliente / sem os dois / com demanda) e **ligar em lote** (`S.f.finSel`, `finSelTodos`, `finLigarLote`): põe `demandaId` e/ou `cliente` nos selecionados, sem tocar nos campos crus. Desfazível.
+- **Por cliente**: agrupar por Cliente | Projeto | Demanda (`S.f.finCliG`; projeto = projeto da demanda ligada, `projDeLanc`). **Análises** ganhou as dimensões Demanda, Projeto e Subcategoria.
+- **Visão geral personalizável** (`S.prefs.visao={ordem,off}`, `visaoMontar`/`visaoPers`): blocos `kpis, onde, venc, receber, nota`; "A receber" (`recHubCardHtml`) lista receitas `pago:false`. Previsão criada só no Hub não casa com o extrato — o ideal é cadastrá-la no Fin Pessoal como Lozy. Textos de ajuda usam `dica(id,html,titulo)` (recolhidos por padrão).
+- O que NÃO foi trazido de propósito: Classificar, Importar e a estimativa da fatura aberta (dado bancário/pessoal mora no Fin Pessoal).
+

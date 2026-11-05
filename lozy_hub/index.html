@@ -242,6 +242,19 @@ tr:hover .tacts{opacity:1;}
 .ev-entrega{border-left:2px solid var(--green);}
 .ev-outro{border-left:2px solid #8a8a8a;}
 .ev-prazo{border-left:2px solid #9333ea;}
+.ev-tarefa{border-left:2px solid #6366f1;}
+.ev-demanda{border-left:2px solid #9333ea;}
+.ev-projeto{border-left:2px solid #db2777;}
+.ev-pint{border-left:2px solid #0d9488;}
+.ev-lembrete{border-left:2px solid #64748b;}
+.ag-month{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.ag-mcell{background:var(--s1);border:1px solid var(--ltb);border-radius:10px;min-height:64px;padding:7px;cursor:pointer;transition:border-color .15s,transform .15s;}
+.ag-mcell:hover{border-color:var(--acc);transform:translateY(-1px);}
+.ag-mcell.today{border-color:var(--acc);border-width:1.5px;}
+.ag-mcell.other{opacity:.4;}
+.ag-mnum{font-size:12.5px;font-weight:600;}
+.ag-mdots{display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;}
+.ag-mdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 /* WIZARD */
 .wiz-steps{display:flex;align-items:center;gap:6px;margin-bottom:22px;flex-wrap:wrap;}
 .wstep{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--lx3);padding:5px 12px;border-radius:999px;border:1px solid var(--b2);}
@@ -316,6 +329,8 @@ tr:hover .tacts{opacity:1;}
   /* agenda em coluna única legível */
   .ag-week{grid-template-columns:1fr;gap:6px;}
   .ag-day{min-height:auto;}
+  .ag-month{grid-template-columns:repeat(7,1fr);}
+  .ag-mcell{min-height:40px;padding:4px;}
   /* formulários e wizard */
   .f2{grid-template-columns:1fr;}
   .wiz-body,.wiz-nav{max-width:100%;}
@@ -507,6 +522,7 @@ clientes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-widt
 comercial:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16l-6.2 7.6V18l-3.6 2v-7.4L4 5z"/></svg>',
 demandas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>',
 tarefas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 12h16M4 18h9"/></svg>',
+lembretes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C8 3 5 6.5 5 10.5c0 3-1 5-2 6.5h18c-1-1.5-2-3.5-2-6.5C19 6.5 16 3 12 3z"/><path d="M9.5 20.5a2.5 2.5 0 005 0"/></svg>',
 projetos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M9 4.5v15"/></svg>',
 pint:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5L12 3z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5l8 4.5 8-4.5"/></svg>',
 agenda:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
@@ -527,6 +543,7 @@ const SECTIONS=[
 {id:'clientes',label:'Clientes',sub:'Cadastro e visão 360 de cada cliente',ready:true},
 {id:'demandas',label:'Demandas',sub:'Entregas por cliente e prazo',ready:true},
 {id:'tarefas',label:'Tarefas',sub:'Tarefas internas da agência',ready:true},
+{id:'lembretes',label:'Lembretes',sub:'Notas com ou sem data, vinculadas ou não',ready:true},
 {id:'pint',label:'Projetos Internos',sub:'Frentes de trabalho da agência',ready:true},
 {id:'projetos',label:'Projetos',sub:'Operação em andamento',ready:true},
 {id:'agenda',label:'Agenda',sub:'Reuniões, gravações e entregas',ready:true},
@@ -704,7 +721,7 @@ const PRICING_DEFAULT={
   geral:{sinalPct:40,reagendLimiteH:48,validadeDias:30}
 };
 let S={
-leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],pint:[],fin:[],eventos:[],propostas:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],finPresets:[],
+leads:[],contatos:[],followups:[],demandas:[],tasks:[],projetos:[],pint:[],fin:[],eventos:[],propostas:[],lembretes:[],theme:null,cbase:[],prefs:{sb:1},dash:[],parc:[],assin:[],cols:{},trash:[],finPresets:[],
 pricing:JSON.parse(JSON.stringify(PRICING_DEFAULT)),orcamentos:[],finLastUpdate:null,
 active:'dashboard',
 sort:{},
@@ -728,7 +745,7 @@ const Store={
 };
 
 /* ═══ STORAGE ═══ */
-const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets','paginas','bases','customViews'];
+const KEYS=['leads','contatos','followups','demandas','tasks','projetos','pint','fin','eventos','propostas','lembretes','theme','cbase','prefs','dash','sort','parc','assin','cols','trash','pricing','orcamentos','perfis','finLastUpdate','finPresets','paginas','bases','customViews'];
 async function load(){
   let got=false;
   try{
@@ -759,6 +776,13 @@ async function load(){
     ];
     delete S.pricing.edicao.unit;
     save();
+  }
+  /* migração: widgets novos (Agenda/Tarefas/Lembretes do dashboard) entram ligados mesmo
+     em quem já tinha S.dash salvo — só quem monta do zero pega o DASH_DEFAULT direto. */
+  if(S.dash&&S.dash.length){
+    let dashNovo=false;
+    ['dash_agenda','dash_tarefas','dash_lembretes'].forEach(id=>{if(!S.dash.some(w=>w.id===id)){S.dash.push({id,visible:true});dashNovo=true;}});
+    if(dashNovo)save();
   }
   trashAutoPurge();
   autoLancarPendentes();
@@ -931,7 +955,7 @@ function nomesConhecidos(){
 function greeting(){const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';}
 
 /* ═══ NAV ═══ */
-const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','pint','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','calculadora','contratos','central','lixeira','ajustes']}];
+const NAVGROUPS=[{l:'Operação',ids:['dashboard','comercial','clientes','demandas','tarefas','lembretes','pint','projetos','agenda','financeiro']},{l:'Ferramentas',ids:['propostas','calculadora','contratos','central','lixeira','ajustes']}];
 /* ordem do menu é customizável (Ajustes → Ordem do menu); S.prefs.navOrder guarda,
    por grupo, a ordem escolhida pelo usuário. ids novos (feature futura) que ainda
    não estão salvos caem no fim, na ordem padrão de NAVGROUPS — nunca somem. */
@@ -1024,7 +1048,7 @@ function render(){
   const c=document.getElementById('content');
   if(S.cardView)renderCard(c);
   else if(S.active==='pagina')renderPaginaView(c);
-  else({dashboard:renderDashboard,comercial:renderComercial,demandas:renderDemandas,tarefas:renderTarefas,
+  else({dashboard:renderDashboard,comercial:renderComercial,demandas:renderDemandas,tarefas:renderTarefas,lembretes:renderLembretes,
     projetos:renderProjetos,pint:renderPint,agenda:renderAgenda,financeiro:renderFin,propostas:renderPropostas,calculadora:renderCalculadora,
     central:renderCentral,ajustes:renderAjustes,clientes:renderClientes,lixeira:renderLixeira}[S.active]||renderPlaceholder)(c);
   if(typeof renderSyncPill==='function')renderSyncPill();
@@ -1355,9 +1379,63 @@ const BUILTIN_DEFS={
   chart_rd:{label:'Receita × Despesa',span:2,goto:'financeiro',html:ctx=>`<div class="widget-hd"><span class="widget-ttl">Receita × Despesa</span><span class="widget-more">últimos 6 meses</span></div>${renderChartRD()}`},
   week:{label:'Esta semana',span:2,goto:'agenda',html:ctx=>`<div class="widget-hd"><span class="widget-ttl">Esta semana</span><span class="widget-more" style="text-transform:capitalize">${ctx.now.toLocaleDateString('pt-BR',{month:'long'})}</span></div>${renderWeekCal()}<div style="margin-top:14px">${renderWeekList()}</div>`},
   meudia:{label:'Meu dia',span:2,goto:null,html:ctx=>renderMeuDiaInner(ctx.demsHoje)},
-  leads:{label:'Leads quentes',span:2,goto:'comercial',html:ctx=>`<div class="widget-hd"><span class="widget-ttl">Leads quentes</span><span class="widget-more">${ctx.quentes.length?fmtBRL(sum(ctx.quentes)):''}</span></div>${ctx.quentes.length?ctx.quentes.map(l=>`<div class="row-item"><div><div class="ri-name" style="color:var(--dk1)">${esc(l.empresa)}</div><div class="ri-sub">${esc(l.stage)}${l.contato?' · '+esc(l.contato):''}</div></div><div class="ri-val" style="color:var(--dk1)">${fmtBRL(l.valor)}</div></div>`).join(''):'<div class="empty-msg">Nenhum lead quente em aberto.</div>'}`}
+  leads:{label:'Leads quentes',span:2,goto:'comercial',html:ctx=>`<div class="widget-hd"><span class="widget-ttl">Leads quentes</span><span class="widget-more">${ctx.quentes.length?fmtBRL(sum(ctx.quentes)):''}</span></div>${ctx.quentes.length?ctx.quentes.map(l=>`<div class="row-item row-go" onclick="event.stopPropagation();openCard('leads','${l.id}')"><div><div class="ri-name" style="color:var(--dk1)">${esc(l.empresa)}</div><div class="ri-sub">${esc(l.stage)}${l.contato?' · '+esc(l.contato):''}</div></div><div class="ri-val" style="color:var(--dk1)">${fmtBRL(l.valor)}</div></div>`).join(''):'<div class="empty-msg">Nenhum lead quente em aberto.</div>'}`},
+  dash_agenda:{label:'Agenda',span:2,goto:null,html:ctx=>dashAgendaCardHtml()},
+  dash_tarefas:{label:'Tarefas',span:2,goto:null,html:ctx=>dashTarefasCardHtml()},
+  dash_lembretes:{label:'Lembretes',span:2,goto:null,html:ctx=>dashLembretesCardHtml()}
 };
-const DASH_DEFAULT=[{id:'kpi_pipeline',visible:true},{id:'kpi_propostas',visible:true},{id:'kpi_demandas',visible:true},{id:'kpi_lucro',visible:true},{id:'chart_rd',visible:true},{id:'week',visible:true},{id:'meudia',visible:true},{id:'leads',visible:true}];
+const DASH_DEFAULT=[{id:'kpi_pipeline',visible:true},{id:'kpi_propostas',visible:true},{id:'kpi_demandas',visible:true},{id:'kpi_lucro',visible:true},{id:'chart_rd',visible:true},{id:'dash_agenda',visible:true},{id:'dash_tarefas',visible:true},{id:'dash_lembretes',visible:true},{id:'week',visible:false},{id:'meudia',visible:true},{id:'leads',visible:true}];
+/* ── granularidade Dia/Semana dos widgets de Agenda/Tarefas/Lembretes do dashboard
+   (S.prefs.dashGran={agenda,tarefas,lembretes}) — mesma ideia do inicioCfg.gran do lello-hub. */
+function dashGran(key){return(S.prefs&&S.prefs.dashGran&&S.prefs.dashGran[key]==='semana')?'semana':'dia';}
+function dashSetGran(key,v){S.prefs=S.prefs||{};S.prefs.dashGran=S.prefs.dashGran||{};S.prefs.dashGran[key]=v;save();render();}
+function granToggleHtml(key,gran){
+  return `<div class="tabs" style="margin:0;padding:3px;" onclick="event.stopPropagation()">
+    <button class="tab ${gran!=='semana'?'active':''}" style="padding:4px 10px;" onclick="dashSetGran('${key}','dia')">Dia</button>
+    <button class="tab ${gran==='semana'?'active':''}" style="padding:4px 10px;" onclick="dashSetGran('${key}','semana')">Semana</button>
+  </div>`;
+}
+function dashAgendaCardHtml(){
+  const gran=dashGran('agenda');const hoje=todayStr();
+  const itensAll=gran==='semana'
+    ?[...Array(7)].flatMap((_,i)=>{const ds=dstr(new Date(Date.now()+i*86400000));return itensDoDia(ds).map(it=>({...it,_data:ds}));})
+    :itensDoDia(hoje).map(it=>({...it,_data:hoje}));
+  return `<div class="widget-hd"><span class="widget-ttl">Agenda</span>
+  <div style="display:flex;align-items:center;gap:10px;">${granToggleHtml('agenda',gran)}
+    <span class="widget-more"><a style="cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();goTo('agenda')">ver agenda →</a></span>
+  </div></div>
+  ${itensAll.length?itensAll.map(it=>`<div class="row-item row-go" onclick="event.stopPropagation();itemAbrirKind('${it.tipo}','${it.id}')"><div><div class="ri-name">${esc(it.titulo)}</div><div class="ri-sub">${gran==='semana'?fmtD(it._data)+(it.hIni?' · '+it.hIni+(it.hFim?'–'+it.hFim:''):''):(it.hIni?it.hIni+(it.hFim?'–'+it.hFim:''):(AG_TIPO_LBL[it.tipo]||'sem hora'))}</div></div></div>`).join('')
+  :`<div class="empty-msg">${gran==='semana'?'Nada na agenda dos próximos 7 dias.':'Nada na agenda de hoje.'}</div>`}`;
+}
+function dashTarefasCardHtml(){
+  const gran=dashGran('tarefas');const hoje=todayStr();
+  const lim=gran==='semana'?dstr(new Date(Date.now()+7*86400000)):hoje;
+  const ts=S.tasks.filter(t=>t.prazo&&t.prazo<=lim&&!['Concluída','Cancelada'].includes(t.status)).sort((a,b)=>a.prazo.localeCompare(b.prazo));
+  return `<div class="widget-hd"><span class="widget-ttl">Tarefas</span>
+  <div style="display:flex;align-items:center;gap:10px;">${granToggleHtml('tarefas',gran)}
+    <button class="ibtn" title="Nova tarefa" onclick="event.stopPropagation();openTask()">+</button>
+    <span class="widget-more"><a style="cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();goTo('tarefas')">ver tudo →</a></span>
+  </div></div>
+  ${ts.length?ts.map(t=>{const ps=prazoStatus(t.prazo);return `<div class="row-item row-go" onclick="if(!event.target.closest('button')){event.stopPropagation();openCard('tasks','${t.id}')}"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+    <button class="tk-check" onclick="event.stopPropagation();toggleTask('${t.id}')"></button>
+    <div><div class="ri-name">${esc(t.titulo)}</div><div class="ri-sub">${ps.cls==='atrasada'?'<span style="color:var(--red)">'+ps.label+'</span>':(gran==='semana'?fmtD(t.prazo):'Hoje')}</div></div></div>
+    <span class="bdg ${t.prioridade==='Alta'?'alta':t.prioridade==='Média'?'media':'baixa'}">${t.prioridade}</span></div>`;}).join('')
+  :`<div class="empty-msg">${gran==='semana'?'Nenhuma tarefa pendente nos próximos 7 dias.':'Nenhuma tarefa pendente para hoje.'}</div>`}`;
+}
+function dashLembretesCardHtml(){
+  const gran=dashGran('lembretes');const hoje=todayStr();
+  const lim=gran==='semana'?dstr(new Date(Date.now()+7*86400000)):hoje;
+  const ls=S.lembretes.filter(l=>!l.feito&&l.data&&l.data<=lim).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  return `<div class="widget-hd"><span class="widget-ttl">Lembretes</span>
+  <div style="display:flex;align-items:center;gap:10px;">${granToggleHtml('lembretes',gran)}
+    <button class="ibtn" title="Novo lembrete" onclick="event.stopPropagation();openLembrete()">+</button>
+    <span class="widget-more"><a style="cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();goTo('lembretes')">ver tudo →</a></span>
+  </div></div>
+  ${ls.length?ls.map(l=>`<div class="row-item row-go" onclick="if(!event.target.closest('button')){event.stopPropagation();openCard('lembretes','${l.id}')}"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+    <button class="tk-check" onclick="event.stopPropagation();toggleLembrete('${l.id}')"></button>
+    <div><div class="ri-name">${esc(l.titulo)}</div><div class="ri-sub">${l.data<hoje?'<span style="color:var(--red)">Atrasado · '+fmtD(l.data)+'</span>':gran==='semana'?fmtD(l.data):'Hoje'}</div></div></div></div>`).join('')
+  :`<div class="empty-msg">${gran==='semana'?'Nenhum lembrete nos próximos 7 dias.':'Nenhum lembrete pra hoje.'}</div>`}`;
+}
 
 /* selo de ícone circular no canto do card de KPI (estilo MakersHub) — só
    pros metrics que têm um ícone óbvio no IC[]; os demais (ex: personalizados
@@ -1466,11 +1544,11 @@ function renderWeekCal(){
 function renderWeekList(){
   const days=weekDays().map(dstr);
   const evs=[
-    ...S.eventos.filter(e=>days.includes(e.data)).map(e=>({d:e.data,t:e.titulo,s:e.hIni||'',tipo:e.tipo})),
-    ...S.demandas.filter(d=>d.status!=='Entregue'&&days.includes(demPrazoAtivo(d))).map(d=>({d:demPrazoAtivo(d),t:'Prazo: '+d.titulo,s:'',tipo:'Prazo'}))
+    ...S.eventos.filter(e=>days.includes(e.data)).map(e=>({d:e.data,t:e.titulo,s:e.hIni||'',tipo:e.tipo,kind:'eventos',id:e.id})),
+    ...S.demandas.filter(d=>d.status!=='Entregue'&&days.includes(demPrazoAtivo(d))).map(d=>({d:demPrazoAtivo(d),t:'Prazo: '+d.titulo,s:'',tipo:'Prazo',kind:'demandas',id:d.id}))
   ].sort((a,b)=>a.d.localeCompare(b.d)||a.s.localeCompare(b.s)).slice(0,4);
   if(!evs.length)return '<div class="empty-msg">Semana livre. Clique em qualquer dia da agenda.</div>';
-  return evs.map(e=>`<div class="row-item"><div><div class="ri-name" style="color:var(--dk1)">${esc(e.t)}</div><div class="ri-sub">${fmtD(e.d)}${e.s?' · '+e.s:''} · ${e.tipo}</div></div></div>`).join('');
+  return evs.map(e=>`<div class="row-item row-go" onclick="event.stopPropagation();openCard('${e.kind}','${e.id}')"><div><div class="ri-name" style="color:var(--dk1)">${esc(e.t)}</div><div class="ri-sub">${fmtD(e.d)}${e.s?' · '+e.s:''} · ${e.tipo}</div></div></div>`).join('');
 }
 
 function renderMeuDiaInner(demsHoje){
@@ -1480,16 +1558,16 @@ function renderMeuDiaInner(demsHoje){
     <div style="margin-bottom:16px">
       <div class="day-lbl">Tarefas</div>
       <div class="task-input-wrap"><input class="task-input" id="task-input" placeholder="Adicionar tarefa rápida..." onkeydown="if(event.key==='Enter')addQuickTask()"><button class="btn-sm" style="background:var(--dk1);color:#fff;border-color:var(--dk1)" onclick="addQuickTask()">+ Add</button></div>
-      ${(tasksHoje.length||done.length)?[...tasksHoje,...done].map(t=>`<div class="task-item">
-        <button class="tk-check ${t.status==='Concluída'?'done':''}" onclick="toggleTask('${t.id}')"></button>
+      ${(tasksHoje.length||done.length)?[...tasksHoje,...done].map(t=>`<div class="task-item" style="cursor:pointer" onclick="if(!event.target.closest('button')){event.stopPropagation();openCard('tasks','${t.id}')}">
+        <button class="tk-check ${t.status==='Concluída'?'done':''}" onclick="event.stopPropagation();toggleTask('${t.id}')"></button>
         <span class="tk-text ${t.status==='Concluída'?'done':''}">${esc(t.titulo)}</span>
         ${t.prioridade==='Alta'?'<span class="bdg alta" style="border-color:#dc262640">alta</span>':''}
-        <button class="tk-del" onclick="delTask('${t.id}')">✕</button>
+        <button class="tk-del" onclick="event.stopPropagation();delTask('${t.id}')">✕</button>
       </div>`).join(''):'<div class="empty-msg">Sem tarefas para hoje.</div>'}
     </div>
     <div>
       <div class="day-lbl">Demandas para hoje</div>
-      ${demsHoje.length?demsHoje.map(d=>{const ps=prazoStatus(demPrazoAtivo(d));return `<div class="dem-item"><div class="dem-dot ${ps.cls}"></div><div class="dem-body"><div class="dem-name">${esc(d.titulo)}</div><div class="dem-meta">${esc(d.cliente||'Sem cliente')} · ${esc(d.tipo)}</div></div><div class="dem-prazo ${ps.cls}">${ps.label}</div></div>`;}).join(''):'<div class="empty-msg">Nenhuma demanda com prazo para hoje.</div>'}
+      ${demsHoje.length?demsHoje.map(d=>{const ps=prazoStatus(demPrazoAtivo(d));return `<div class="dem-item" style="cursor:pointer" onclick="event.stopPropagation();openCard('demandas','${d.id}')"><div class="dem-dot ${ps.cls}"></div><div class="dem-body"><div class="dem-name">${esc(d.titulo)}</div><div class="dem-meta">${esc(d.cliente||'Sem cliente')} · ${esc(d.tipo)}</div></div><div class="dem-prazo ${ps.cls}">${ps.label}</div></div>`;}).join(''):'<div class="empty-msg">Nenhuma demanda com prazo para hoje.</div>'}
     </div>`;
 }
 function addQuickTask(){
@@ -1598,7 +1676,7 @@ function comFollowups(b){
   b.innerHTML=`<div class="toolbar"><span style="flex:1"></span><button class="btn-ghost" onclick="openFollowup()">+ Novo follow-up</button></div>`+
   (fs.length?`<div class="card" style="padding:8px 20px;">${fs.map(f=>{
     const l=S.leads.find(x=>x.id===f.lead);const ps=f.data?prazoStatus(f.data):null;
-    return `<div class="row-item"><div style="display:flex;align-items:center;gap:10px;">
+    return `<div class="row-item row-go" onclick="if(!event.target.closest('button'))openFollowup('${f.id}')"><div style="display:flex;align-items:center;gap:10px;">
     <button class="tk-check ${f.feito?'done':''}" style="border-color:var(--b3)" onclick="toggleFU('${f.id}')"></button>
     <div><div class="ri-name" style="${f.feito?'color:var(--t3);text-decoration:line-through':''}">${esc(f.titulo)}</div>
     <div class="ri-sub">${l?esc(l.empresa)+' · ':''}${fmtD(f.data)}${ps&&!f.feito&&ps.cls!=='ok'?' · <span style="color:'+(ps.cls==='atrasada'?'var(--red)':'var(--amber)')+'">'+ps.label+'</span>':''}</div></div></div>
@@ -1614,11 +1692,11 @@ function comAgenda(b){
   b.innerHTML='<div class="ag-week">'+days.map((d,i)=>{
     const ds=dstr(d);
     const items=[
-      ...S.followups.filter(f=>f.data===ds&&!f.feito).map(f=>({t:f.titulo,tipo:'followup'})),
-      ...S.leads.filter(l=>l.proxData===ds).map(l=>({t:esc(l.proxAcao||'Ação')+' — '+esc(l.empresa),tipo:'lead'}))
+      ...S.followups.filter(f=>f.data===ds&&!f.feito).map(f=>({t:f.titulo,onclick:`openFollowup('${f.id}')`})),
+      ...S.leads.filter(l=>l.proxData===ds).map(l=>({t:esc(l.proxAcao||'Ação')+' — '+esc(l.empresa),onclick:`openCard('leads','${l.id}')`}))
     ];
     return `<div class="ag-day ${ds===today?'today':''}"><div class="ag-dhd">${dows[i]}</div><div class="ag-dnum">${d.getDate()}</div>
-    ${items.map(it=>`<div class="ag-ev ev-reuniao"><div class="t">${it.t}</div></div>`).join('')}</div>`;
+    ${items.map(it=>`<div class="ag-ev ev-reuniao" style="cursor:pointer" onclick="${it.onclick}"><div class="t">${it.t}</div></div>`).join('')}</div>`;
   }).join('')+'</div>';
 }
 
@@ -1655,13 +1733,15 @@ function openContato(){
     S.contatos.push({id:uid('c'),nome:v('m1').trim(),empresa:v('m2').trim(),cargo:v('m3').trim(),tel:v('m4').trim(),email:v('m5').trim()});
     save();closeModal();render();});
 }
-function openFollowup(){
-  openModal('Novo follow-up',`
-    <div class="field"><label>Ação</label><input id="m1" placeholder="Ligar para..., enviar proposta..."></div>
-    <div class="field"><label>Data</label><input id="m2" type="date" value="${todayStr()}"></div>
-    <div class="field"><label>Lead vinculado</label><select id="m3"><option value="">Nenhum</option>${S.leads.map(l=>`<option value="${l.id}">${esc(l.empresa)}</option>`).join('')}</select></div>`,
+function openFollowup(id){
+  const f=id?S.followups.find(x=>x.id===id):null;
+  openModal(f?'Editar follow-up':'Novo follow-up',`
+    <div class="field"><label>Ação</label><input id="m1" value="${esc(f?.titulo)}" placeholder="Ligar para..., enviar proposta..."></div>
+    <div class="field"><label>Data</label><input id="m2" type="date" value="${f?.data||todayStr()}"></div>
+    <div class="field"><label>Lead vinculado</label><select id="m3"><option value="">Nenhum</option>${S.leads.map(l=>`<option value="${l.id}" ${f?.lead===l.id?'selected':''}>${esc(l.empresa)}</option>`).join('')}</select></div>`,
   ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
-    S.followups.push({id:uid('f'),titulo:v('m1').trim(),data:v('m2'),lead:v('m3')||null,feito:false});
+    const data={titulo:v('m1').trim(),data:v('m2'),lead:v('m3')||null};
+    if(f)Object.assign(f,data);else S.followups.push({id:uid('f'),feito:false,...data});
     save();closeModal();render();});
 }
 </script>
@@ -1881,12 +1961,12 @@ function renderTarefas(c){
     const ps=tk.prazo?prazoStatus(tk.prazo):null;
     const dem=tk.demandaId?S.demandas.find(d=>d.id===tk.demandaId):null;
     const pj=tk.projIntId?S.pint.find(p=>p.id===tk.projIntId):null;
-    return `<div class="row-item"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+    return `<div class="row-item row-go" onclick="if(!event.target.closest('button'))openCard('tasks','${tk.id}')"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
     <button class="tk-check ${tk.status==='Concluída'?'done':''}" style="border-color:var(--b3)" onclick="toggleTask('${tk.id}')"></button>
     <div style="min-width:0"><div class="ri-name" style="${tk.status==='Concluída'?'color:var(--t3);text-decoration:line-through':''}">${esc(tk.titulo)}</div>
     <div class="ri-sub">${tk.area?tk.area+' · ':''}${tk.status}${tk.prazo?' · '+fmtD(tk.prazo):''}${ps&&ps.cls==='atrasada'&&tk.status!=='Concluída'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}${dem?' · '+dem.uid:''}${pj?' · '+esc(pj.nome):''}</div></div></div>
     <span class="bdg ${tk.prioridade==='Alta'?'alta':tk.prioridade==='Média'?'media':'baixa'}">${tk.prioridade}</span>
-    <div style="display:flex;gap:4px;margin-left:8px;"><button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div>`;
+    <div style="display:flex;gap:4px;margin-left:8px;"><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div>`;
   };
   if(t==='kanban'){
     b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+TSTATUS.map(st=>{
@@ -1938,6 +2018,58 @@ function openTask(id){
     save();closeModal();render();});
 }
 
+/* ═══ LEMBRETES ═══
+   Notas com ou sem data, vinculáveis a uma Tarefa, um Projeto Interno ou uma
+   Área (mesma lista TAREAS usada em Tarefas/Pint) — os três vínculos são
+   independentes e opcionais, não mutuamente exclusivos. */
+function delLembrete(id){softDel('lembretes',id);}
+function toggleLembrete(id){
+  const l=S.lembretes.find(x=>x.id===id);if(!l)return;
+  pushUndo((l.feito?'reabrir':'concluir')+' lembrete "'+l.titulo+'"',['lembretes']);
+  l.feito=!l.feito;save();render();
+}
+function openLembrete(id){
+  const l=id?S.lembretes.find(x=>x.id===id):null;
+  openModal(l?'Editar lembrete':'Novo lembrete',`
+    <div class="field"><label>Título</label><input id="m1" value="${esc(l?.titulo)}" placeholder="Ex: Ligar pro contador"></div>
+    <div class="f2"><div class="field"><label>Data (opcional)</label><input id="m2" type="date" value="${l?.data||''}"></div>
+    <div class="field"><label>Área</label><select id="m3"><option value="">—</option>${TAREAS.map(a=>`<option ${l?.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Tarefa vinculada (opcional)</label><select id="m4"><option value="">Nenhuma</option>${S.tasks.map(t=>`<option value="${t.id}" ${l?.taskId===t.id?'selected':''}>${esc(t.titulo)}</option>`).join('')}</select></div>
+    <div class="field"><label>Projeto interno vinculado (opcional)</label><select id="m5"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${l?.pintId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`,
+  ()=>{const v=k=>document.getElementById(k).value;if(!v('m1').trim())return;
+    const data={titulo:v('m1').trim(),data:v('m2')||null,area:v('m3')||'',taskId:v('m4')||null,pintId:v('m5')||null};
+    if(l)Object.assign(l,data);
+    else S.lembretes.unshift({id:uid('lb'),feito:false,criadoEm:todayStr(),blocks:[],...data});
+    save();closeModal();render();});
+}
+function renderLembretes(c){
+  const q=(S.q.lem||'').toLowerCase();const f=S.f.lem||{};
+  const ls=S.lembretes.filter(l=>(!q||l.titulo.toLowerCase().includes(q))
+    &&(f.st==='pendente'?!l.feito:f.st==='concluido'?l.feito:true)
+    &&(f.data==='com'?!!l.data:f.data==='sem'?!l.data:true)
+    &&(!f.area||l.area===f.area))
+    .sort((a,b)=>(a.feito-b.feito)||(a.data||'9999').localeCompare(b.data||'9999')||String(b.criadoEm||'').localeCompare(String(a.criadoEm||'')));
+  c.innerHTML=`
+    <div class="page-hd"><div><div class="page-title">Lembretes</div>${secSub('lembretes')}</div>
+    <button class="btn-ghost" onclick="openLembrete()">+ Novo lembrete</button></div>
+    <div class="toolbar">
+    <input class="search" placeholder="Buscar lembrete..." value="${esc(S.q.lem||'')}" oninput="S.q.lem=this.value;render()">
+    <select class="fsel" onchange="S.f.lem={...S.f.lem,st:this.value};render()"><option value="">Status: Todos</option><option value="pendente" ${f.st==='pendente'?'selected':''}>Pendente</option><option value="concluido" ${f.st==='concluido'?'selected':''}>Concluído</option></select>
+    <select class="fsel" onchange="S.f.lem={...S.f.lem,data:this.value};render()"><option value="">Data: Todas</option><option value="com" ${f.data==='com'?'selected':''}>Com data</option><option value="sem" ${f.data==='sem'?'selected':''}>Sem data</option></select>
+    <select class="fsel" onchange="S.f.lem={...S.f.lem,area:this.value};render()"><option value="">Área: Todas</option>${TAREAS.map(a=>`<option ${f.area===a?'selected':''}>${a}</option>`).join('')}</select>
+    </div>
+    <div class="card" style="padding:6px 20px;">${ls.length?ls.map(l=>{
+      const tk=l.taskId?S.tasks.find(t=>t.id===l.taskId):null;
+      const pj=l.pintId?S.pint.find(p=>p.id===l.pintId):null;
+      const atrasado=l.data&&l.data<todayStr()&&!l.feito;
+      return `<div class="row-item row-go" onclick="if(!event.target.closest('button'))openCard('lembretes','${l.id}')"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+      <button class="tk-check ${l.feito?'done':''}" onclick="event.stopPropagation();toggleLembrete('${l.id}')"></button>
+      <div style="min-width:0"><div class="ri-name" style="${l.feito?'color:var(--t3);text-decoration:line-through':''}">${esc(l.titulo)}</div>
+      <div class="ri-sub">${l.area?l.area+' · ':''}${l.data?(atrasado?'<span style="color:var(--red)">Atrasado · '+fmtD(l.data)+'</span>':fmtD(l.data)):'sem data'}${tk?' · '+esc(tk.titulo):''}${pj?' · '+esc(pj.nome):''}</div></div></div>
+      <div style="display:flex;gap:4px;margin-left:8px;"><button class="ibtn del" onclick="event.stopPropagation();delLembrete('${l.id}')">✕</button></div></div>`;
+    }).join(''):'<div class="empty-msg">Nenhum lembrete.</div>'}</div>`;
+}
+
 /* ═══ PROJETOS ═══ */
 function projetosDoCliente(cliente){return S.projetos.filter(p=>p.cliente===cliente);}
 /* demandas de um projeto: por vínculo explícito (d.projetoId) quando existe.
@@ -1967,14 +2099,13 @@ function renderProjetos(c){
     </div>
     <div class="board">${FASES.map(fase=>{
       const ps=S.projetos.filter(p=>p.fase===fase);
-      return `<div class="col"><div class="col-hd"><span class="col-name">${fase}</span><span class="col-stat">${ps.length}</span></div><div class="col-body">
+      return `<div class="col" data-dg="projetos" data-dgval="${esc(fase)}"><div class="col-hd"><span class="col-name">${fase}</span><span class="col-stat">${ps.length}</span></div><div class="col-body">
       ${ps.length?ps.map(p=>{const es=p.entrega?prazoStatus(p.entrega):null;const dems=demandasDoProjeto(p).filter(d=>d.status!=='Entregue').length;
       const i=FASES.indexOf(p.fase);
-      return `<div class="kcard"><div class="kc-name" style="margin-bottom:2px">${esc(p.nome)}</div>
+      return `<div class="kcard" onpointerdown="dgDown(event,'projetos','${p.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(p.nome)}</div></div></div>
       <div class="kc-sub">${esc(p.cliente)}${dems?' · '+dems+' demandas abertas':''}</div>
       <div class="kc-ft"><div class="kc-val" style="font-size:11.5px;color:${es&&es.cls==='atrasada'?'var(--red)':'var(--t2)'}">${p.entrega?'Entrega '+fmtD(p.entrega):'Sem prazo'}</div>
-      <div class="kc-acts"><button class="ibtn" title="abrir" onclick="openCard('projetos','${p.id}')">⤢</button>
-      <button class="ibtn" ${i===0?'disabled style="opacity:.25"':''} onclick="mvProj('${p.id}',-1)">←</button>
+      <div class="kc-acts"><button class="ibtn" ${i===0?'disabled style="opacity:.25"':''} onclick="mvProj('${p.id}',-1)">←</button>
       <button class="ibtn" ${i===FASES.length-1?'disabled style="opacity:.25"':''} onclick="mvProj('${p.id}',1)">→</button>
       <button class="ibtn del" onclick="delProj('${p.id}')">✕</button></div></div></div>`;}).join(''):'<div class="col-empty">Nenhuma produção nesta etapa</div>'}</div></div>`;
     }).join('')}</div>`;
@@ -2689,7 +2820,7 @@ function finFuturos(b){
         </div></div>`;}).join('')}</div>
     ${projetados.length?`<div class="card" style="margin-bottom:14px;">
       <div class="widget-hd"><span class="widget-ttl">Fixos projetados</span><span class="widget-more">ainda não lançados · ${projetados.length}</span></div>
-      ${projetados.map(p=>`<div class="row-item"><div><div class="ri-name">${esc(p.desc)}${p.parcelaN?` <span class="bdg">parcela ${p.parcelaN}/${p.parcelasTot}</span>`:''}</div>
+      ${projetados.map(p=>`<div class="row-item row-go" onclick="if(!event.target.closest('button'))${p.origem==='parc'?'openParc':'openAssin'}('${p.origemId}')"><div><div class="ri-name">${esc(p.desc)}${p.parcelaN?` <span class="bdg">parcela ${p.parcelaN}/${p.parcelasTot}</span>`:''}</div>
       <div class="ri-sub">${p.origem==='parc'?'Parcelamento':'Assinatura'} · ${fmtD(p.data)} · ${mesRef(p)}</div></div>
       <div style="display:flex;align-items:center;gap:8px"><span class="ri-val" style="color:var(--red)">−${fmtBRL(p.valor)}</span>${p.primeiraDoGrupo?`<button class="btn-sm" onclick="${p.origem==='parc'?'lancarParcela':'lancarCobranca'}('${p.origemId}')">Lançar agora</button>`:'<span class="bdg">projetado</span>'}</div></div>`).join('')}
     </div>`:''}
@@ -2786,7 +2917,7 @@ function finContas(b){
     <div class="metric" style="margin-bottom:2px">${fmtBRL(sum(curto,x=>tipo==='r'?liq(x):x.valor))}</div>
     <div class="metric-s" style="margin-bottom:10px">até 30 dias${vf?` · <span style="color:var(--t3)">+ ${fmtBRL(vf)} em compromissos futuros (${futuro.length})</span>`:''}</div>
     ${list.length?list.map(x=>{const ps=prazoStatus(dataVencimento(x));
-    return `<div class="row-item"><div><div class="ri-name">${esc(x.desc)}</div><div class="ri-sub">${esc(x.cliente)||'—'} · ${fmtD(x.data)} · <span style="color:${ps.cls==='atrasada'?'var(--red)':ps.cls==='hoje'?'var(--amber)':'var(--t3)'}">${ps.label}</span></div></div>
+    return `<div class="row-item row-go" onclick="if(!event.target.closest('button'))openCard('fin','${x.id}')"><div><div class="ri-name">${esc(x.desc)}</div><div class="ri-sub">${esc(x.cliente)||'—'} · ${fmtD(x.data)} · <span style="color:${ps.cls==='atrasada'?'var(--red)':ps.cls==='hoje'?'var(--amber)':'var(--t3)'}">${ps.label}</span></div></div>
     <div style="display:flex;align-items:center;gap:8px"><span class="ri-val">${fmtBRL(tipo==='r'?liq(x):x.valor)}</span><button class="btn-sm" onclick="togglePago('${x.id}')">${tipo==='r'?'Receber':'Pagar'}</button></div></div>`;}).join(''):'<div class="empty-msg">Nada encontrado com esses filtros.</div>'}
     </div>`;
   };
@@ -3224,9 +3355,9 @@ function openLancamentosDe(kind,id){
   const regs=(kind==='parc'?S.fin.filter(f=>f.grupoId===id):S.fin.filter(f=>f.assinId===id)).sort((a,b)=>String(a.data).localeCompare(b.data));
   openModal('Lançamentos — '+nome,
     regs.length?`<div style="max-height:50vh;overflow-y:auto;">${regs.map(r=>`
-    <div class="row-item"><div><div class="ri-name">${esc(r.desc)}${r.parcelaN?` <span class="bdg">parcela ${r.parcelaN}/${r.parcelasTot}</span>`:''}</div>
+    <div class="row-item row-go" onclick="closeModal();openCard('fin','${r.id}')"><div><div class="ri-name">${esc(r.desc)}${r.parcelaN?` <span class="bdg">parcela ${r.parcelaN}/${r.parcelasTot}</span>`:''}</div>
     <div class="ri-sub">${fmtD(r.data)} · ${r.pago?'✓ Pago':'Pendente'}</div></div>
-    <div style="display:flex;align-items:center;gap:8px"><span class="ri-val">${fmtBRL2(r.valor)}</span><button class="ibtn" title="abrir" onclick="closeModal();openCard('fin','${r.id}')">⤢</button></div></div>`).join('')}</div>`
+    <div style="display:flex;align-items:center;gap:8px"><span class="ri-val">${fmtBRL2(r.valor)}</span></div></div>`).join('')}</div>`
     :'<div class="empty-msg">Nenhum lançamento ainda.</div>',
   null,true);
 }
@@ -3254,7 +3385,7 @@ function finRecorrentes(b){
   const mensalParc=sum(ativos,x=>x.i.valorParcela);
   const mensalAssin=sum(asTodas.filter(x=>x.a.ativo!==false),x=>x.a.tipo==='Yearly'?x.a.valor/12:x.a.valor);
 
-  const parcHtml=ps.map(({p,i})=>`<div class="row-item"><div style="flex:1;min-width:0;">
+  const parcHtml=ps.map(({p,i})=>`<div class="row-item row-go" onclick="if(!event.target.closest('button'))openParc('${p.id}')"><div style="flex:1;min-width:0;">
       <div class="ri-name">${esc(p.nome)} <span class="bdg" style="${i.quitado?'color:var(--green)':''}">${i.pagas} de ${p.nParcelas} pagas</span></div>
       <div class="ri-sub">compra ${fmtD(p.dataCompra||p.primeira)} · ${p.categoria} · ${p.conta} · ${fmtBRL2(i.valorParcela)}/mês · Total ${fmtBRL(p.valorTotal)}${i.quitado?' · quitado ✓':' · faltam '+(p.nParcelas-i.pagas)+' parcelas ('+fmtBRL(i.restante)+') · próxima '+fmtD(i.proxData)}</div>
       <div style="height:4px;background:rgba(0,0,0,.09);border-radius:99px;margin-top:6px;max-width:280px;"><div style="height:100%;background:${i.quitado?'var(--green)':'var(--acc)'};border-radius:99px;width:${Math.round(i.pagas/p.nParcelas*100)}%"></div></div>
@@ -3262,16 +3393,16 @@ function finRecorrentes(b){
     <div style="display:flex;gap:4px;align-items:center;">
     ${i.quitado?'<span class="bdg" style="color:var(--green)">✓ Quitado</span>':`<button class="btn-sm" onclick="lancarParcela('${p.id}')">${i.pendente?'Pagar':'Lançar'} parcela ${i.pagas+1}</button>`}
     <button class="ibtn" title="Ver lançamentos" onclick="openLancamentosDe('parc','${p.grupoId}')">👁</button>
-    <button class="ibtn" onclick="openParc('${p.id}')">✎</button><button class="ibtn del" onclick="delParc('${p.id}')">✕</button></div></div>`).join('');
+    <button class="ibtn del" onclick="delParc('${p.id}')">✕</button></div></div>`).join('');
 
-  const assHtml=as.map(({a,i})=>`<div class="row-item" style="opacity:${a.ativo===false?0.5:1}"><div style="flex:1;min-width:0;">
+  const assHtml=as.map(({a,i})=>`<div class="row-item row-go" style="opacity:${a.ativo===false?0.5:1}" onclick="if(!event.target.closest('button'))openAssin('${a.id}')"><div style="flex:1;min-width:0;">
       <div class="ri-name">${esc(a.nome)} <span class="bdg">${a.tipo==='Yearly'?'↻ anual':'↻ mensal'}</span>${a.ativo===false?' <span class="bdg" style="color:var(--red)">encerrada</span>':''}</div>
       <div class="ri-sub">${a.categoria} · ${a.conta} · ${fmtBRL(a.valor)}${a.tipo==='Yearly'?'/ano':'/mês'} · ${i.cobrancas?i.cobrancas+' cobranças · última '+fmtD(i.ultima):'nenhuma cobrança lançada'}</div></div>
       <div style="display:flex;gap:4px;align-items:center;">
       <button class="btn-sm" onclick="lancarCobranca('${a.id}')">${i.pendente?'Pagar':'Lançar'} ${fmtD(i.prox)}</button>
       <button class="ibtn" title="Ver lançamentos" onclick="openLancamentosDe('assin','${a.id}')">👁</button>
       <button class="ibtn" onclick="toggleAssin('${a.id}')" title="${a.ativo===false?'Reativar':'Encerrar'}">${a.ativo===false?'▶':'❚❚'}</button>
-      <button class="ibtn" onclick="openAssin('${a.id}')">✎</button><button class="ibtn del" onclick="delAssin('${a.id}')">✕</button></div></div>`).join('');
+      <button class="ibtn del" onclick="delAssin('${a.id}')">✕</button></div></div>`).join('');
 
   const toolbar=`<div class="toolbar">
     <select class="fsel" onchange="S.f.finRec={...S.f.finRec,cat:this.value};render()"><option value="">Categoria: Todas</option>${[...new Set([...FCATS,...S.parc.map(x=>x.categoria),...S.assin.map(x=>x.categoria)].filter(Boolean))].sort().map(c=>`<option ${f.cat===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
@@ -3302,30 +3433,106 @@ function finRecorrentes(b){
 </script>
 <script>
 /* ═══ AGENDA ═══ */
-function renderAgenda(c){
-  const days=weekDays();const today=todayStr();
+/* ═══ AGENDA — Mês / Semana / Dia, navegável (padrão lello-hub) ═══
+   itensDoDia() unifica 6 fontes num só feed: eventos, prazo de tarefa, prazo de
+   demanda, entrega de projeto, prazo de projeto interno e data de lembrete —
+   nenhuma delas duplica dado, é tudo lido ao vivo dos módulos donos. */
+function agCfg(){S.f.ag=S.f.ag||{view:'semana',cursor:todayStr()};return S.f.ag;}
+function agSetView(v){agCfg().view=v;render();}
+function agNav(delta){
+  const cfg=agCfg();const d=new Date(cfg.cursor+'T00:00:00');
+  if(cfg.view==='mes'){d.setDate(1);d.setMonth(d.getMonth()+delta);}
+  else if(cfg.view==='semana')d.setDate(d.getDate()+7*delta);
+  else d.setDate(d.getDate()+delta);
+  cfg.cursor=dstr(d);render();
+}
+function agHoje(){agCfg().cursor=todayStr();render();}
+function agIrDia(ds){const cfg=agCfg();cfg.cursor=ds;cfg.view='dia';render();}
+function weekDaysFrom(cursor){
+  const now=new Date(cursor+'T00:00:00');
+  const dow=(now.getDay()+6)%7;
+  const mon=new Date(now);mon.setDate(now.getDate()-dow);
+  return[...Array(7)].map((_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d;});
+}
+function itensDoDia(ds){
+  const evs=S.eventos.filter(e=>e.data===ds).map(e=>({tipo:'evento',id:e.id,titulo:e.titulo,hIni:e.hIni,hFim:e.hFim,local:e.local,sub:e.tipo}));
+  const tks=S.tasks.filter(t=>t.prazo===ds&&!['Concluída','Cancelada'].includes(t.status)).map(t=>({tipo:'tarefa',id:t.id,titulo:t.titulo}));
+  const dms=S.demandas.filter(d=>d.status!=='Entregue'&&demPrazoAtivo(d)===ds).map(d=>({tipo:'demanda',id:d.id,titulo:d.titulo,sub:d.cliente||d.uid}));
+  const pjs=S.projetos.filter(p=>p.fase!=='Entrega'&&p.entrega===ds).map(p=>({tipo:'projeto',id:p.id,titulo:p.nome}));
+  const pis=S.pint.filter(p=>p.status!=='Concluído'&&p.prazo===ds).map(p=>({tipo:'pint',id:p.id,titulo:p.nome}));
+  const lbs=S.lembretes.filter(l=>!l.feito&&l.data===ds).map(l=>({tipo:'lembrete',id:l.id,titulo:l.titulo}));
+  return[...evs,...tks,...dms,...pjs,...pis,...lbs].sort((a,b)=>(a.hIni||'99:99').localeCompare(b.hIni||'99:99'));
+}
+const AG_TIPO_LBL={tarefa:'tarefa',demanda:'prazo de demanda',projeto:'entrega de projeto',pint:'projeto interno',lembrete:'lembrete'};
+function itemLinhaHtml(it){
+  const cls='ev-'+(it.tipo==='evento'?(it.sub||'outro').toLowerCase().normalize('NFD').replace(/[^a-z]/g,''):it.tipo);
+  return `<div class="ag-ev ${cls}" style="cursor:pointer" onclick="itemAbrirKind('${it.tipo}','${it.id}')">
+    <div class="t">${esc(it.titulo)}</div>
+    <div class="h">${it.hIni?it.hIni+(it.hFim?'–'+it.hFim:''):(AG_TIPO_LBL[it.tipo]||'sem hora')}${it.sub&&it.tipo!=='evento'?' · '+esc(it.sub):''}${it.local?' · '+esc(it.local):''}</div></div>`;
+}
+function itemAbrirKind(tipo,id){
+  openCard({evento:'eventos',tarefa:'tasks',demanda:'demandas',projeto:'projetos',pint:'pint',lembrete:'lembretes'}[tipo],id);
+}
+function agLabel(cfg){
+  if(cfg.view==='mes'){const d=new Date(cfg.cursor+'T00:00:00');return d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});}
+  if(cfg.view==='semana'){const days=weekDaysFrom(cfg.cursor);return fmtD(dstr(days[0]))+' a '+fmtD(dstr(days[6]));}
+  return new Date(cfg.cursor+'T00:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'short'});
+}
+function agSemanaHtml(cursor,today){
+  const days=weekDaysFrom(cursor);
   const dows=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+  return `<div class="ag-week">${days.map((d,i)=>{
+    const ds=dstr(d);const itens=itensDoDia(ds);
+    return `<div class="ag-day ${ds===today?'today':''}" style="cursor:pointer" onclick="agIrDia('${ds}')"><div class="ag-dhd">${dows[i]}</div><div class="ag-dnum">${d.getDate()}</div>
+    ${itens.map(itemLinhaHtml).join('')}
+    ${!itens.length?'<div style="font-size:10.5px;color:var(--t3);padding:4px 0;">—</div>':''}</div>`;
+  }).join('')}</div>`;
+}
+function agDiaHtml(ds,today){
+  const itens=itensDoDia(ds);
+  const comHora=itens.filter(i=>i.hIni),semHora=itens.filter(i=>!i.hIni);
+  return `<div class="card">
+    ${semHora.length?`<div class="grp"><div class="grp-hd"><span class="grp-name">Sem hora</span><span class="grp-stat">${semHora.length}</span></div>${semHora.map(itemLinhaHtml).join('')}</div>`:''}
+    ${comHora.length?comHora.map(itemLinhaHtml).join(''):''}
+    ${!itens.length?'<div class="empty-msg">Nada neste dia.</div>':''}
+  </div>`;
+}
+function agMesHtml(cursor,today){
+  const d0=new Date(cursor+'T00:00:00');const y=d0.getFullYear(),m=d0.getMonth();
+  const first=new Date(y,m,1);const dow=(first.getDay()+6)%7;
+  const start=new Date(first);start.setDate(first.getDate()-dow);
+  const cells=[...Array(42)].map((_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d;});
+  const cores={evento:'var(--blue)',tarefa:'#6366f1',demanda:'#9333ea',projeto:'#db2777',pint:'#0d9488',lembrete:'#64748b'};
+  return `<div class="ag-month">${cells.map(d=>{
+    const ds=dstr(d);const itens=itensDoDia(ds);const other=d.getMonth()!==m;
+    return `<div class="ag-mcell ${ds===today?'today':''} ${other?'other':''}" onclick="agIrDia('${ds}')">
+      <div class="ag-mnum">${d.getDate()}</div>
+      <div class="ag-mdots">${itens.slice(0,6).map(i=>`<span class="ag-mdot" style="background:${cores[i.tipo]}"></span>`).join('')}</div></div>`;
+  }).join('')}</div>`;
+}
+function renderAgenda(c){
+  const cfg=agCfg();const today=todayStr();
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Agenda</div>${secSub('agenda')}</div>
     <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="exportICS()">↓ Exportar .ics</button><button class="btn-ghost" onclick="openEvento()">+ Novo evento</button></div></div>
-    <div style="font-size:11.5px;color:var(--t3);margin-bottom:14px;display:flex;gap:14px;flex-wrap:wrap;">
-      <span><span class="sdot s-blue"></span>Reunião</span><span><span class="sdot s-red"></span>Gravação</span><span><span class="sdot s-amber"></span>Edição</span><span><span class="sdot s-green"></span>Entrega</span><span><span class="sdot" style="background:#c084fc"></span>Prazo de demanda</span>
+    <div class="tabs"><button class="tab ${cfg.view==='mes'?'active':''}" onclick="agSetView('mes')">Mês</button><button class="tab ${cfg.view==='semana'?'active':''}" onclick="agSetView('semana')">Semana</button><button class="tab ${cfg.view==='dia'?'active':''}" onclick="agSetView('dia')">Dia</button></div>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0;">
+      <button class="ibtn" onclick="agNav(-1)">←</button>
+      <div style="font-size:13px;font-weight:600;min-width:160px;text-transform:capitalize;">${agLabel(cfg)}</div>
+      <button class="ibtn" onclick="agNav(1)">→</button>
+      <button class="btn-sm" onclick="agHoje()">Hoje</button>
     </div>
-    <div class="ag-week">${days.map((d,i)=>{
-      const ds=dstr(d);
-      const evs=S.eventos.filter(e=>e.data===ds).sort((a,b)=>(a.hIni||'').localeCompare(b.hIni||''));
-      const przs=S.demandas.filter(x=>x.status!=='Entregue'&&demPrazoAtivo(x)===ds);
-      return `<div class="ag-day ${ds===today?'today':''}"><div class="ag-dhd">${dows[i]}</div><div class="ag-dnum">${d.getDate()}</div>
-      ${evs.map(e=>`<div class="ag-ev ev-${e.tipo.toLowerCase().normalize('NFD').replace(/[^a-z]/g,'')||'outro'}" onclick="openCard('eventos','${e.id}')" style="cursor:pointer">
-        <div class="t">${esc(e.titulo)}</div><div class="h">${e.hIni||''}${e.hFim?'–'+e.hFim:''}${e.local?' · '+esc(e.local):''}</div>
-        <div style="display:flex;gap:8px;margin-top:3px;"><a href="${gcalLink(e)}" target="_blank" onclick="event.stopPropagation()">+ Google Agenda</a><a href="#" onclick="event.stopPropagation();delEvento('${e.id}');return false;">excluir</a></div></div>`).join('')}
-      ${przs.map(p=>`<div class="ag-ev ev-prazo"><div class="t">Prazo: ${esc(p.titulo)}</div><div class="h">${esc(p.cliente||'')} · ${p.uid}</div></div>`).join('')}
-      ${(!evs.length&&!przs.length)?'<div style="font-size:10.5px;color:var(--t3);padding:4px 0;">—</div>':''}
-      </div>`;
-    }).join('')}</div>
+    <div id="ag-body"></div>
+    <div style="font-size:11px;color:var(--t3);margin:14px 0 0;display:flex;gap:14px;flex-wrap:wrap;">
+      <span><span class="sdot s-blue"></span>Evento</span><span><span class="sdot" style="background:#6366f1"></span>Tarefa (prazo)</span><span><span class="sdot" style="background:#9333ea"></span>Demanda (prazo)</span><span><span class="sdot" style="background:#db2777"></span>Projeto (entrega)</span><span><span class="sdot" style="background:#0d9488"></span>Projeto interno (prazo)</span><span><span class="sdot" style="background:#64748b"></span>Lembrete</span>
+    </div>
     <div class="card" style="margin-top:14px;font-size:11.5px;color:var(--t3);line-height:1.7;">
-      <b style="color:var(--t2)">Google Agenda:</b> cada evento tem um link "+ Google Agenda" que abre o evento pré-preenchido na sua conta. Para levar tudo de uma vez, use <b>Exportar .ics</b> e importe o arquivo em calendar.google.com → Configurações → Importar. Sincronização automática de mão dupla entra no roadmap quando o hub ganhar backend.
+      <b style="color:var(--t2)">Google Agenda:</b> cada evento tem um link "+ Google Agenda" (abra o evento e veja no rodapé do card) que abre o evento pré-preenchido na sua conta. Para levar tudo de uma vez, use <b>Exportar .ics</b> e importe o arquivo em calendar.google.com → Configurações → Importar.
     </div>`;
+  const b=document.getElementById('ag-body');
+  if(cfg.view==='mes')b.innerHTML=agMesHtml(cfg.cursor,today);
+  else if(cfg.view==='semana')b.innerHTML=agSemanaHtml(cfg.cursor,today);
+  else b.innerHTML=agDiaHtml(cfg.cursor,today);
 }
 function gcalLink(e){
   const d=e.data.replace(/-/g,'');
@@ -3464,9 +3671,9 @@ function ceClientes(b){
   </div>
   <div class="g2">
     <div class="card"><div class="widget-hd"><span class="widget-ttl">Top por receita</span></div>
-    ${top.length?top.map(([cl,v])=>`<div class="row-item"><div class="ri-name">${esc(cl)}</div><div class="ri-val" style="color:var(--green)">${fmtBRL(v.rec)}</div></div>`).join(''):'<div class="empty-msg">Sem receitas por cliente ainda.</div>'}</div>
+    ${top.length?top.map(([cl,v])=>`<div class="row-item ${cl!=='Sem cliente'?'row-go':''}" ${cl!=='Sem cliente'?`onclick="openClienteNome(${esc(JSON.stringify(cl))})"`:''}><div class="ri-name">${esc(cl)}</div><div class="ri-val" style="color:var(--green)">${fmtBRL(v.rec)}</div></div>`).join(''):'<div class="empty-msg">Sem receitas por cliente ainda.</div>'}</div>
     <div class="card"><div class="widget-hd"><span class="widget-ttl">Top por resultado</span></div>
-    ${topL.length?topL.map(([cl,v])=>`<div class="row-item"><div class="ri-name">${esc(cl)}</div><div class="ri-val" style="color:${v.rec-v.desp<0?'var(--red)':'var(--green)'}">${fmtBRL(v.rec-v.desp)}</div></div>`).join(''):'<div class="empty-msg">Sem dados suficientes.</div>'}</div>
+    ${topL.length?topL.map(([cl,v])=>`<div class="row-item ${cl!=='Sem cliente'?'row-go':''}" ${cl!=='Sem cliente'?`onclick="openClienteNome(${esc(JSON.stringify(cl))})"`:''}><div class="ri-name">${esc(cl)}</div><div class="ri-val" style="color:${v.rec-v.desp<0?'var(--red)':'var(--green)'}">${fmtBRL(v.rec-v.desp)}</div></div>`).join(''):'<div class="empty-msg">Sem dados suficientes.</div>'}</div>
   </div>`;
 }
 function ceCrescimento(b){
@@ -4293,7 +4500,7 @@ function renderPropWizard(c){
     </div>
     <button class="btn-ghost" onclick="S.propWiz.textos={...PROP_TEXTOS_PADRAO};S.propWiz.perfilId=null;render()">↺ Restaurar textos padrão</button>
     ${S.perfis.length?`<div style="margin-top:20px;"><div class="widget-hd"><span class="widget-ttl">Perfis salvos</span></div>
-    ${S.perfis.map(pf=>`<div class="row-item"><div class="ri-name" style="flex:1">${esc(pf.nome)}</div><button class="ibtn del" onclick="delPerfil('${pf.id}')">✕</button></div>`).join('')}</div>`:''}`;
+    ${S.perfis.map(pf=>`<div class="row-item row-go" onclick="if(!event.target.closest('button'))applyPerfil('${pf.id}')"><div class="ri-name" style="flex:1">${esc(pf.nome)}</div><button class="ibtn del" onclick="delPerfil('${pf.id}')">✕</button></div>`).join('')}</div>`:''}`;
   else if(w.step===5)body=`
     <div class="widget-hd" style="margin-top:0"><span class="widget-ttl">Notas importantes</span></div>
     <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">Aparecem como cards no fim da proposta — pontos que evitam ruído na aprovação.</div>
@@ -4612,6 +4819,7 @@ function renderCard(c){
   const titulo=it.titulo||it.nome||it.desc||it.empresa||it.cliente||'Item';
   const sub=cv.kind==='demandas'?((it.cliente||'Sem cliente')+' · '+it.uid+' · '+it.status)
     :cv.kind==='tasks'?((it.area||'Tarefa')+' · '+it.status)
+    :cv.kind==='lembretes'?((it.feito?'Concluído':'Pendente')+(it.data?' · '+fmtD(it.data):' · sem data')+(it.area?' · '+it.area:''))
     :cv.kind==='pint'?((it.area||'Sem área')+' · '+it.status)
     :cv.kind==='cbase'?((it.segmento||'Sem segmento')+(it.cidade?' · '+it.cidade:''))
     :cv.kind==='projetos'?((it.cliente||'Sem cliente')+' · '+it.fase)
@@ -4688,6 +4896,15 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Status</label><select onchange="cardSetStatus(this.value)">${PISTATUS.map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
     <div class="field"><label>Prazo (opcional)</label><input type="date" value="${it.prazo||''}" onchange="cardSetRefresh('prazo',this.value||null)"></div>`;
   }
+  if(kind==='lembretes'){
+    return `
+    <div class="field" style="display:flex;align-items:center;gap:8px;"><button class="tk-check ${it.feito?'done':''}" onclick="toggleLembrete('${it.id}');renderCard()"></button><label style="margin:0;cursor:pointer" onclick="toggleLembrete('${it.id}');renderCard()">${it.feito?'Concluído':'Pendente'}</label></div>
+    <div class="field"><label>Título</label><input value="${esc(it.titulo)}" oninput="cardSet('titulo',this.value)" onchange="renderCard()"></div>
+    <div class="f2"><div class="field"><label>Data (opcional)</label><input type="date" value="${it.data||''}" onchange="cardSetRefresh('data',this.value||null)"></div>
+    <div class="field"><label>Área</label><select onchange="cardSetRefresh('area',this.value)"><option value="">—</option>${TAREAS.map(a=>`<option ${it.area===a?'selected':''}>${a}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Tarefa vinculada</label><select onchange="cardSetRefresh('taskId',this.value||null)"><option value="">Nenhuma</option>${S.tasks.map(t=>`<option value="${t.id}" ${it.taskId===t.id?'selected':''}>${esc(t.titulo)}</option>`).join('')}</select></div>
+    <div class="field"><label>Projeto interno vinculado</label><select onchange="cardSetRefresh('pintId',this.value||null)"><option value="">Nenhum</option>${S.pint.map(p=>`<option value="${p.id}" ${it.pintId===p.id?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></div>`;
+  }
   if(kind==='cbase'){
     const st=cliStats(it.nome);
     return `
@@ -4756,7 +4973,8 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Data</label><input type="date" value="${it.data||''}" onchange="cardSetRefresh('data',this.value)"></div></div>
     <div class="f2"><div class="field"><label>Início</label><input type="time" value="${it.hIni||''}" onchange="cardSetRefresh('hIni',this.value)"></div>
     <div class="field"><label>Fim</label><input type="time" value="${it.hFim||''}" onchange="cardSetRefresh('hFim',this.value)"></div></div>
-    <div class="field"><label>Local / link</label><input value="${esc(it.local)}" oninput="cardSet('local',this.value)"></div>`;
+    <div class="field"><label>Local / link</label><input value="${esc(it.local)}" oninput="cardSet('local',this.value)"></div>
+    <div style="margin-top:8px;"><a href="${gcalLink(it)}" target="_blank" class="btn-sm" style="text-decoration:none;display:inline-block">+ Google Agenda</a></div>`;
   }
   const isRec=it.tipo==='receita';
   return `
@@ -4790,10 +5008,9 @@ function cardKanbanBoard(itens,statusList,corMap,openKind,moveFn){
   return '<div class="board" style="margin:0;">'+statusList.map((st,i)=>{
     const arr=itens.filter(x=>x.status===st);const cor=corMap[st]||'#6e6e6e';
     return `<div class="col"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
-    ${arr.length?arr.map(x=>`<div class="kcard" style="border-left:3px solid ${cor}">
+    ${arr.length?arr.map(x=>`<div class="kcard" style="border-left:3px solid ${cor};cursor:pointer" onclick="if(!event.target.closest('button'))openCard('${openKind}','${x.id}')">
       <div class="kc-name">${esc(x.titulo||x.nome)}</div>
       <div class="kc-ft"><div class="kc-acts">
-      <button class="ibtn" title="abrir" onclick="openCard('${openKind}','${x.id}')">⤢</button>
       <button class="ibtn" ${i===0?'disabled style="opacity:.25"':''} onclick="${moveFn}('${x.id}',-1)">←</button>
       <button class="ibtn" ${i===statusList.length-1?'disabled style="opacity:.25"':''} onclick="${moveFn}('${x.id}',1)">→</button>
       </div></div></div>`).join(''):'<div class="col-empty">Vazio</div>'}
@@ -4824,11 +5041,10 @@ function cardTabBody(){
     ${tks.length?`<div style="font-size:11px;color:var(--t3);margin-bottom:10px;">${doneT}/${tks.length} concluídas</div>`:''}
     ${tks.length?tks.map(tk=>{
       const ps=tk.prazo?prazoStatus(tk.prazo):null;
-      return `<div class="row-item"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+      return `<div class="row-item row-go" onclick="if(!event.target.closest('button'))openCard('tasks','${tk.id}')"><div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
       <button class="tk-check ${tk.status==='Concluída'?'done':''}" style="border-color:var(--b3)" onclick="pintToggleTask('${tk.id}')"></button>
       <div style="min-width:0"><div class="ri-name" style="${tk.status==='Concluída'?'color:var(--t3);text-decoration:line-through':''}">${esc(tk.titulo)}</div>
-      <div class="ri-sub">${tk.status}${tk.prazo?' · '+fmtD(tk.prazo):''}${ps&&ps.cls==='atrasada'&&tk.status!=='Concluída'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div></div>
-      <button class="ibtn" title="abrir" onclick="openCard('tasks','${tk.id}')">⤢</button></div>`;
+      <div class="ri-sub">${tk.status}${tk.prazo?' · '+fmtD(tk.prazo):''}${ps&&ps.cls==='atrasada'&&tk.status!=='Concluída'?' · <span style="color:var(--red)">'+ps.label+'</span>':''}</div></div></div></div>`;
     }).join(''):'<div class="empty-msg">Nenhuma tarefa vinculada ainda.</div>'}`;
   }
   if(cv.tab==='demandas'&&cv.kind==='projetos'){
@@ -4891,6 +5107,7 @@ const TRASH_META={
   pint:{l:'Projeto Interno',n:r=>r.nome,ir:'pint'},
   fin:{l:'Lançamento',n:r=>r.desc,ir:'financeiro'},
   eventos:{l:'Evento',n:r=>r.titulo,ir:'agenda'},
+  lembretes:{l:'Lembrete',n:r=>r.titulo,ir:'lembretes'},
   propostas:{l:'Proposta',n:r=>r.titulo||r.cliente,ir:'propostas'},
   orcamentos:{l:'Orçamento',n:r=>r.cliente||r.empresa,ir:'calc'},
   parc:{l:'Parcelamento',n:r=>r.nome,ir:'financeiro'},
@@ -5143,6 +5360,12 @@ function dgDrop(kind,id,alvo){
     propSetStatus(id,alvo);
   }else if(kind==='orcamentos'){
     orcSetStatus(id,alvo);
+  }else if(kind==='projetos'){
+    const p=S.projetos.find(x=>x.id===id);
+    if(!p||p.fase===alvo)return;
+    pushUndo('mover projeto "'+p.nome+'" para "'+alvo+'"',['projetos']);
+    p.fase=alvo;save();render();
+    toast('"'+p.nome+'" → '+alvo,'Desfazer','doUndo()',5000);
   }else if(kind==='pint'){
     const p=S.pint.find(x=>x.id===id);
     if(!p||p.status===alvo)return;
@@ -6066,6 +6289,10 @@ function openClienteCard(id){
     S.cbase.push(cl);save();
   }
   openCard('cbase',cl.id);
+}
+function openClienteNome(nome){
+  const cl=allClientes().find(x=>x.nome===nome);
+  if(cl)openClienteCard(cl.id);
 }
 function openCliente(id){
   let cl=id?allClientes().find(x=>x.id===id):null;

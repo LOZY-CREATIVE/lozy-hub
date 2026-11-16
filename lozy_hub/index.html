@@ -3702,7 +3702,7 @@ function ceCrescimento(b){
 /* ═══ PROPOSTAS (com calculadora Lozy) ═══ */
 /* botões de ação compartilhados entre Lista/Cards/Kanban — mesmo conjunto que a lista já tinha. */
 function propActs(p){
-  return `${p.versao===2?`<button class="ibtn" title="editar" onclick="editProp('${p.id}')">✎</button>`:''}<button class="ibtn" title="baixar HTML" onclick="downloadProp('${p.id}')">↓</button><button class="ibtn" title="visualizar" onclick="previewProp('${p.id}')">👁</button><button class="ibtn del" onclick="delProp('${p.id}')">✕</button>`;
+  return `${p.versao===2?`<button class="ibtn" title="editar" onclick="editProp('${p.id}')">✎</button>`:''}<button class="ibtn" title="duplicar (nova versão)" onclick="dupProp('${p.id}')">⧉</button><button class="ibtn" title="baixar HTML" onclick="downloadProp('${p.id}')">↓</button><button class="ibtn" title="visualizar" onclick="previewProp('${p.id}')">👁</button><button class="ibtn del" onclick="delProp('${p.id}')">✕</button>`;
 }
 const PROP_SDOT={Rascunho:'s-gray',Enviada:'s-amber',Aprovada:'s-green',Recusada:'s-red','Sem retorno':'s-blue'};
 function renderPropostas(c){
@@ -3770,6 +3770,18 @@ function setValorFechado(id){
   save();render();
 }
 function delProp(id){softDel('propostas',id);}
+/* Nova versão da mesma proposta pro cliente — cópia completa (itens, cronograma,
+   condições, notas, textos, seções), zerando status/numeração/valor fechado.
+   Mantém cliente/empresa/leadId/orcId: é a mesma negociação, só outra versão. */
+function dupProp(id){
+  const p=S.propostas.find(x=>x.id===id);if(!p)return;
+  const novo=JSON.parse(JSON.stringify(p));
+  novo.id=uid('pp');novo.status='Rascunho';novo.criada=todayStr();novo.valorFechado=null;
+  if(novo.versao===2){novo.numero=nextPropNumero();novo.titulo=(p.titulo||'Proposta Lozy')+' (cópia)';}
+  else novo.projeto=(p.projeto||'Proposta Lozy')+' (cópia)';
+  S.propostas.push(novo);save();render();
+  toast('Proposta duplicada como "'+(novo.titulo||novo.projeto)+'".','Abrir',"openCard('propostas','"+novo.id+"')");
+}
 
 function startWizard(){
   S.wiz={step:0,empresa:'',cliente:'',projeto:'',formato:'Projeto Personalizado',conceito:'',entregas:[],desconto:0,desloc:0,modo:'cliente',validade:(()=>{const d=new Date();d.setDate(d.getDate()+30);return dstr(d);})()};
@@ -4964,7 +4976,7 @@ function cardDetalhesHtml(kind,it){
     <div class="field"><label>Empresa</label><input value="${esc(it.empresa)}" oninput="cardSet('empresa',this.value)"></div></div>
     <div class="field"><label>Status</label><select onchange="propSetStatus('${it.id}',this.value)">${PROPSTATUS.map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
     <div style="font-size:11px;color:var(--t3)">Versão ${it.versao===2?'2':'1'}</div>
-    <button class="btn-sm" style="margin-top:4px;" onclick="editProp('${it.id}')">✎ Editar no assistente</button>`;
+    <div style="display:flex;gap:6px;margin-top:4px;">${it.versao===2?`<button class="btn-sm" onclick="editProp('${it.id}')">✎ Editar no assistente</button>`:''}<button class="btn-sm" onclick="dupProp('${it.id}')">⧉ Duplicar (nova versão)</button></div>`;
   }
   if(kind==='eventos'){
     return `

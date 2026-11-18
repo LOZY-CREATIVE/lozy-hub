@@ -4354,7 +4354,7 @@ function startPropFromOrc(id){
       {titulo:'Revisões inclusas',texto:'Cada vídeo inclui '+S.pricing.edicao.revisoesInclusas+' rodadas de ajuste, dentro do escopo aprovado.'},
       {titulo:'Reagendamento',texto:'Reagendável sem custo até '+S.pricing.geral.reagendLimiteH+'h antes da data marcada — após esse prazo, o sinal é retido.'}
     ],
-    accent:'wine',textos:{...PROP_TEXTOS_PADRAO},secoes:{...PROP_PRESETS.completa},preset:'completa',perfilId:null,totalManual:null,editId:null
+    accent:'wine',bgMode:'auto',textos:{...PROP_TEXTOS_PADRAO},secoes:{...PROP_PRESETS.completa},preset:'completa',perfilId:null,totalManual:null,editId:null
   };
   offerTemplatePicker();
 }
@@ -4363,7 +4363,7 @@ function startPropBlank(){
     itens:[{descricao:'',qtd:1,valor:0}],desconto:0,deslocamento:0,
     cronograma:[{etapa:'Alinhamento e aprovação da proposta',prazo:'Semana 1'}],
     condicoes:{sinalPct:S.pricing.geral.sinalPct,quandoQuita:'Na entrega final',revisoesInclusas:S.pricing.edicao.revisoesInclusas,validadeDias:S.pricing.geral.validadeDias,obs:'Valores já consideram os impostos — o total desta proposta é final.'},
-    notas:[],accent:'wine',textos:{...PROP_TEXTOS_PADRAO},secoes:{...PROP_PRESETS.completa},preset:'completa',perfilId:null,totalManual:null,editId:null};
+    notas:[],accent:'wine',bgMode:'auto',textos:{...PROP_TEXTOS_PADRAO},secoes:{...PROP_PRESETS.completa},preset:'completa',perfilId:null,totalManual:null,editId:null};
   S.active='calculadora';
   offerTemplatePicker();
 }
@@ -4532,6 +4532,12 @@ function renderPropWizard(c){
         <input type="color" value="${!PROP_ACCENTS[w.accent]&&w.accent?w.accent:propAccentHex(w.accent)}" style="width:18px;height:18px;padding:0;border:${!PROP_ACCENTS[w.accent]?'2px solid var(--ink)':'1px solid var(--b2)'};border-radius:4px;cursor:pointer;background:none;" oninput="S.propWiz.accent=this.value" onchange="render()">
         <span>Personalizada${!PROP_ACCENTS[w.accent]?' ✓':''}</span>
       </label>
+    </div>
+    <div class="widget-hd" style="margin-top:18px"><span class="widget-ttl">Fundo da proposta</span></div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">No automático, o fundo segue um tom bem suave da cor de destaque acima — ou escolha um fundo fixo.</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+      ${Object.entries(PROP_BGS).map(([k,nome])=>{const bgHex=propBgVars(propAccentHex(w.accent),k).bg;return `
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="bgMode" style="width:auto" ${(w.bgMode||'auto')===k?'checked':''} onchange="S.propWiz.bgMode='${k}';render()"><span style="width:16px;height:16px;border-radius:4px;background:${bgHex};display:inline-block;border:1px solid var(--b2)"></span>${nome}</label>`;}).join('')}
     </div>`;
   else body=`
     <div class="inv-box"><div class="inv-line total"><span>Investimento total</span><span>${fmtBRL2(propWizTotal(w))}</span></div></div>
@@ -4562,7 +4568,7 @@ function editProp(id){
     cronograma:JSON.parse(JSON.stringify(p.cronograma||[])),
     condicoes:JSON.parse(JSON.stringify(p.condicoes||{sinalPct:S.pricing.geral.sinalPct,quandoQuita:'Na entrega final',revisoesInclusas:S.pricing.edicao.revisoesInclusas,validadeDias:S.pricing.geral.validadeDias,obs:''})),
     notas:JSON.parse(JSON.stringify(p.notas||[])),
-    accent:p.accent||'wine',textos:{...PROP_TEXTOS_PADRAO,...(p.textos||{})},
+    accent:p.accent||'wine',bgMode:p.bgMode||'cream',textos:{...PROP_TEXTOS_PADRAO,...(p.textos||{})},
     secoes:p.secoes?propSecoes(p.secoes):propSecoes({mensal:!!p.recorrente}),preset:null,perfilId:null
   };
   S.active='calculadora';goTo('calculadora');
@@ -4573,7 +4579,7 @@ function propWizBase(w){
   return {versao:2,numero:w.numero,orcId:w.orcId,cliente:w.cliente.trim(),empresa:w.empresa.trim(),
     titulo:w.titulo||'Proposta Lozy',subtitulo:w.subtitulo,contexto:w.contexto,recorrente:w.recorrente,
     itens:w.itens,desconto:w.desconto,deslocamento:w.deslocamento,totalManual:w.totalManual,total:propWizTotal(w),
-    cronograma:w.cronograma,condicoes:w.condicoes,notas:w.notas,accent:w.accent,textos:w.textos||PROP_TEXTOS_PADRAO,secoes:propSecoes(w.secoes),
+    cronograma:w.cronograma,condicoes:w.condicoes,notas:w.notas,accent:w.accent,bgMode:w.bgMode||'auto',textos:w.textos||PROP_TEXTOS_PADRAO,secoes:propSecoes(w.secoes),
     validade:(()=>{const d=new Date();d.setDate(d.getDate()+Number(w.condicoes.validadeDias||30));return dstr(d);})()};
 }
 function previewPropWiz(){
@@ -4629,9 +4635,25 @@ function propAccentHex(accent){
   if(/^#[0-9a-fA-F]{3,8}$/.test(accent||''))return accent;
   return PROP_ACCENTS.wine[1];
 }
+/* Fundo da proposta — "auto" deriva um tom bem suave da própria cor de destaque
+   (hex + sufixo de opacidade, igual já era feito em --accent-soft/--glow), pra
+   ficar coeso sem exigir escolha manual. Os outros são fundos fixos, independentes
+   do destaque — "escuro" também inverte ink/ink2/ink3 pra manter contraste. */
+const PROP_BGS={auto:'Automático',cream:'Creme',branco:'Branco',cinza:'Cinza claro',escuro:'Escuro'};
+function propBgVars(accentHex,mode){
+  const INK={ink:'#1A1B1D',ink2:'#4a463f',ink3:'#847d6d'};
+  if(mode==='branco')return{bg:'#FFFFFF',card:'#FAFAF8',line:'#E5E2DA',...INK};
+  if(mode==='cinza')return{bg:'#EDEDEB',card:'#F6F6F4',line:'#DCDCD8',...INK};
+  if(mode==='escuro')return{bg:'#1A1B1D',card:'#242527',line:'#38393B',ink:'#F2EDE1',ink2:'#C9C3B6',ink3:'#948F80'};
+  if(mode==='cream')return{bg:'#EAE3D6',card:'#F2EDE1',line:'#d9d0bc',...INK};
+  return{bg:accentHex+'14',card:accentHex+'09',line:accentHex+'2e',...INK};
+}
 function propostaHTML2(p){
   const tx={...PROP_TEXTOS_PADRAO,...(p.textos||{})};
   const accentHex=propAccentHex(p.accent);
+  /* fallback 'cream' (não 'auto'): proposta salva antes desse campo existir
+     tinha o fundo creme fixo — reabrir/baixar de novo não pode mudar a aparência. */
+  const bv=propBgVars(accentHex,p.bgMode||'cream');
   const tWords=(p.titulo||'').trim().split(/\s+/);
   const tLast=tWords.pop()||'';
   const tituloHtml=(tWords.length?esc(tWords.join(' '))+' ':'')+'<span class="accw">'+esc(tLast)+'</span>';
@@ -4673,7 +4695,7 @@ function propostaHTML2(p){
   return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
   '<title>Proposta — '+esc(p.titulo)+'</title>'+
   '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">'+
-  '<style>:root{--bg:#EAE3D6;--ink:#1A1B1D;--ink2:#4a463f;--ink3:#847d6d;--accent:'+accentHex+';--accent-soft:'+accentHex+'17;--line:#d9d0bc;--card:#F2EDE1;--glow:'+accentHex+'1c;}'+
+  '<style>:root{--bg:'+bv.bg+';--ink:'+bv.ink+';--ink2:'+bv.ink2+';--ink3:'+bv.ink3+';--accent:'+accentHex+';--accent-soft:'+accentHex+'17;--line:'+bv.line+';--card:'+bv.card+';--glow:'+accentHex+'1c;}'+
   '*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}'+
   /* NÃO colocar overflow-x aqui: em `body` isso força overflow-y:auto, o body
      vira contêiner de rolagem e o IntersectionObserver do reveal para de

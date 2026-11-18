@@ -4288,8 +4288,10 @@ function delPricingEdicaoTipo(ti){
 }
 
 /* ═══ GERAR PROPOSTA — assistente de perguntas + template com a identidade Lozy ═══
-   Paleta usada: a oficial do Guia de Voz (cream #EAE3D6, quase-preto #1A1B1D,
+   Paleta base: a oficial do Guia de Voz (cream #EAE3D6, quase-preto #1A1B1D,
    wine #4E1A1D, terracotta #8C4530) — é a mesma já em uso no Hub e nos logos.
+   Cor de destaque (p.accent) tem presets extras além desses dois (ver PROP_ACCENTS,
+   perto de propostaHTML2) e também aceita um hex livre, escolhido no color picker.
    O site público usa um cream ligeiramente diferente (#F5F0E8); se você preferir
    unificar com essa paleta na proposta também, troque os valores em :root dentro
    de propostaHTML2 — é a única função que precisa mudar. */
@@ -4522,9 +4524,14 @@ function renderPropWizard(c){
       <button class="ibtn del" onclick="S.propWiz.notas.splice(${i},1);render()">✕</button></div>`).join('')}
     <button class="btn-sm" onclick="S.propWiz.notas.push({titulo:'',texto:''});render()">+ Nota</button>
     <div class="widget-hd" style="margin-top:18px"><span class="widget-ttl">Cor de destaque</span></div>
-    <div style="display:flex;gap:14px;">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="accent" style="width:auto" ${w.accent==='wine'?'checked':''} onchange="S.propWiz.accent='wine'"><span style="width:16px;height:16px;border-radius:4px;background:#4E1A1D;display:inline-block;"></span>Wine</label>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="accent" style="width:auto" ${w.accent==='terracotta'?'checked':''} onchange="S.propWiz.accent='terracotta'"><span style="width:16px;height:16px;border-radius:4px;background:#8C4530;display:inline-block;"></span>Terracotta</label>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">Presets da marca ou uma cor livre pra esse cliente/projeto.</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+      ${Object.entries(PROP_ACCENTS).map(([k,[nome,hex]])=>`
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="accent" style="width:auto" ${w.accent===k?'checked':''} onchange="S.propWiz.accent='${k}';render()"><span style="width:16px;height:16px;border-radius:4px;background:${hex};display:inline-block;"></span>${nome}</label>`).join('')}
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="color" value="${!PROP_ACCENTS[w.accent]&&w.accent?w.accent:propAccentHex(w.accent)}" style="width:18px;height:18px;padding:0;border:${!PROP_ACCENTS[w.accent]?'2px solid var(--ink)':'1px solid var(--b2)'};border-radius:4px;cursor:pointer;background:none;" oninput="S.propWiz.accent=this.value" onchange="render()">
+        <span>Personalizada${!PROP_ACCENTS[w.accent]?' ✓':''}</span>
+      </label>
     </div>`;
   else body=`
     <div class="inv-box"><div class="inv-line total"><span>Investimento total</span><span>${fmtBRL2(propWizTotal(w))}</span></div></div>
@@ -4613,9 +4620,18 @@ function propIcon(name){
 function propSecHd(num,icon,titulo,desc){
   return '<div class="sec-hd"><div class="sec-badge"><span class="sec-icon">'+propIcon(icon)+'</span><span class="sec-num">'+num+'</span></div><div class="sec-title-group"><h2>'+esc(titulo)+'</h2><p class="sec-desc">'+esc(desc)+'</p></div></div>';
 }
+/* Presets de cor de destaque da proposta — além deles, p.accent também aceita
+   um hex livre (ex: "#2F6B4F") digitado via color picker na etapa "Notas & estilo".
+   propAccentHex() resolve os dois casos pro accentHex usado no <style> gerado. */
+const PROP_ACCENTS={wine:['Wine','#4E1A1D'],terracotta:['Terracotta','#8C4530'],navy:['Navy','#1F2E45'],oliva:['Oliva','#4B5320'],grafite:['Grafite','#2E2B28'],bronze:['Bronze','#6B4A1E']};
+function propAccentHex(accent){
+  if(accent&&PROP_ACCENTS[accent])return PROP_ACCENTS[accent][1];
+  if(/^#[0-9a-fA-F]{3,8}$/.test(accent||''))return accent;
+  return PROP_ACCENTS.wine[1];
+}
 function propostaHTML2(p){
   const tx={...PROP_TEXTOS_PADRAO,...(p.textos||{})};
-  const accentHex=p.accent==='terracotta'?'#8C4530':'#4E1A1D';
+  const accentHex=propAccentHex(p.accent);
   const tWords=(p.titulo||'').trim().split(/\s+/);
   const tLast=tWords.pop()||'';
   const tituloHtml=(tWords.length?esc(tWords.join(' '))+' ':'')+'<span class="accw">'+esc(tLast)+'</span>';

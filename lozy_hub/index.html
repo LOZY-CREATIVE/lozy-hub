@@ -1845,8 +1845,9 @@ function renderDemandas(c){
   let ds=S.demandas.filter(d=>
     (!q||[d.titulo,d.cliente,d.uid].join(' ').toLowerCase().includes(q))&&
     (!f.cliente||d.cliente===f.cliente)&&(!f.tipo||d.tipo===f.tipo)&&(!f.status||d.status===f.status)&&matchPrazo(demPrazoAtivo(d),f.prazo,d.status==='Entregue'));
-  ds=[...ds].sort((a,b)=>{ /* "Entregue": ordena por data de entrega (mais recente primeiro), não por prazo — prazo deixa de importar depois que já foi entregue */
-    if(a.status==='Entregue'&&b.status==='Entregue')return (b.entregueEm||'').localeCompare(a.entregueEm||'');
+  const entregueDir=(S.sort.demEntregue||{}).dir||'desc';
+  ds=[...ds].sort((a,b)=>{ /* "Entregue": ordena por data de entrega, não por prazo — prazo deixa de importar depois que já foi entregue. Direção invertível pelo botão da coluna (kanban "Por status") */
+    if(a.status==='Entregue'&&b.status==='Entregue')return entregueDir==='desc'?(b.entregueEm||'').localeCompare(a.entregueEm||''):(a.entregueEm||'').localeCompare(b.entregueEm||'');
     const pa=demPrazoAtivo(a),pb=demPrazoAtivo(b);if(!pa&&!pb)return 0;if(!pa)return 1;if(!pb)return -1;return pa.localeCompare(pb);});
   const toolbar=`<div class="toolbar">
     <input class="search" placeholder="Buscar por título, cliente ou DEM-ID..." value="${esc(S.q.dem||'')}" oninput="S.q.dem=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">
@@ -1885,7 +1886,7 @@ function renderDemandas(c){
   }else{
     b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+DSTATUS.map(st=>{
       const arr=ds.filter(d=>d.status===st);const cor=DCOLORS[st]||'#6e6e6e';const pg=kanbanPage('dem:'+st,arr);
-      return `<div class="col" data-dg="demandas" data-dgval="${esc(st)}" style="min-width:280px;max-width:280px;"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span><span class="col-stat">${fmtBRL(sum(arr,d=>d.receita))}</span></div><div class="col-body">
+      return `<div class="col" data-dg="demandas" data-dgval="${esc(st)}" style="min-width:280px;max-width:280px;"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span>${st==='Entregue'?`<button class="ibtn" title="${entregueDir==='desc'?'Mais recentes primeiro':'Mais antigas primeiro'} — clique pra inverter" onclick="ordInverter('demEntregue',{dir:'desc'})">${entregueDir==='desc'?'↓':'↑'}</button>`:''}<span class="col-stat">${fmtBRL(sum(arr,d=>d.receita))}</span></div><div class="col-body">
       ${pg.shown.length?pg.shown.map(d=>{const ps=demandaAtraso(d);const dataExib=d.status==='Entregue'?(d.entregueEm||d.prazo):demPrazoAtivo(d);const fs=filhas(d.id);
       return `<div class="kcard kc-tint" style="border-left-color:${DCOLORS[d.status]||'#6e6e6e'}" onpointerdown="dgDown(event,'demandas','${d.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(d.titulo)}</div></div><span class="bdg">${d.uid}</span></div>
       <div class="kc-sub">${esc(d.cliente||'Sem cliente')} · ${d.tipo}${fs.length?' · '+fs.length+' entregas':''}${d.maeId?' · filha':''}</div>

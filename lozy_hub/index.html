@@ -1845,7 +1845,9 @@ function renderDemandas(c){
   let ds=S.demandas.filter(d=>
     (!q||[d.titulo,d.cliente,d.uid].join(' ').toLowerCase().includes(q))&&
     (!f.cliente||d.cliente===f.cliente)&&(!f.tipo||d.tipo===f.tipo)&&(!f.status||d.status===f.status)&&matchPrazo(demPrazoAtivo(d),f.prazo,d.status==='Entregue'));
-  ds=[...ds].sort((a,b)=>{const pa=demPrazoAtivo(a),pb=demPrazoAtivo(b);if(!pa&&!pb)return 0;if(!pa)return 1;if(!pb)return -1;return pa.localeCompare(pb);});
+  ds=[...ds].sort((a,b)=>{ /* "Entregue": ordena por data de entrega (mais recente primeiro), não por prazo — prazo deixa de importar depois que já foi entregue */
+    if(a.status==='Entregue'&&b.status==='Entregue')return (b.entregueEm||'').localeCompare(a.entregueEm||'');
+    const pa=demPrazoAtivo(a),pb=demPrazoAtivo(b);if(!pa&&!pb)return 0;if(!pa)return 1;if(!pb)return -1;return pa.localeCompare(pb);});
   const toolbar=`<div class="toolbar">
     <input class="search" placeholder="Buscar por título, cliente ou DEM-ID..." value="${esc(S.q.dem||'')}" oninput="S.q.dem=this.value;render();setTimeout(()=>{const e=document.querySelector('.search');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)">
     <select class="fsel" onchange="S.f.dem={...S.f.dem,cliente:this.value};render()"><option value="">Cliente: Todos</option>${clientes().map(cl=>`<option ${f.cliente===cl?'selected':''}>${cl}</option>`).join('')}</select>

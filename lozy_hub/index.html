@@ -566,6 +566,9 @@ const TSTATUS=['A fazer','Em andamento','Em pausa','Concluída','Cancelada'];
 const TCOLORS={'A fazer':'#6e6e6e','Em andamento':'#2563eb','Em pausa':'#d97706','Concluída':'#15803d','Cancelada':'#dc2626'};
 const TAREAS=['Atendimento','Comercial','Operacional','Financeiro','Marketing Lozy','Legal','P/ Clientes'];
 const FASES=['Briefing','Pré-produção','Captação','Edição','Revisão','Entrega'];
+const DEM_TERMINAL=new Set(['Entregue']);
+const TASK_TERMINAL=new Set(['Concluída','Cancelada']);
+const PINT_TERMINAL=new Set(['Concluído']);
 const PISTATUS=['Planejamento','Em andamento','Pausado','Concluído'];
 const PICOLORS={'Planejamento':'#6e6e6e','Em andamento':'#2563eb','Pausado':'#d97706','Concluído':'#15803d'};
 const PROPSTATUS=['Rascunho','Enviada','Aprovada','Recusada','Sem retorno'];
@@ -1601,8 +1604,10 @@ function comJornada(b){
     <select class="fsel" onchange="S.f.leads={...S.f.leads,temp:this.value};render()"><option value="">Temperatura: Todas</option>${['quente','morno','frio'].map(s=>`<option ${f.temp===s?'selected':''}>${s}</option>`).join('')}</select>
     <select class="fsel" onchange="S.f.leads={...S.f.leads,origem:this.value};render()"><option value="">Origem: Todas</option>${origens.map(s=>`<option ${f.origem===s?'selected':''}>${s}</option>`).join('')}</select>
   </div>`;
-  b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+STAGES.map(st=>{
-    const ls=base.filter(l=>l.stage===st);const pg=kanbanPage('leads:'+st,ls);
+  const LEADS_SORT=[{v:'valor',l:'Valor',get:l=>l.valor||0},{v:'nome',l:'Empresa (A-Z)',get:l=>(l.empresa||'').toLowerCase()},{v:'origem',l:'Origem',get:l=>(l.origem||'').toLowerCase()},{v:'temp',l:'Temperatura',get:l=>({quente:0,morno:1,frio:2}[l.temp]??3)}];
+  const basePg=boardSortArr(base,LEADS_SORT,'brd_leads','valor','desc');
+  b.innerHTML=toolbar+kanbanLimBar(boardSortCtrl('brd_leads',LEADS_SORT,'valor','desc'))+'<div class="board">'+STAGES.map(st=>{
+    const ls=basePg.filter(l=>l.stage===st);const pg=kanbanPage('leads:'+st,ls);
     return `<div class="col" data-dg="leads" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:var(--chromeOn);color:var(--lx1)">${st}<span style="opacity:.75;font-weight:500">${ls.length}</span></span><span class="col-stat">${fmtBRL(sum(ls))}</span></div><div class="col-body">${pg.shown.length?pg.shown.map(leadCard).join(''):'<div class="col-empty">Sem leads</div>'}${kanbanMoreBtn(pg)}</div></div>`;
   }).join('')+'</div>';
 }
@@ -1788,7 +1793,7 @@ function kanbanPage(key,arr){
 }
 function kanbanVerMais(key){KEXP[key]=true;render();}
 function kanbanMoreBtn(pg){return pg.resto?`<button class="btn-sm" style="width:100%;margin-top:2px;" onclick="kanbanVerMais('${pg.key}')">+ ${pg.resto} ver mais</button>`:'';}
-function kanbanLimBar(){
+function kanbanLimBar(sortCtrl){
   const lim=kanbanLim();
   return `<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:11.5px;color:var(--t3);">Cards por coluna:
     <select class="fsel" style="padding:4px 8px;font-size:11.5px;" onchange="KEXP={};setKanbanLim(this.value)">
@@ -1796,7 +1801,33 @@ function kanbanLimBar(){
       <option value="10" ${lim===10?'selected':''}>10</option>
       <option value="20" ${lim===20?'selected':''}>20</option>
       <option value="0" ${lim===0?'selected':''}>Sem limite</option>
-    </select></div>`;
+    </select>${sortCtrl||''}</div>`;
+}
+/* ── Seletor de ordem dos boards (Kanban) ──
+   Um único controle por board (não por coluna): escolhe o campo e a direção,
+   válido pra todas as colunas daquele board. Persistido em S.sort['brd_<key>'],
+   reaproveitando ordCampo()/ordInverter() (mesmo mecanismo do Financeiro). */
+function dataRelevante(item,prazoGet,terminal){ /* "data que importa": enquanto ativo, o prazo; uma vez no status terminal, quando de fato concluiu (campo explícito ou, na falta dele, o último carimbo do statusHistory) */
+  if(!terminal.has(item.status))return prazoGet(item);
+  if(item.entregueEm)return item.entregueEm;
+  const h=item.statusHistory;
+  return (Array.isArray(h)&&h.length)?h[h.length-1].em:null;
+}
+function boardSortArr(arr,fields,srtKey,defCampo,defDir){
+  const srt=S.sort[srtKey]||{};const campo=srt.campo||defCampo;const dir=srt.dir||defDir;
+  const f=fields.find(x=>x.v===campo)||fields[0];
+  return [...arr].sort((a,b)=>{
+    const va=f.get(a),vb=f.get(b);
+    if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;
+    const r=typeof va==='number'&&typeof vb==='number'?va-vb:String(va).localeCompare(String(vb));
+    return dir==='desc'?-r:r;
+  });
+}
+function boardSortCtrl(srtKey,fields,defCampo,defDir){
+  const srt=S.sort[srtKey]||{};const campo=srt.campo||defCampo;const dir=srt.dir||defDir;
+  return `<span style="display:flex;align-items:center;gap:6px;margin-left:auto;">Ordenar por:
+    <select class="fsel" style="padding:4px 8px;font-size:11.5px;" onchange="ordCampo('${srtKey}',{campo:'${defCampo}',dir:'${defDir}'},this.value)">${fields.map(f=>`<option value="${f.v}" ${campo===f.v?'selected':''}>${esc(f.l)}</option>`).join('')}</select>
+    <button class="ibtn" title="Inverter ordem" onclick="ordInverter('${srtKey}',{campo:'${defCampo}',dir:'${defDir}'})">${dir==='asc'?'↑':'↓'}</button></span>`;
 }
 function nextDemUid(){const mx=S.demandas.reduce((m,d)=>Math.max(m,parseInt((d.uid||'').replace('DEM-',''))||0),0);return 'DEM-'+String(mx+1).padStart(3,'0');}
 /* ── picker de "Demanda vinculada" com busca (substitui <select> com todas
@@ -1884,9 +1915,11 @@ function renderDemandas(c){
   }else if(t.startsWith('custom:')){
     b.innerHTML=toolbar+renderCustomView('demandas',ds,t.slice(7));
   }else{
-    b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+DSTATUS.map(st=>{
-      const arr=ds.filter(d=>d.status===st);const cor=DCOLORS[st]||'#6e6e6e';const pg=kanbanPage('dem:'+st,arr);
-      return `<div class="col" data-dg="demandas" data-dgval="${esc(st)}" style="min-width:280px;max-width:280px;"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span>${st==='Entregue'?`<button class="ibtn" title="${entregueDir==='desc'?'Mais recentes primeiro':'Mais antigas primeiro'} — clique pra inverter" onclick="ordInverter('demEntregue',{dir:'desc'})">${entregueDir==='desc'?'↓':'↑'}</button>`:''}<span class="col-stat">${fmtBRL(sum(arr,d=>d.receita))}</span></div><div class="col-body">
+    const DEM_SORT=[{v:'prazo',l:'Prazo / conclusão',get:d=>dataRelevante(d,demPrazoAtivo,DEM_TERMINAL)},{v:'alfa',l:'Título (A-Z)',get:d=>(d.titulo||'').toLowerCase()},{v:'cliente',l:'Cliente',get:d=>(d.cliente||'').toLowerCase()},{v:'valor',l:'Valor (receita)',get:d=>d.receita||0}];
+    const dsK=boardSortArr(ds,DEM_SORT,'brd_dem','prazo','asc');
+    b.innerHTML=toolbar+kanbanLimBar(boardSortCtrl('brd_dem',DEM_SORT,'prazo','asc'))+'<div class="board">'+DSTATUS.map(st=>{
+      const arr=dsK.filter(d=>d.status===st);const cor=DCOLORS[st]||'#6e6e6e';const pg=kanbanPage('dem:'+st,arr);
+      return `<div class="col" data-dg="demandas" data-dgval="${esc(st)}" style="min-width:280px;max-width:280px;"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span><span class="col-stat">${fmtBRL(sum(arr,d=>d.receita))}</span></div><div class="col-body">
       ${pg.shown.length?pg.shown.map(d=>{const ps=demandaAtraso(d);const dataExib=d.status==='Entregue'?(d.entregueEm||d.prazo):demPrazoAtivo(d);const fs=filhas(d.id);
       return `<div class="kcard kc-tint" style="border-left-color:${DCOLORS[d.status]||'#6e6e6e'}" onpointerdown="dgDown(event,'demandas','${d.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(d.titulo)}</div></div><span class="bdg">${d.uid}</span></div>
       <div class="kc-sub">${esc(d.cliente||'Sem cliente')} · ${d.tipo}${fs.length?' · '+fs.length+' entregas':''}${d.maeId?' · filha':''}</div>
@@ -1972,8 +2005,10 @@ function renderTarefas(c){
     <div style="display:flex;gap:4px;margin-left:8px;"><button class="ibtn del" onclick="delTask('${tk.id}')">✕</button></div></div>`;
   };
   if(t==='kanban'){
-    b.innerHTML=toolbar+kanbanLimBar()+'<div class="board">'+TSTATUS.map(st=>{
-      const arr=ts.filter(x=>x.status===st);const cor=TCOLORS[st]||'#6e6e6e';const pg=kanbanPage('tk:'+st,arr);
+    const TK_SORT=[{v:'prazo',l:'Prazo / conclusão',get:tk=>dataRelevante(tk,x=>x.prazo,TASK_TERMINAL)},{v:'prioridade',l:'Prioridade',get:tk=>({Alta:0,Média:1,Baixa:2}[tk.prioridade]??3)},{v:'alfa',l:'Título (A-Z)',get:tk=>(tk.titulo||'').toLowerCase()},{v:'area',l:'Área',get:tk=>(tk.area||'').toLowerCase()}];
+    const tsK=boardSortArr(ts,TK_SORT,'brd_tk','prazo','asc');
+    b.innerHTML=toolbar+kanbanLimBar(boardSortCtrl('brd_tk',TK_SORT,'prazo','asc'))+'<div class="board">'+TSTATUS.map(st=>{
+      const arr=tsK.filter(x=>x.status===st);const cor=TCOLORS[st]||'#6e6e6e';const pg=kanbanPage('tk:'+st,arr);
       return `<div class="col" data-dg="tasks" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
       ${pg.shown.length?pg.shown.map(tk=>{const ps=tk.prazo?prazoStatus(tk.prazo):null;const dem=tk.demandaId?S.demandas.find(d=>d.id===tk.demandaId):null;const pj=tk.projIntId?S.pint.find(p=>p.id===tk.projIntId):null;
       return `<div class="kcard kc-tint" style="border-left-color:${cor}" onpointerdown="dgDown(event,'tasks','${tk.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(tk.titulo)}</div></div><span class="bdg ${tk.prioridade==='Alta'?'alta':tk.prioridade==='Média'?'media':'baixa'}">${tk.prioridade}</span></div>
@@ -2091,6 +2126,8 @@ function renderProjetos(c){
   const tkAtras=S.tasks.filter(t=>t.status!=='Concluída'&&t.prazo&&prazoStatus(t.prazo)?.cls==='atrasada').length;
   const emRev=S.projetos.filter(p=>p.fase==='Revisão').length;
   const prox=S.projetos.filter(p=>p.fase!=='Entrega'&&p.entrega&&prazoStatus(p.entrega)&&prazoStatus(p.entrega).diff>=0&&prazoStatus(p.entrega).diff<=7).length;
+  const PROJ_SORT=[{v:'entrega',l:'Entrega',get:p=>p.entrega||null},{v:'alfa',l:'Nome (A-Z)',get:p=>(p.nome||'').toLowerCase()},{v:'cliente',l:'Cliente',get:p=>(p.cliente||'').toLowerCase()}];
+  const projK=boardSortArr(S.projetos,PROJ_SORT,'brd_proj','entrega','asc');
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Projetos</div>${secSub('projetos')}</div>
     <div style="display:flex;gap:8px;"><button class="btn-ghost" onclick="importFechados()">Importar leads fechados</button><button class="btn-ghost" onclick="openProj()">+ Novo projeto</button></div></div>
@@ -2100,8 +2137,9 @@ function renderProjetos(c){
       <div class="card"><div class="clabel">Em aprovação</div><div class="metric">${emRev}</div></div>
       <div class="card"><div class="clabel">Entregas próximas</div><div class="metric">${prox}</div><div class="metric-s">próximos 7 dias</div></div>
     </div>
+    <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">${boardSortCtrl('brd_proj',PROJ_SORT,'entrega','asc')}</div>
     <div class="board">${FASES.map(fase=>{
-      const ps=S.projetos.filter(p=>p.fase===fase);
+      const ps=projK.filter(p=>p.fase===fase);
       return `<div class="col" data-dg="projetos" data-dgval="${esc(fase)}"><div class="col-hd"><span class="col-name">${fase}</span><span class="col-stat">${ps.length}</span></div><div class="col-body">
       ${ps.length?ps.map(p=>{const es=p.entrega?prazoStatus(p.entrega):null;const dems=demandasDoProjeto(p).filter(d=>d.status!=='Entregue').length;
       const i=FASES.indexOf(p.fase);
@@ -2159,6 +2197,8 @@ function renderPint(c){
   const ativos=S.pint.filter(p=>p.status!=='Concluído');
   const tkAtras=S.tasks.filter(t=>t.projIntId&&t.status!=='Concluída'&&t.prazo&&prazoStatus(t.prazo)?.cls==='atrasada').length;
   const prox=S.pint.filter(p=>p.status!=='Concluído'&&p.prazo&&prazoStatus(p.prazo)&&prazoStatus(p.prazo).diff>=0&&prazoStatus(p.prazo).diff<=7).length;
+  const PI_SORT=[{v:'prazo',l:'Prazo / conclusão',get:p=>dataRelevante(p,x=>x.prazo,PINT_TERMINAL)},{v:'alfa',l:'Nome (A-Z)',get:p=>(p.nome||'').toLowerCase()},{v:'area',l:'Área',get:p=>(p.area||'').toLowerCase()}];
+  const pintK=boardSortArr(S.pint,PI_SORT,'brd_pint','prazo','asc');
   c.innerHTML=`
     <div class="page-hd"><div><div class="page-title">Projetos Internos</div><div class="page-sub">Frentes de trabalho da agência — cada uma agrupa suas próprias tarefas, notas e checklist</div></div>
     <button class="btn-ghost" onclick="openPint()">+ Novo projeto interno</button></div>
@@ -2167,8 +2207,8 @@ function renderPint(c){
       <div class="card"><div class="clabel">Tarefas atrasadas</div><div class="metric" style="color:${tkAtras?'var(--red)':'var(--t1)'}">${tkAtras}</div></div>
       <div class="card"><div class="clabel">Prazos próximos</div><div class="metric">${prox}</div><div class="metric-s">próximos 7 dias</div></div>
     </div>
-    ${kanbanLimBar()}<div class="board">${PISTATUS.map(st=>{
-      const arr=S.pint.filter(p=>p.status===st);const cor=PICOLORS[st]||'#6e6e6e';const pg=kanbanPage('pint:'+st,arr);
+    ${kanbanLimBar(boardSortCtrl('brd_pint',PI_SORT,'prazo','asc'))}<div class="board">${PISTATUS.map(st=>{
+      const arr=pintK.filter(p=>p.status===st);const cor=PICOLORS[st]||'#6e6e6e';const pg=kanbanPage('pint:'+st,arr);
       return `<div class="col" data-dg="pint" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:${hexA(cor,0.14)};color:${cor}">${st}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
       ${pg.shown.length?pg.shown.map(p=>{
         const tks=S.tasks.filter(t=>t.projIntId===p.id);const doneT=tks.filter(t=>t.status==='Concluída').length;
@@ -3737,8 +3777,10 @@ function renderPropostas(c){
         <div style="display:flex;gap:4px;">${propActs(p)}</div>
       </div></div>`).join('')+'</div>';
   }else{
-    b.innerHTML=kanbanLimBar()+'<div class="board">'+PROPSTATUS.map(st=>{
-      const col=ps.filter(p=>p.status===st);const pg=kanbanPage('prop:'+st,col);
+    const PROP_SORT=[{v:'valor',l:'Valor',get:p=>p.valorFechado??p.investimento??p.total??0},{v:'cliente',l:'Cliente',get:p=>(p.empresa||p.cliente||'').toLowerCase()},{v:'alfa',l:'Título (A-Z)',get:p=>(p.projeto||p.titulo||'').toLowerCase()},{v:'criada',l:'Data de criação',get:p=>p.criada||null}];
+    const psK=boardSortArr(ps,PROP_SORT,'brd_prop','valor','desc');
+    b.innerHTML=kanbanLimBar(boardSortCtrl('brd_prop',PROP_SORT,'valor','desc'))+'<div class="board">'+PROPSTATUS.map(st=>{
+      const col=psK.filter(p=>p.status===st);const pg=kanbanPage('prop:'+st,col);
       return `<div class="col" data-dg="propostas" data-dgval="${esc(st)}"><div class="col-hd"><span class="col-pill" style="background:var(--chromeOn);color:var(--lx1)">${st}<span style="opacity:.75;font-weight:500">${col.length}</span></span><span class="col-stat">${fmtBRL(sum(col,p=>p.valorFechado||p.investimento||p.total||0))}</span></div><div class="col-body">${pg.shown.length?pg.shown.map(p=>`
       <div class="kcard" onpointerdown="dgDown(event,'propostas','${p.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(p.projeto||p.titulo)}</div></div></div>
       <div class="kc-sub">${esc(p.empresa)||esc(p.cliente)||'Sem cliente'}</div>
@@ -4147,8 +4189,10 @@ function calcHistorico(b){
         <div style="display:flex;gap:4px;">${orcActs(o)}</div>
       </div></div>`).join('')+'</div>';
   }else{
-    bb.innerHTML=kanbanLimBar()+'<div class="board">'+['Aberto','Ganho','Perdido'].map(st=>{
-      const col=os.filter(o=>o.status===st);const pg=kanbanPage('orc:'+st,col);
+    const ORC_SORT=[{v:'criado',l:'Data de criação',get:o=>o.criado||null},{v:'valor',l:'Valor',get:o=>o.total||0},{v:'cliente',l:'Cliente',get:o=>(o.cliente||'').toLowerCase()}];
+    const osK=boardSortArr(os,ORC_SORT,'brd_orc','criado','desc');
+    bb.innerHTML=kanbanLimBar(boardSortCtrl('brd_orc',ORC_SORT,'criado','desc'))+'<div class="board">'+['Aberto','Ganho','Perdido'].map(st=>{
+      const col=osK.filter(o=>o.status===st);const pg=kanbanPage('orc:'+st,col);
       return `<div class="col" data-dg="orcamentos" data-dgval="${st}"><div class="col-hd"><span class="col-pill" style="background:var(--chromeOn);color:var(--lx1)">${st}<span style="opacity:.75;font-weight:500">${col.length}</span></span><span class="col-stat">${fmtBRL(sum(col,o=>o.total))}</span></div><div class="col-body">${pg.shown.length?pg.shown.map(o=>`
       <div class="kcard" onpointerdown="dgDown(event,'orcamentos','${o.id}')"><div class="kc-top"><div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">${dgGrip}<div class="kc-name">${esc(o.cliente||'Sem cliente')}</div></div></div>
       <div class="kc-sub">${o.empresa?esc(o.empresa):(o.escopo==='completo'?'Completo':o.escopo==='captacao'?'Só captação':'Só edição')}</div>
@@ -5875,12 +5919,23 @@ function baseKanbanCard(base,r,campo){
     <div class="kc-acts" style="margin-top:4px;"><button class="ibtn del" onclick="delBaseRegistro('${base.id}','${r.id}')">✕</button></div>
   </div>`;
 }
+function baseSortFields(base){ /* qualquer campo da base vira critério de ordenação — não é lista fixa, depende de como o usuário desenhou a base */
+  return (base.campos||[]).map(c=>({v:c.id,l:c.nome,get:r=>{
+    const val=r[c.id];if(val==null||val==='')return null;
+    if(c.tipo==='numero')return Number(val)||0;
+    if(c.tipo==='checkbox')return val?1:0;
+    return String(val).toLowerCase();
+  }}));
+}
 function renderBaseKanban(base,view){
   const campo=(base.campos||[]).find(c=>c.id===view.groupBy);
   if(!campo||campo.tipo!=='selecao')return '<div class="empty-msg">A visão aponta pra um campo que não existe mais — crie outra visão.</div>';
   const opcoes=[...(campo.opcoes||[]),''];
-  return kanbanLimBar()+'<div class="board">'+opcoes.map(op=>{
-    const arr=(base.registros||[]).filter(r=>(r[campo.id]||'')===op);
+  const fields=baseSortFields(base);
+  const srtKey='brd_base_'+base.id,defCampo=fields[0]?.v||campo.id;
+  const regsK=boardSortArr(base.registros||[],fields.length?fields:[{v:defCampo,l:'—',get:()=>null}],srtKey,defCampo,'asc');
+  return kanbanLimBar(fields.length?boardSortCtrl(srtKey,fields,defCampo,'asc'):'')+'<div class="board">'+opcoes.map(op=>{
+    const arr=regsK.filter(r=>(r[campo.id]||'')===op);
     const pg=kanbanPage('base:'+base.id+':'+view.id+':'+(op||'_vazio'),arr);
     const label=op||'Sem valor';
     return `<div class="col" data-dg="base:${base.id}:${campo.id}" data-dgval="${esc(op)}"><div class="col-hd"><span class="col-pill">${esc(label)}<span style="opacity:.75;font-weight:500">${arr.length}</span></span></div><div class="col-body">
@@ -6042,14 +6097,20 @@ function customViewCard(mod,r){
   if(mod==='clientes')return `<div class="kcard" onclick="openClienteCard('${r.id}')" style="cursor:pointer;"><div class="kc-name">${esc(r.nome)}</div></div>`;
   return `<div class="kcard">${esc(r.titulo||r.nome||'Item')}</div>`;
 }
+function customViewSortFields(mod){
+  return [{v:'_titulo',l:'Nome/Título (A-Z)',get:r=>(r.titulo||r.nome||'').toLowerCase()}]
+    .concat((CUSTOMVIEW_CAMPOS[mod]||[]).map(c=>({v:c.k,l:c.l,get:r=>String(c.get(r)||'').toLowerCase()})));
+}
 function renderCustomView(mod,arr,viewId){
   const view=customViews(mod).find(v=>v.id===viewId);
   if(!view)return '<div class="empty-msg">Visão não encontrada.</div>';
   const campo=(CUSTOMVIEW_CAMPOS[mod]||[]).find(c=>c.k===view.groupBy);
   if(!campo)return '<div class="empty-msg">Campo de agrupamento inválido — exclua esta visão e crie outra.</div>';
   const opcoes=[...campo.opcoes(),''];
-  const board=kanbanLimBar()+'<div class="board">'+opcoes.map(op=>{
-    const sub=arr.filter(r=>(campo.get(r)||'')===op);
+  const cvFields=customViewSortFields(mod),cvSrtKey='brd_cv_'+mod+'_'+viewId;
+  const arrK=boardSortArr(arr,cvFields,cvSrtKey,'_titulo','asc');
+  const board=kanbanLimBar(boardSortCtrl(cvSrtKey,cvFields,'_titulo','asc'))+'<div class="board">'+opcoes.map(op=>{
+    const sub=arrK.filter(r=>(campo.get(r)||'')===op);
     const pg=kanbanPage('cv:'+mod+':'+viewId+':'+(op||'_vazio'),sub);
     const label=op||'Sem valor';
     return `<div class="col"><div class="col-hd"><span class="col-pill">${esc(label)}<span style="opacity:.75;font-weight:500">${sub.length}</span></span></div><div class="col-body">
